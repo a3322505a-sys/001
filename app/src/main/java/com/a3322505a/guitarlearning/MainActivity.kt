@@ -11,14 +11,15 @@ import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 
 class MainActivity : ComponentActivity() {
-    private lateinit var trainingSession: TrainingSession
+    private lateinit var noteTrainingSession: TrainingSession
+    private lateinit var mappingTrainingSession: TrainingSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         val store = PersistentTrainingStore(applicationContext)
-        trainingSession = TrainingSession(
+        noteTrainingSession = TrainingSession(
             engine = TrainingEngine(
                 settings = store.loadSettings(),
                 progressProvider = { store.loadProgress() },
@@ -26,15 +27,38 @@ class MainActivity : ComponentActivity() {
             ),
             store = store,
         )
+        mappingTrainingSession = TrainingSession(
+            engine = TrainingEngine(
+                settings = store.loadSettings(),
+                progressProvider = { store.loadProgress() },
+                enabledQuestionTypes = listOf(
+                    QuestionType.NoteToSolfege,
+                    QuestionType.SolfegeToNote,
+                ),
+            ),
+            store = store,
+        )
+
         setContent {
             GuitarLearningTheme {
-                NoteNameTrainingScreen(trainingSession)
+                GuitarLearningApp(
+                    noteTrainingSession = noteTrainingSession,
+                    mappingTrainingSession = mappingTrainingSession,
+                    onDestinationChanged = { destination ->
+                        requestedOrientation = if (destination == AppDestination.NoteName) {
+                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        } else {
+                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        }
+                    },
+                )
             }
         }
     }
 
     override fun onStop() {
-        if (::trainingSession.isInitialized) trainingSession.finish()
+        if (::noteTrainingSession.isInitialized) noteTrainingSession.finish()
+        if (::mappingTrainingSession.isInitialized) mappingTrainingSession.finish()
         super.onStop()
     }
 }
