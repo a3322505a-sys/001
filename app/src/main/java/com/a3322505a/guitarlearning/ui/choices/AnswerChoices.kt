@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +41,20 @@ class AnswerSubmissionState(private val allowedChoices: List<String>) {
     }
 }
 
+const val ANSWER_GRID_COLUMNS = 4
+
+/** Returns complete equal-width rows, padding the final row with empty slots. */
+fun answerChoiceGridSlots(
+    choices: List<String>,
+    columns: Int = ANSWER_GRID_COLUMNS,
+): List<List<String?>> {
+    require(choices.isNotEmpty()) { "At least one answer choice is required" }
+    require(columns > 0) { "columns must be positive" }
+    val rowCount = (choices.size + columns - 1) / columns
+    val padded = choices.map { it as String? } + List(rowCount * columns - choices.size) { null }
+    return padded.chunked(columns)
+}
+
 /**
  * Shared, deliberately static answer buttons. Changing questionId resets the one-submit guard.
  */
@@ -55,25 +71,35 @@ fun AnswerChoices(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        choices.chunked(4).forEach { rowChoices ->
+        answerChoiceGridSlots(choices).forEach { rowChoices ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 rowChoices.forEach { choice ->
-                    Button(
-                        onClick = {
-                            if (submittedAnswer == null) {
-                                submittedAnswer = choice
-                                onAnswer(choice)
-                            }
-                        },
-                        enabled = submittedAnswer == null,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                    ) {
-                        Text(text = choice, fontSize = 16.sp)
+                    if (choice == null) {
+                        Spacer(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                        )
+                    } else {
+                        Button(
+                            onClick = {
+                                if (submittedAnswer == null) {
+                                    submittedAnswer = choice
+                                    onAnswer(choice)
+                                }
+                            },
+                            enabled = submittedAnswer == null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                        ) {
+                            Text(text = choice, fontSize = 16.sp, maxLines = 1)
+                        }
                     }
                 }
             }

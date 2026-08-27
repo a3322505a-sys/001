@@ -41,4 +41,23 @@ class AnswerChoicesTest {
         assertEquals(null, state.submittedAnswer)
         assertTrue(state.submit("D"))
     }
+
+    @Test
+    fun sevenChoicesAlwaysUseFourColumnsWithOneEmptyFinalSlot() {
+        assertEquals(
+            listOf(
+                listOf("C", "D", "E", "F"),
+                listOf("G", "A", "B", null),
+            ),
+            answerChoiceGridSlots(listOf("C", "D", "E", "F", "G", "A", "B")),
+        )
+    }
+
+    @Test
+    fun aFullRowDoesNotCreateAnExtraPaddingRow() {
+        assertEquals(
+            listOf(listOf("Do", "Re", "Mi", "Fa")),
+            answerChoiceGridSlots(listOf("Do", "Re", "Mi", "Fa")),
+        )
+    }
 }
