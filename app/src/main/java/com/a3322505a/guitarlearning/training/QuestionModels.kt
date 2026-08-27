@@ -18,12 +18,16 @@ data class Question(
     val choices: List<String>,
     val correctAnswer: String,
     val knowledgeItemId: String,
+    /** Canonical labels are kept with the question so feedback never parses UI text. */
+    val note: String,
+    val solfege: String,
 )
 
 /** The outcome of one accepted answer submission. */
 data class AnswerResult(
     val accepted: Boolean,
     val isCorrect: Boolean,
+    val submittedAnswer: String,
     val correctAnswer: String,
     val responseMs: Long,
     val knowledgeItemId: String,

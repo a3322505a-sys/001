@@ -53,6 +53,7 @@ class TrainingEngine(
             return AnswerResult(
                 accepted = false,
                 isCorrect = false,
+                submittedAnswer = answer,
                 correctAnswer = question.correctAnswer,
                 responseMs = elapsedMs(),
                 knowledgeItemId = question.knowledgeItemId,
@@ -61,6 +62,7 @@ class TrainingEngine(
         val result = AnswerResult(
             accepted = true,
             isCorrect = answer == question.correctAnswer,
+            submittedAnswer = answer,
             correctAnswer = question.correctAnswer,
             responseMs = elapsedMs(),
             knowledgeItemId = question.knowledgeItemId,

@@ -5,20 +5,29 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.a3322505a.guitarlearning.core.GuitarCore
-import com.a3322505a.guitarlearning.training.AnswerOptions
+import com.a3322505a.guitarlearning.training.AnswerResult
+import com.a3322505a.guitarlearning.training.SessionStats
+import com.a3322505a.guitarlearning.training.TrainingEngine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
+import com.a3322505a.guitarlearning.ui.feedback.answerFeedback
 import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 
@@ -35,6 +44,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GuitarLearningApp() {
+    val engine = remember { TrainingEngine() }
+    var question by remember { mutableStateOf(engine.generateQuestion()) }
+    var result by remember { mutableStateOf<AnswerResult?>(null) }
+    var stats by remember { mutableStateOf(SessionStats()) }
+    var questionSequence by remember { mutableIntStateOf(0) }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -42,23 +57,49 @@ fun GuitarLearningApp() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(text = "电吉他训练", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "V0.1 · 静态指板", style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.height(20.dp))
-            Fretboard(selectedPosition = GuitarCore.getFretPosition(6, 5))
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(text = "选择题组件示例", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "V0.1 · 固定唱名训练", style = MaterialTheme.typography.bodyLarge)
+            Text(text = question.prompt, style = MaterialTheme.typography.titleMedium)
+            Fretboard(selectedPosition = question.fretPosition)
             AnswerChoices(
-                questionId = "p04-demo",
-                choices = AnswerOptions.notes,
-                onAnswer = {},
+                questionId = "${questionSequence}:${question.knowledgeItemId}",
+                choices = question.choices,
+                onAnswer = { answer ->
+                    val submission = engine.submitAnswer(answer)
+                    if (submission.accepted) {
+                        result = submission
+                        stats = stats.record(submission)
+                    }
+                },
             )
+            result?.let { submission ->
+                val feedback = answerFeedback(question, submission)
+                if (feedback.isCorrect) {
+                    Text(
+                        text = "${feedback.symbol} ${feedback.answerPair}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                } else {
+                    Text(text = feedback.symbol, style = MaterialTheme.typography.titleMedium)
+                }
+                feedback.correctAnswerText?.let { Text(text = it) }
+                feedback.correctPositionText?.let { Text(text = it) }
+                Text(text = "本题反应时间：${submission.responseMs} ms")
+                Button(onClick = {
+                    question = engine.nextQuestion()
+                    result = null
+                    questionSequence += 1
+                }) {
+                    Text(text = "下一题")
+                }
+            }
+            Text(text = "本次训练：正确 ${stats.correctCount} · 错误 ${stats.incorrectCount}")
+            Text(text = "平均反应时间：${stats.averageResponseMs} ms")
         }
     }
 }

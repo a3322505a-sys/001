@@ -21,6 +21,8 @@ class QuestionFactory {
                 choices = AnswerOptions.notes,
                 correctAnswer = position.note,
                 knowledgeItemId = fretItemId(type, position),
+                note = position.note,
+                solfege = solfege,
             )
             QuestionType.FretToSolfege -> Question(
                 type = type,
@@ -29,6 +31,8 @@ class QuestionFactory {
                 choices = AnswerOptions.solfege,
                 correctAnswer = solfege,
                 knowledgeItemId = fretItemId(type, position),
+                note = position.note,
+                solfege = solfege,
             )
             QuestionType.NoteToSolfege -> createForNote(type, position.note, solfege)
             QuestionType.SolfegeToNote -> createForNote(type, position.note, solfege)
@@ -93,6 +97,8 @@ class QuestionFactory {
             },
             correctAnswer = answer,
             knowledgeItemId = noteItemId(type, note),
+            note = note,
+            solfege = solfege,
         )
     }
 

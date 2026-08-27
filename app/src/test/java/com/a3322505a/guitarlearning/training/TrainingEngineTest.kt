@@ -94,4 +94,35 @@ class TrainingEngineTest {
         assertTrue(valid.accepted)
         assertEquals(100L, valid.responseMs)
     }
+
+    @Test
+    fun oneHundredQuestionSessionHasNoDuplicateOrStateLeak() {
+        var now = 10_000L
+        val engine = TrainingEngine(random = Random(19), clockMs = { now })
+        var stats = SessionStats()
+        var question = engine.generateQuestion()
+
+        repeat(100) { index ->
+            now += 100L + index
+            val answer = if (index % 2 == 0) {
+                question.correctAnswer
+            } else {
+                question.choices.first { it != question.correctAnswer }
+            }
+            val result = engine.submitAnswer(answer)
+            val duplicate = engine.submitAnswer(question.correctAnswer)
+
+            assertTrue(result.accepted)
+            assertEquals(question.knowledgeItemId, result.knowledgeItemId)
+            assertFalse(duplicate.accepted)
+            stats = stats.record(result)
+            if (index < 99) question = engine.nextQuestion()
+        }
+
+        assertEquals(100, stats.questionCount)
+        assertEquals(50, stats.correctCount)
+        assertEquals(50, stats.incorrectCount)
+        assertEquals(199L, stats.currentResponseMs)
+        assertTrue(stats.averageResponseMs in 100L..199L)
+    }
 }
