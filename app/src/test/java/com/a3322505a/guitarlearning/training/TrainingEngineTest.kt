@@ -125,4 +125,33 @@ class TrainingEngineTest {
         assertEquals(199L, stats.currentResponseMs)
         assertTrue(stats.averageResponseMs in 100L..199L)
     }
+
+    @Test
+    fun mappingEngineRandomizesOnlyTheTwoIndependentDirections() {
+        val engine = TrainingEngine(
+            random = Random(23),
+            enabledQuestionTypes = listOf(
+                QuestionType.NoteToSolfege,
+                QuestionType.SolfegeToNote,
+            ),
+        )
+
+        repeat(100) {
+            val question = engine.generateQuestion()
+
+            assertTrue(
+                question.type == QuestionType.NoteToSolfege ||
+                    question.type == QuestionType.SolfegeToNote,
+            )
+            assertEquals(null, question.fretPosition)
+            assertEquals(GuitarCore.solfegeFor(question.note), question.solfege)
+            if (question.type == QuestionType.NoteToSolfege) {
+                assertEquals(question.solfege, question.correctAnswer)
+                assertEquals(AnswerOptions.solfege, question.choices)
+            } else {
+                assertEquals(question.note, question.correctAnswer)
+                assertEquals(AnswerOptions.notes, question.choices)
+            }
+        }
+    }
 }

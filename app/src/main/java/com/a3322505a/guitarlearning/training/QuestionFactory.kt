@@ -82,8 +82,8 @@ class QuestionFactory {
             else -> error("Unsupported note question type")
         }
         val prompt = when (type) {
-            QuestionType.NoteToSolfege -> "$note → 固定唱名"
-            QuestionType.SolfegeToNote -> "$solfege → 音名"
+            QuestionType.NoteToSolfege -> "$note = ?"
+            QuestionType.SolfegeToNote -> "$solfege = ?"
             else -> error("Unsupported note question type")
         }
         return Question(
