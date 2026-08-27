@@ -2,17 +2,19 @@ package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.core.FretPosition
 import com.a3322505a.guitarlearning.core.GuitarCore
+import com.a3322505a.guitarlearning.storage.Progress
 import com.a3322505a.guitarlearning.storage.Settings
 import kotlin.random.Random
 
 /**
  * V0.1 question generation and answer submission. It deliberately has no Compose or Android
- * state; persistence and mastery weighting are added in their later checkpoints.
+ * state; persistence is supplied through a small progress-provider boundary.
  */
 class TrainingEngine(
     settings: Settings = Settings(),
     private val random: Random = Random.Default,
     private val clockMs: () -> Long = System::currentTimeMillis,
+    private val progressProvider: () -> List<Progress> = { emptyList() },
 ) {
     private val factory = QuestionFactory()
     private val positions: List<FretPosition> = GuitarCore.allPositions(
@@ -30,12 +32,14 @@ class TrainingEngine(
     private var lastResult: AnswerResult? = null
 
     fun generateQuestion(type: QuestionType? = null): Question {
-        val selectedType = type ?: questionTypes.random(random)
-        val question = when (selectedType) {
-            QuestionType.FretToNote,
-            QuestionType.FretToSolfege -> factory.create(selectedType, positions.random(random))
-            QuestionType.NoteToSolfege,
-            QuestionType.SolfegeToNote -> factory.createForNote(selectedType, notes.random(random))
+        val candidates = if (type == null) {
+            questionTypes.flatMap(::candidatesFor)
+        } else {
+            candidatesFor(type)
+        }
+        val progressById = progressProvider().associateBy { it.knowledgeItemId }
+        val question = weightedSample(candidates) { question ->
+            QuestionWeights.forProgress(progressById[question.knowledgeItemId])
         }
         currentQuestion = question
         startedAtMs = clockMs()
@@ -75,6 +79,24 @@ class TrainingEngine(
     fun nextQuestion(): Question = generateQuestion()
 
     fun currentQuestion(): Question? = currentQuestion
+
+    private fun candidatesFor(type: QuestionType): List<Question> = when (type) {
+        QuestionType.FretToNote,
+        QuestionType.FretToSolfege -> positions.map { factory.create(type, it) }
+        QuestionType.NoteToSolfege,
+        QuestionType.SolfegeToNote -> notes.map { factory.createForNote(type, it) }
+    }
+
+    private fun <T> weightedSample(items: List<T>, weight: (T) -> Double): T {
+        require(items.isNotEmpty()) { "Question bank must contain a question" }
+        val total = items.sumOf(weight)
+        var cursor = random.nextDouble() * total
+        items.forEach { item ->
+            cursor -= weight(item)
+            if (cursor < 0.0) return item
+        }
+        return items.last()
+    }
 
     private fun elapsedMs(): Long {
         val started = startedAtMs ?: error("Question timer has not started")

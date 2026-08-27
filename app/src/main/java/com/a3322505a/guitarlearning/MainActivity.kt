@@ -38,7 +38,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val store = PersistentTrainingStore(applicationContext)
         trainingSession = TrainingSession(
-            engine = TrainingEngine(settings = store.loadSettings()),
+            engine = TrainingEngine(
+                settings = store.loadSettings(),
+                progressProvider = { store.loadProgress() },
+            ),
             store = store,
         )
         setContent {

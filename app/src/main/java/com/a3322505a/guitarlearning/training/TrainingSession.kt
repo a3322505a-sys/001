@@ -16,7 +16,7 @@ object ProgressUpdater {
         val avgResponseMs = (
             progress.avgResponseMs * progress.attempts + result.responseMs
             ) / attempts
-        return progress.copy(
+        val updated = progress.copy(
             attempts = attempts,
             correct = correct,
             streak = if (result.isCorrect) progress.streak + 1 else 0,
@@ -26,6 +26,7 @@ object ProgressUpdater {
             recentResults = (progress.recentResults + result.isCorrect).takeLast(20),
             seenDays = progress.seenDays + utcDay(seenAt),
         )
+        return updated.copy(mastery = MasteryEvaluator.evaluate(updated))
     }
 
     private fun utcDay(epochMs: Long): String =
