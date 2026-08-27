@@ -47,4 +47,22 @@ class FretboardTest {
         assertFailsWith<IllegalArgumentException> { rowIndexForString(0) }
         assertFailsWith<IllegalArgumentException> { rowIndexForString(7) }
     }
+
+    @Test
+    fun fretCellsCoverTheWholeBoardWithZeroAsTheNutSide() {
+        assertEquals(0f, fretLeftFraction(0))
+        assertEquals(1f / 13f, fretRightFraction(0))
+        assertEquals(12f / 13f, fretLeftFraction(12))
+        assertEquals(1f, fretRightFraction(12))
+    }
+
+    @Test
+    fun standardInlayMarkersUseSingleDotsAndTwelfthFretDoubleDot() {
+        assertEquals(1, markerCountForFret(3))
+        assertEquals(1, markerCountForFret(5))
+        assertEquals(1, markerCountForFret(7))
+        assertEquals(1, markerCountForFret(9))
+        assertEquals(2, markerCountForFret(12))
+        assertEquals(0, markerCountForFret(4))
+    }
 }
