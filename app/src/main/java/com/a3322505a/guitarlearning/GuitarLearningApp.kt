@@ -29,6 +29,9 @@ enum class AppDestination {
     SolfeggioNoteMapping,
 }
 
+fun usesLandscapeLayout(destination: AppDestination): Boolean =
+    destination == AppDestination.NoteName
+
 @Composable
 fun GuitarLearningApp(
     noteTrainingSession: TrainingSession,

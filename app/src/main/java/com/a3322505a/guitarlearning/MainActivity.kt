@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                     noteTrainingSession = noteTrainingSession,
                     mappingTrainingSession = mappingTrainingSession,
                     onDestinationChanged = { destination ->
-                        requestedOrientation = if (destination == AppDestination.NoteName) {
+                        requestedOrientation = if (usesLandscapeLayout(destination)) {
                             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                         } else {
                             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

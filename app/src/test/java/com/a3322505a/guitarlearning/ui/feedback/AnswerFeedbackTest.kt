@@ -51,4 +51,23 @@ class AnswerFeedbackTest {
         assertEquals("正确答案：A", feedback.correctAnswerText)
         assertEquals("正确位置：6弦5品", feedback.correctPositionText)
     }
+
+    @Test
+    fun mappingFeedbackKeepsTheTwoLabelsTogether() {
+        val question = factory.createForNote(QuestionType.NoteToSolfege, "A")
+        val result = AnswerResult(
+            accepted = true,
+            isCorrect = false,
+            submittedAnswer = "Mi",
+            correctAnswer = "La",
+            responseMs = 400L,
+            knowledgeItemId = question.knowledgeItemId,
+        )
+
+        val feedback = answerFeedback(question, result)
+
+        assertEquals("A / La", feedback.answerPair)
+        assertEquals("正确答案：A / La", feedback.correctAnswerText)
+        assertNull(feedback.correctPositionText)
+    }
 }

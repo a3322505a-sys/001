@@ -154,4 +154,23 @@ class TrainingEngineTest {
             }
         }
     }
+
+    @Test
+    fun mappingQuestionAcceptsCorrectAndRejectsAnIncorrectChoice() {
+        var now = 1_000L
+        val engine = TrainingEngine(
+            random = Random(29),
+            clockMs = { now },
+            enabledQuestionTypes = listOf(QuestionType.NoteToSolfege),
+        )
+        val question = engine.generateQuestion()
+        val wrongAnswer = question.choices.first { it != question.correctAnswer }
+
+        now += 120L
+        val wrong = engine.submitAnswer(wrongAnswer)
+
+        assertTrue(wrong.accepted)
+        assertFalse(wrong.isCorrect)
+        assertEquals(question.correctAnswer, wrong.correctAnswer)
+    }
 }
