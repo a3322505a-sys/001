@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.core.GuitarCore
+import com.a3322505a.guitarlearning.training.AnswerOptions
+import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 
@@ -49,6 +51,14 @@ fun GuitarLearningApp() {
             Text(text = "V0.1 · 静态指板", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(20.dp))
             Fretboard(selectedPosition = GuitarCore.getFretPosition(6, 5))
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(text = "选择题组件示例", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            AnswerChoices(
+                questionId = "p04-demo",
+                choices = AnswerOptions.notes,
+                onAnswer = {},
+            )
         }
     }
 }
