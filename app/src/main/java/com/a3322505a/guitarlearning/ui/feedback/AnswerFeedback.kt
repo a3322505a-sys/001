@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.ui.feedback
 
 import com.a3322505a.guitarlearning.training.AnswerResult
 import com.a3322505a.guitarlearning.training.Question
+import com.a3322505a.guitarlearning.training.QuestionType
 
 /** Presentation data for the deliberately static V0.1 feedback block. */
 data class AnswerFeedback(
@@ -15,7 +16,11 @@ data class AnswerFeedback(
 }
 
 fun answerFeedback(question: Question, result: AnswerResult): AnswerFeedback {
-    val answerPair = "${question.note} / ${question.solfege}"
+    val answerPair = if (question.type == QuestionType.FretToNote) {
+        question.note
+    } else {
+        "${question.note} / ${question.solfege}"
+    }
     return if (result.isCorrect) {
         AnswerFeedback(
             symbol = "✓",

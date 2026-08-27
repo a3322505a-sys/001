@@ -13,7 +13,7 @@ class AnswerFeedbackTest {
     private val position = GuitarCore.getFretPosition(6, 5)
 
     @Test
-    fun correctFeedbackShowsBothLabelsWithoutExtraState() {
+    fun fretToNoteCorrectFeedbackShowsOnlyTheNote() {
         val question = factory.create(QuestionType.FretToNote, position)
         val result = AnswerResult(
             accepted = true,
@@ -27,7 +27,7 @@ class AnswerFeedbackTest {
         val feedback = answerFeedback(question, result)
 
         assertEquals("✓", feedback.symbol)
-        assertEquals("A / La", feedback.answerPair)
+        assertEquals("A", feedback.answerPair)
         assertNull(feedback.correctAnswerText)
         assertNull(feedback.correctPositionText)
     }
@@ -47,8 +47,8 @@ class AnswerFeedbackTest {
         val feedback = answerFeedback(question, result)
 
         assertEquals("✗", feedback.symbol)
-        assertEquals("A / La", feedback.answerPair)
-        assertEquals("正确答案：A / La", feedback.correctAnswerText)
+        assertEquals("A", feedback.answerPair)
+        assertEquals("正确答案：A", feedback.correctAnswerText)
         assertEquals("正确位置：6弦5品", feedback.correctPositionText)
     }
 }

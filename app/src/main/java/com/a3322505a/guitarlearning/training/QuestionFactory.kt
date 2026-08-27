@@ -16,7 +16,7 @@ class QuestionFactory {
         return when (type) {
             QuestionType.FretToNote -> Question(
                 type = type,
-                prompt = "${position.string}弦 ${position.fret}品 → 音名",
+                prompt = "${position.string}弦 ${position.fret}品 → ?",
                 fretPosition = position,
                 choices = AnswerOptions.notes,
                 correctAnswer = position.note,
