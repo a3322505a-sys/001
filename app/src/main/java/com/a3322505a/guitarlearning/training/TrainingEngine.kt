@@ -15,6 +15,7 @@ class TrainingEngine(
     private val random: Random = Random.Default,
     private val clockMs: () -> Long = System::currentTimeMillis,
     private val progressProvider: () -> List<Progress> = { emptyList() },
+    private val enabledQuestionTypes: List<QuestionType> = QuestionType.entries,
 ) {
     private val factory = QuestionFactory()
     private val positions: List<FretPosition> = GuitarCore.allPositions(
@@ -24,7 +25,9 @@ class TrainingEngine(
         naturalOnly = true,
     ).also { require(it.isNotEmpty()) { "Question bank must contain a natural note" } }
     private val notes: List<String> = positions.map { it.note }.distinct()
-    private val questionTypes = QuestionType.entries.toList()
+    private val questionTypes = enabledQuestionTypes.distinct().also {
+        require(it.isNotEmpty()) { "At least one question type must be enabled" }
+    }
 
     private var currentQuestion: Question? = null
     private var startedAtMs: Long? = null
