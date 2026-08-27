@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,31 +22,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
 import com.a3322505a.guitarlearning.training.AnswerResult
-import com.a3322505a.guitarlearning.training.SessionStats
 import com.a3322505a.guitarlearning.training.TrainingEngine
+import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.feedback.answerFeedback
 import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 
 class MainActivity : ComponentActivity() {
+    private lateinit var trainingSession: TrainingSession
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val store = PersistentTrainingStore(applicationContext)
+        trainingSession = TrainingSession(
+            engine = TrainingEngine(settings = store.loadSettings()),
+            store = store,
+        )
         setContent {
             GuitarLearningTheme {
-                GuitarLearningApp()
+                GuitarLearningApp(trainingSession)
             }
         }
+    }
+
+    override fun onStop() {
+        if (::trainingSession.isInitialized) trainingSession.finish()
+        super.onStop()
     }
 }
 
 @Composable
-fun GuitarLearningApp() {
-    val engine = remember { TrainingEngine() }
-    var question by remember { mutableStateOf(engine.generateQuestion()) }
+fun GuitarLearningApp(trainingSession: TrainingSession) {
+    var question by remember { mutableStateOf(trainingSession.currentQuestion()) }
     var result by remember { mutableStateOf<AnswerResult?>(null) }
-    var stats by remember { mutableStateOf(SessionStats()) }
     var questionSequence by remember { mutableIntStateOf(0) }
 
     Surface(
@@ -70,10 +80,9 @@ fun GuitarLearningApp() {
                 questionId = "${questionSequence}:${question.knowledgeItemId}",
                 choices = question.choices,
                 onAnswer = { answer ->
-                    val submission = engine.submitAnswer(answer)
+                    val submission = trainingSession.submitAnswer(answer)
                     if (submission.accepted) {
                         result = submission
-                        stats = stats.record(submission)
                     }
                 },
             )
@@ -91,15 +100,18 @@ fun GuitarLearningApp() {
                 feedback.correctPositionText?.let { Text(text = it) }
                 Text(text = "本题反应时间：${submission.responseMs} ms")
                 Button(onClick = {
-                    question = engine.nextQuestion()
+                    question = trainingSession.nextQuestion()
                     result = null
                     questionSequence += 1
                 }) {
                     Text(text = "下一题")
                 }
             }
-            Text(text = "本次训练：正确 ${stats.correctCount} · 错误 ${stats.incorrectCount}")
-            Text(text = "平均反应时间：${stats.averageResponseMs} ms")
+            val session = trainingSession.currentSession
+            Text(
+                text = "本次训练：正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}",
+            )
+            Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
         }
     }
 }
