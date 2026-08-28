@@ -10,7 +10,7 @@ enum class MasteryStatus {
     STABLE_MASTERY,
 }
 
-/** A direction-specific learning item; direction is part of its identity. */
+/** A direction-specific learning item with one canonical note/solfege/degree triple. */
 data class KnowledgeItem(
     val id: String,
     val questionType: QuestionType,
@@ -18,6 +18,7 @@ data class KnowledgeItem(
     val fret: Int?,
     val note: String,
     val solfege: String,
+    val degree: Int = 0,
     val status: MasteryStatus = MasteryStatus.UNLEARNED,
 )
 

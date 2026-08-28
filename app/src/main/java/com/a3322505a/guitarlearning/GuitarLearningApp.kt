@@ -99,7 +99,7 @@ private fun HomeScreen(
                 onClick = onOpenMapping,
                 modifier = Modifier.fillMaxWidth(0.78f),
             ) {
-                Text(text = "唱名与音名")
+                Text(text = "音名 / 唱名 / 级数")
             }
         }
     }

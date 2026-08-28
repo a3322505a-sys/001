@@ -7,8 +7,7 @@ import com.a3322505a.guitarlearning.storage.Settings
 import kotlin.random.Random
 
 /**
- * V0.1 question generation and answer submission. It deliberately has no Compose or Android
- * state; persistence is supplied through a small progress-provider boundary.
+ * Question generation and answer submission with no Compose or Android state.
  */
 class TrainingEngine(
     settings: Settings = Settings(),
@@ -21,10 +20,10 @@ class TrainingEngine(
     private val positions: List<FretPosition> = GuitarCore.allPositions(
         strings = settings.selectedStrings.sorted(),
         frets = settings.fretStart..settings.fretEnd,
-        // P05 is intentionally natural-only even if a future settings screen supplies false.
         naturalOnly = true,
     ).also { require(it.isNotEmpty()) { "Question bank must contain a natural note" } }
-    private val notes: List<String> = positions.map { it.note }.distinct()
+    private val mappingNotes: List<String> = GuitarCore.fixedMappings.map { it.note }
+    private val mappingDegrees: List<Int> = GuitarCore.fixedMappings.map { it.degree }
     private val questionTypes = enabledQuestionTypes.distinct().also {
         require(it.isNotEmpty()) { "At least one question type must be enabled" }
     }
@@ -87,7 +86,11 @@ class TrainingEngine(
         QuestionType.FretToNote,
         QuestionType.FretToSolfege -> positions.map { factory.create(type, it) }
         QuestionType.NoteToSolfege,
-        QuestionType.SolfegeToNote -> notes.map { factory.createForNote(type, it) }
+        QuestionType.SolfegeToNote,
+        QuestionType.NoteToDegree,
+        QuestionType.SolfegeToDegree -> mappingNotes.map { factory.createForNote(type, it) }
+        QuestionType.DegreeToNote,
+        QuestionType.DegreeToSolfege -> mappingDegrees.map { factory.createForDegree(type, it) }
     }
 
     private fun <T> weightedSample(items: List<T>, weight: (T) -> Double): T {

@@ -1,5 +1,12 @@
 package com.a3322505a.guitarlearning.core
 
+/** The fixed natural-note relationship used by every mapping question. */
+data class NoteMapping(
+    val note: String,
+    val solfege: String,
+    val degree: Int,
+)
+
 /** A physical fret location and its domain-level note labels. */
 data class FretPosition(
     val string: Int,
@@ -9,10 +16,10 @@ data class FretPosition(
 ) {
     init {
         require(string in GuitarCore.MIN_STRING..GuitarCore.MAX_STRING) {
-            "string must be between ${GuitarCore.MIN_STRING} and ${GuitarCore.MAX_STRING}"
+            "string must be between " + GuitarCore.MIN_STRING + " and " + GuitarCore.MAX_STRING
         }
         require(fret in GuitarCore.MIN_FRET..GuitarCore.MAX_FRET) {
-            "fret must be between ${GuitarCore.MIN_FRET} and ${GuitarCore.MAX_FRET}"
+            "fret must be between " + GuitarCore.MIN_FRET + " and " + GuitarCore.MAX_FRET
         }
     }
 }
@@ -39,17 +46,23 @@ object GuitarCore {
         1 to "E",
     )
 
-    val fixedSolfege: Map<String, String> = mapOf(
-        "C" to "Do",
-        "D" to "Re",
-        "E" to "Mi",
-        "F" to "Fa",
-        "G" to "Sol",
-        "A" to "La",
-        "B" to "Si",
+    /** One authoritative ordered set for note, fixed solfege, and scale degree. */
+    val fixedMappings: List<NoteMapping> = listOf(
+        NoteMapping(note = "C", solfege = "Do", degree = 1),
+        NoteMapping(note = "D", solfege = "Re", degree = 2),
+        NoteMapping(note = "E", solfege = "Mi", degree = 3),
+        NoteMapping(note = "F", solfege = "Fa", degree = 4),
+        NoteMapping(note = "G", solfege = "Sol", degree = 5),
+        NoteMapping(note = "A", solfege = "La", degree = 6),
+        NoteMapping(note = "B", solfege = "Si", degree = 7),
     )
 
-    private val naturalNotes = fixedSolfege.keys
+    /** Kept as a compatibility lookup for the existing core API. */
+    val fixedSolfege: Map<String, String> = fixedMappings.associate { it.note to it.solfege }
+
+    val fixedDegrees: Map<String, Int> = fixedMappings.associate { it.note to it.degree }
+
+    private val naturalNotes = fixedMappings.map { it.note }.toSet()
 
     fun getNote(string: Int, fret: Int): String {
         validatePosition(string, fret)
@@ -59,6 +72,14 @@ object GuitarCore {
     }
 
     fun solfegeFor(note: String): String? = fixedSolfege[note]
+
+    fun degreeFor(note: String): Int? = fixedDegrees[note]
+
+    fun mappingForNote(note: String): NoteMapping? =
+        fixedMappings.firstOrNull { it.note == note }
+
+    fun mappingForDegree(degree: Int): NoteMapping? =
+        fixedMappings.firstOrNull { it.degree == degree }
 
     fun isNaturalNote(note: String): Boolean = note in naturalNotes
 
@@ -85,10 +106,10 @@ object GuitarCore {
 
     private fun validatePosition(string: Int, fret: Int) {
         require(string in MIN_STRING..MAX_STRING) {
-            "string must be between $MIN_STRING and $MAX_STRING"
+            "string must be between " + MIN_STRING + " and " + MAX_STRING
         }
         require(fret in MIN_FRET..MAX_FRET) {
-            "fret must be between $MIN_FRET and $MAX_FRET"
+            "fret must be between " + MIN_FRET + " and " + MAX_FRET
         }
     }
 }

@@ -4,7 +4,7 @@ import com.a3322505a.guitarlearning.training.AnswerResult
 import com.a3322505a.guitarlearning.training.Question
 import com.a3322505a.guitarlearning.training.QuestionType
 
-/** Presentation data for the deliberately static V0.1 feedback block. */
+/** Presentation data for the deliberately static answer feedback block. */
 data class AnswerFeedback(
     val symbol: String,
     val answerPair: String,
@@ -16,10 +16,14 @@ data class AnswerFeedback(
 }
 
 fun answerFeedback(question: Question, result: AnswerResult): AnswerFeedback {
-    val answerPair = if (question.type == QuestionType.FretToNote) {
-        question.note
-    } else {
-        "${question.note} / ${question.solfege}"
+    val answerPair = when (question.type) {
+        QuestionType.FretToNote -> question.note
+        QuestionType.NoteToDegree,
+        QuestionType.DegreeToNote,
+        QuestionType.SolfegeToDegree,
+        QuestionType.DegreeToSolfege ->
+            question.note + " / " + question.solfege + " / " + question.degree
+        else -> question.note + " / " + question.solfege
     }
     return if (result.isCorrect) {
         AnswerFeedback(
@@ -32,9 +36,9 @@ fun answerFeedback(question: Question, result: AnswerResult): AnswerFeedback {
         AnswerFeedback(
             symbol = "✗",
             answerPair = answerPair,
-            correctAnswerText = "正确答案：$answerPair",
+            correctAnswerText = "正确答案：" + answerPair,
             correctPositionText = question.fretPosition?.let {
-                "正确位置：${it.string}弦${it.fret}品"
+                "正确位置：" + it.string + "弦" + it.fret + "品"
             },
         )
     }
