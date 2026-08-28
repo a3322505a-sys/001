@@ -67,9 +67,12 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
+            set +e
             ./gradlew connectedDebugAndroidTest
+            test_exit=$?
             mkdir -p visual-check
-            adb pull /sdcard/Android/data/com.a3322505a.guitarlearning/files/screenshots/. visual-check/
+            adb pull /sdcard/Android/data/com.a3322505a.guitarlearning/files/screenshots/. visual-check/ || true
+            exit $test_exit
 
       - name: Upload visual-check screenshots
         if: always()

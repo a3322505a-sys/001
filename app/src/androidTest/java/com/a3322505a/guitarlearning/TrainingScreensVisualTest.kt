@@ -21,7 +21,12 @@ class TrainingScreensVisualTest {
     @Test
     fun noteNameScreenShowsCompleteSixStringLayout() {
         composeRule.onNodeWithText("音名训练").performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            val bounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+            bounds.width > bounds.height
+        }
         composeRule.waitForIdle()
+        saveScreenshot("note-name-training.png")
 
         (1..6).forEach { string ->
             composeRule.onNodeWithText("${string}弦").assertIsDisplayed()
@@ -31,18 +36,21 @@ class TrainingScreensVisualTest {
         composeRule.onNodeWithText("C").assertIsDisplayed()
         composeRule.onNodeWithText("B").assertIsDisplayed()
         composeRule.onNodeWithText("平均反应时间", substring = true).assertDoesNotExist()
-        saveScreenshot("note-name-training.png")
     }
 
     @Test
     fun solfeggioScreenUsesTheSameStatsThenAnswersStructure() {
         composeRule.onNodeWithText("唱名与音名").performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            val bounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+            bounds.height > bounds.width
+        }
         composeRule.waitForIdle()
+        saveScreenshot("solfeggio-note-mapping.png")
 
         composeRule.onNodeWithText("正确 0").assertIsDisplayed()
         composeRule.onNodeWithText("错误 0").assertIsDisplayed()
         composeRule.onNodeWithText("平均反应时间", substring = true).assertDoesNotExist()
-        saveScreenshot("solfeggio-note-mapping.png")
     }
 
     private fun saveScreenshot(filename: String) {
