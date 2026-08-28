@@ -7,21 +7,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +38,11 @@ private val fretLineColor = Color(0xFFE8DCCB)
 private val stringColor = Color(0xFFF4F1EA)
 private val markerColor = Color(0xFF2D211B)
 
+data class FretboardCell(
+    val string: Int,
+    val fret: Int,
+)
+
 fun rowIndexForString(string: Int): Int {
     require(string in 1..6) { "string must be between 1 and 6" }
     return 6 - string
@@ -51,6 +53,18 @@ fun isHighlighted(
     string: Int,
     fret: Int,
 ): Boolean = selectedPosition?.string == string && selectedPosition.fret == fret
+
+/** Cells highlighted for a target. The renderer uses this same list as the regression tests. */
+fun highlightedCells(selectedPosition: FretPosition?): List<FretboardCell> =
+    (6 downTo 1).flatMap { string ->
+        (FIRST_FRET..LAST_FRET).mapNotNull { fret ->
+            if (isHighlighted(selectedPosition, string, fret)) {
+                FretboardCell(string = string, fret = fret)
+            } else {
+                null
+            }
+        }
+    }
 
 /** The horizontal start of a fret cell, expressed as a fraction of board width. */
 fun fretLeftFraction(fret: Int): Float {
@@ -168,13 +182,15 @@ private fun FretboardCanvas(
             cornerRadius = CornerRadius(8.dp.toPx()),
         )
 
-        selectedPosition?.let { position ->
-            val left = size.width * fretLeftFraction(position.fret)
-            val right = size.width * fretRightFraction(position.fret)
+        highlightedCells(selectedPosition).forEach { cell ->
+            val left = size.width * fretLeftFraction(cell.fret)
+            val right = size.width * fretRightFraction(cell.fret)
+            val cellHeight = size.height / 6f
+            val top = cellHeight * rowIndexForString(cell.string)
             drawRect(
                 color = selectedCellColor.copy(alpha = 0.75f),
-                topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
-                size = androidx.compose.ui.geometry.Size(right - left, size.height),
+                topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                size = androidx.compose.ui.geometry.Size(right - left, cellHeight),
             )
         }
 

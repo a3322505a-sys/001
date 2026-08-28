@@ -26,13 +26,31 @@ class FretboardTest {
     }
 
     @Test
+    fun everyValidTargetHighlightsExactlyOneMatchingCell() {
+        for (string in 1..6) {
+            for (fret in FIRST_FRET..LAST_FRET) {
+                val selected = GuitarCore.getFretPosition(string, fret)
+                val highlighted = highlightedCells(selected)
+
+                assertEquals(1, highlighted.size, "Expected one highlighted cell for ${string}弦${fret}品")
+                assertEquals(FretboardCell(string, fret), highlighted.single())
+            }
+        }
+    }
+
+    @Test
+    fun noTargetHighlightsNoCells() {
+        assertEquals(emptyList(), highlightedCells(null))
+    }
+
+    @Test
     fun requiredReferencePositionsMapToTheirOwnCells() {
         val references = listOf(
-            6 to 0,
-            6 to 5,
-            5 to 12,
-            3 to 7,
+            1 to 0,
             1 to 12,
+            3 to 7,
+            6 to 0,
+            6 to 12,
         )
 
         references.forEach { (string, fret) ->
