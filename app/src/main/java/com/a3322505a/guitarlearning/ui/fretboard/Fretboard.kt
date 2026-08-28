@@ -96,6 +96,7 @@ fun Fretboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .semantics {
                 contentDescription = "真实六弦零至十二品指板$selectedDescription"
             },
@@ -105,14 +106,14 @@ fun Fretboard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(190.dp),
+                .weight(1f),
         ) {
             StringLabels()
             FretboardCanvas(
                 selectedPosition = selectedPosition,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .height(24.dp),
             )
         }
     }
@@ -126,7 +127,7 @@ private fun FretHeader() {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(24.dp),
+                    .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
