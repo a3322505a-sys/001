@@ -1,12 +1,18 @@
 package com.a3322505a.guitarlearning
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -39,7 +45,11 @@ fun NoteNameTrainingScreen(
     var result by remember { mutableStateOf<AnswerResult?>(null) }
     var questionSequence by remember { mutableIntStateOf(0) }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,7 +68,12 @@ fun NoteNameTrainingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (onBack != null) {
-                        TextButton(onClick = onBack) { Text(text = "返回") }
+                        TextButton(
+                            onClick = onBack,
+                            modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
+                        ) {
+                            Text(text = "返回")
+                        }
                     }
                     Text(
                         text = "音名训练",
@@ -72,44 +87,51 @@ fun NoteNameTrainingScreen(
                 Fretboard(selectedPosition = question.fretPosition)
             }
 
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(0.32f)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center,
             ) {
-                AnswerChoices(
-                    questionId = "${questionSequence}:${question.knowledgeItemId}",
-                    choices = question.choices,
-                    onAnswer = { answer ->
-                        val submission = trainingSession.submitAnswer(answer)
-                        if (submission.accepted) result = submission
-                    },
-                )
-
-                result?.let { submission ->
-                    val feedback = answerFeedback(question, submission)
-                    Text(
-                        text = "${feedback.symbol} ${feedback.answerPair}",
-                        style = MaterialTheme.typography.titleMedium,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AnswerChoices(
+                        questionId = "${questionSequence}:${question.knowledgeItemId}",
+                        choices = question.choices,
+                        onAnswer = { answer ->
+                            val submission = trainingSession.submitAnswer(answer)
+                            if (submission.accepted) result = submission
+                        },
                     )
-                    feedback.correctAnswerText?.let { Text(text = it) }
-                    feedback.correctPositionText?.let { Text(text = it) }
-                    Text(text = "本题反应时间：${submission.responseMs} ms")
-                    Button(onClick = {
-                        question = trainingSession.nextQuestion()
-                        result = null
-                        questionSequence += 1
-                    }) {
-                        Text(text = "下一题")
-                    }
-                }
 
-                Spacer(modifier = Modifier.padding(2.dp))
-                val session = trainingSession.currentSession
-                Text(text = "正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
-                Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
+                    result?.let { submission ->
+                        val feedback = answerFeedback(question, submission)
+                        Text(
+                            text = "${feedback.symbol} ${feedback.answerPair}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        feedback.correctAnswerText?.let { Text(text = it) }
+                        feedback.correctPositionText?.let { Text(text = it) }
+                        Text(text = "本题反应时间：${submission.responseMs} ms")
+                        Button(onClick = {
+                            question = trainingSession.nextQuestion()
+                            result = null
+                            questionSequence += 1
+                        }) {
+                            Text(text = "下一题")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.padding(2.dp))
+                    val session = trainingSession.currentSession
+                    Text(text = "正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
+                    Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
+                }
             }
         }
     }

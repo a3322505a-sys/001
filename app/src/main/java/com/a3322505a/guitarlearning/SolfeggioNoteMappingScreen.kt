@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,7 +44,11 @@ fun SolfeggioNoteMappingScreen(
         "Mapping screen requires a note/solfege question"
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -67,40 +74,52 @@ fun SolfeggioNoteMappingScreen(
                 }
             }
 
-            Text(
-                text = question.prompt,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            AnswerChoices(
-                questionId = "${questionSequence}:${question.knowledgeItemId}",
-                choices = question.choices,
-                onAnswer = { answer ->
-                    val submission = trainingSession.submitAnswer(answer)
-                    if (submission.accepted) result = submission
-                },
-            )
-
-            result?.let { submission ->
-                val feedback = answerFeedback(question, submission)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly,
+            ) {
                 Text(
-                    text = "${feedback.symbol} ${feedback.answerPair}",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = question.prompt,
+                    style = MaterialTheme.typography.headlineSmall,
                 )
-                feedback.correctAnswerText?.let { Text(text = it) }
-                Text(text = "本题反应时间：${submission.responseMs} ms")
-                Button(onClick = {
-                    question = trainingSession.nextQuestion()
-                    result = null
-                    questionSequence += 1
-                }) {
-                    Text(text = "下一题")
+                AnswerChoices(
+                    questionId = "${questionSequence}:${question.knowledgeItemId}",
+                    choices = question.choices,
+                    onAnswer = { answer ->
+                        val submission = trainingSession.submitAnswer(answer)
+                        if (submission.accepted) result = submission
+                    },
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    result?.let { submission ->
+                        val feedback = answerFeedback(question, submission)
+                        Text(
+                            text = "${feedback.symbol} ${feedback.answerPair}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        feedback.correctAnswerText?.let { Text(text = it) }
+                        Text(text = "本题反应时间：${submission.responseMs} ms")
+                        Button(onClick = {
+                            question = trainingSession.nextQuestion()
+                            result = null
+                            questionSequence += 1
+                        }) {
+                            Text(text = "下一题")
+                        }
+                    }
+
+                    val session = trainingSession.currentSession
+                    Text(text = "本次训练：正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
+                    Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
                 }
             }
-
-            Spacer(modifier = Modifier.padding(2.dp))
-            val session = trainingSession.currentSession
-            Text(text = "本次训练：正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
-            Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
         }
     }
 }
