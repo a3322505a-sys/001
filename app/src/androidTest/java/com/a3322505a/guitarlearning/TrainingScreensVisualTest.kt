@@ -29,6 +29,7 @@ class TrainingScreensVisualTest {
         saveScreenshot("note-name-training.png")
 
         (1..6).forEach { string ->
+            println("Checking visible string label: ${string}弦")
             composeRule.onNodeWithText("${string}弦").assertIsDisplayed()
         }
         composeRule.onNodeWithText("正确 0").assertIsDisplayed()
