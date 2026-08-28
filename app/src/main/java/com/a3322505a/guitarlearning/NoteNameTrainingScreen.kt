@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.AnswerResult
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
+import com.a3322505a.guitarlearning.ui.feedback.SessionStatsBadges
 import com.a3322505a.guitarlearning.ui.feedback.answerFeedback
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 
@@ -44,6 +42,7 @@ fun NoteNameTrainingScreen(
     var question by remember { mutableStateOf(trainingSession.nextQuestion()) }
     var result by remember { mutableStateOf<AnswerResult?>(null) }
     var questionSequence by remember { mutableIntStateOf(0) }
+    val session = trainingSession.currentSession
 
     Surface(
         modifier = Modifier
@@ -53,15 +52,15 @@ fun NoteNameTrainingScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(
                 modifier = Modifier
                     .weight(0.68f)
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -76,62 +75,66 @@ fun NoteNameTrainingScreen(
                         }
                     }
                     Text(
-                        text = "音名训练",
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = question.prompt,
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
-                Text(
-                    text = question.prompt,
-                    style = MaterialTheme.typography.titleMedium,
+                Fretboard(
+                    selectedPosition = question.fretPosition,
+                    modifier = Modifier.weight(1f),
                 )
-                Fretboard(selectedPosition = question.fretPosition)
             }
 
-            Box(
+            Column(
                 modifier = Modifier
                     .weight(0.32f)
                     .fillMaxHeight(),
-                contentAlignment = Alignment.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    AnswerChoices(
-                        questionId = "${questionSequence}:${question.knowledgeItemId}",
-                        choices = question.choices,
-                        onAnswer = { answer ->
-                            val submission = trainingSession.submitAnswer(answer)
-                            if (submission.accepted) result = submission
-                        },
-                    )
+                SessionStatsBadges(
+                    correctCount = session.correctCount,
+                    incorrectCount = session.questionCount - session.correctCount,
+                )
 
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     result?.let { submission ->
                         val feedback = answerFeedback(question, submission)
-                        Text(
-                            text = "${feedback.symbol} ${feedback.answerPair}",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        feedback.correctAnswerText?.let { Text(text = it) }
-                        feedback.correctPositionText?.let { Text(text = it) }
-                        Text(text = "本题反应时间：${submission.responseMs} ms")
-                        Button(onClick = {
-                            question = trainingSession.nextQuestion()
-                            result = null
-                            questionSequence += 1
-                        }) {
-                            Text(text = "下一题")
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = "${feedback.symbol} ${feedback.answerPair}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            feedback.correctAnswerText?.let { Text(text = it) }
+                            feedback.correctPositionText?.let { Text(text = it) }
+                            Text(text = "本题反应时间：${submission.responseMs} ms")
+                            Button(onClick = {
+                                question = trainingSession.nextQuestion()
+                                result = null
+                                questionSequence += 1
+                            }) {
+                                Text(text = "下一题")
+                            }
                         }
                     }
-
-                    Spacer(modifier = Modifier.padding(2.dp))
-                    val session = trainingSession.currentSession
-                    Text(text = "正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
-                    Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
                 }
+
+                AnswerChoices(
+                    questionId = "${questionSequence}:${question.knowledgeItemId}",
+                    choices = question.choices,
+                    onAnswer = { answer ->
+                        val submission = trainingSession.submitAnswer(answer)
+                        if (submission.accepted) result = submission
+                    },
+                )
             }
         }
     }
