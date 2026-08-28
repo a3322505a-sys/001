@@ -4,17 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.AnswerResult
+import com.a3322505a.guitarlearning.training.CorrectErrorStats
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.feedback.answerFeedback
@@ -53,18 +53,19 @@ fun NoteNameTrainingScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(
                 modifier = Modifier
-                    .weight(0.68f)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .weight(0.70f)
+                    .fillMaxHeight(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (onBack != null) {
@@ -76,32 +77,39 @@ fun NoteNameTrainingScreen(
                         }
                     }
                     Text(
-                        text = "音名训练",
-                        style = MaterialTheme.typography.headlineSmall,
+                        text = question.prompt,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
                     )
                 }
-                Text(
-                    text = question.prompt,
-                    style = MaterialTheme.typography.titleMedium,
+
+                Fretboard(
+                    selectedPosition = question.fretPosition,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 )
-                Fretboard(selectedPosition = question.fretPosition)
             }
 
             Box(
                 modifier = Modifier
-                    .weight(0.32f)
+                    .weight(0.30f)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
+                        .wrapContentHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    val session = trainingSession.currentSession
+                    CorrectErrorStats(session = session)
+
                     AnswerChoices(
-                        questionId = "${questionSequence}:${question.knowledgeItemId}",
+                        questionId = questionSequence.toString() + ":" + question.knowledgeItemId,
                         choices = question.choices,
                         onAnswer = { answer ->
                             val submission = trainingSession.submitAnswer(answer)
@@ -112,12 +120,12 @@ fun NoteNameTrainingScreen(
                     result?.let { submission ->
                         val feedback = answerFeedback(question, submission)
                         Text(
-                            text = "${feedback.symbol} ${feedback.answerPair}",
+                            text = feedback.symbol + " " + feedback.answerPair,
                             style = MaterialTheme.typography.titleMedium,
                         )
                         feedback.correctAnswerText?.let { Text(text = it) }
                         feedback.correctPositionText?.let { Text(text = it) }
-                        Text(text = "本题反应时间：${submission.responseMs} ms")
+                        Text(text = "本题反应时间：" + submission.responseMs + " ms")
                         Button(onClick = {
                             question = trainingSession.nextQuestion()
                             result = null
@@ -126,11 +134,6 @@ fun NoteNameTrainingScreen(
                             Text(text = "下一题")
                         }
                     }
-
-                    Spacer(modifier = Modifier.padding(2.dp))
-                    val session = trainingSession.currentSession
-                    Text(text = "正确 ${session.correctCount} · 错误 ${session.questionCount - session.correctCount}")
-                    Text(text = "平均反应时间：${session.avgResponseMs.toLong()} ms")
                 }
             }
         }

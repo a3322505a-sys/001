@@ -34,6 +34,10 @@ class MainActivity : ComponentActivity() {
                 enabledQuestionTypes = listOf(
                     QuestionType.NoteToSolfege,
                     QuestionType.SolfegeToNote,
+                    QuestionType.NoteToDegree,
+                    QuestionType.DegreeToNote,
+                    QuestionType.SolfegeToDegree,
+                    QuestionType.DegreeToSolfege,
                 ),
             ),
             store = store,

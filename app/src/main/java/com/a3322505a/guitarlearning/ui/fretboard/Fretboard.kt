@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import com.a3322505a.guitarlearning.core.FretPosition
 const val FIRST_FRET = 0
 const val LAST_FRET = 12
 private const val STRING_LABEL_WIDTH_DP = 42
+private const val FRET_HEADER_HEIGHT_DP = 22
 private const val FRET_COUNT = LAST_FRET - FIRST_FRET + 1
 
 private val selectedCellColor = Color(0xFFFFD54F)
@@ -78,6 +80,10 @@ fun fretRightFraction(fret: Int): Float {
     return (fret - FIRST_FRET + 1).toFloat() / FRET_COUNT
 }
 
+/** The vertical center of a string row, expressed as a fraction of board height. */
+fun stringCenterFraction(string: Int): Float =
+    (rowIndexForString(string) + 0.5f) / 6f
+
 /** Number of inlay dots rendered for a fret. */
 fun markerCountForFret(fret: Int): Int = when (fret) {
     3, 5, 7, 9 -> 1
@@ -91,13 +97,14 @@ fun Fretboard(
     modifier: Modifier = Modifier,
 ) {
     val selectedDescription = selectedPosition?.let {
-        "，当前位置：${it.string}弦${it.fret}品"
+        "，当前位置：" + it.string + "弦" + it.fret + "品"
     }.orEmpty()
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .semantics {
-                contentDescription = "真实六弦零至十二品指板$selectedDescription"
+                contentDescription = "真实六弦零至十二品指板" + selectedDescription
             },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -105,7 +112,7 @@ fun Fretboard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(190.dp),
+                .weight(1f),
         ) {
             StringLabels()
             FretboardCanvas(
@@ -126,7 +133,7 @@ private fun FretHeader() {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(24.dp),
+                    .height(FRET_HEADER_HEIGHT_DP.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -155,7 +162,7 @@ private fun StringLabels() {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "${string}弦",
+                    text = string.toString() + "弦",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -172,6 +179,7 @@ private fun FretboardCanvas(
 ) {
     Canvas(
         modifier = modifier
+            .fillMaxSize()
             .clip(RoundedCornerShape(8.dp))
             .semantics {
                 contentDescription = "代码绘制的真实结构指板"
@@ -201,13 +209,20 @@ private fun FretboardCanvas(
 }
 
 private fun DrawScope.drawFretLines() {
+    val regularWidth = 1.dp.toPx()
+    val nutWidth = 5.dp.toPx()
     for (boundary in 0..FRET_COUNT) {
-        val x = size.width * boundary / FRET_COUNT
+        val rawX = size.width * boundary / FRET_COUNT
+        val x = when (boundary) {
+            0 -> nutWidth / 2f
+            FRET_COUNT -> size.width - regularWidth / 2f
+            else -> rawX
+        }
         drawLine(
             color = if (boundary == 0) Color(0xFFFFF4D6) else fretLineColor,
             start = androidx.compose.ui.geometry.Offset(x, 0f),
             end = androidx.compose.ui.geometry.Offset(x, size.height),
-            strokeWidth = if (boundary == 0) 5.dp.toPx() else 1.dp.toPx(),
+            strokeWidth = if (boundary == 0) nutWidth else regularWidth,
         )
     }
 }
@@ -234,13 +249,14 @@ private fun DrawScope.drawInlayMarkers() {
 }
 
 private fun DrawScope.drawStrings() {
-    (6 downTo 1).forEachIndexed { index, _ ->
-        val y = size.height * (index + 0.5f) / 6f
+    (6 downTo 1).forEach { string ->
+        val y = size.height * stringCenterFraction(string)
+        val rowIndex = rowIndexForString(string)
         drawLine(
             color = stringColor,
             start = androidx.compose.ui.geometry.Offset(0f, y),
             end = androidx.compose.ui.geometry.Offset(size.width, y),
-            strokeWidth = (4.5f - index * 0.65f).coerceAtLeast(1.2f).dp.toPx(),
+            strokeWidth = (4.5f - rowIndex * 0.65f).coerceAtLeast(1.2f).dp.toPx(),
         )
     }
 }

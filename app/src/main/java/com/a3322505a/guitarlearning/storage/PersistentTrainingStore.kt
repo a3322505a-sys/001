@@ -102,6 +102,7 @@ class PersistentTrainingStore(
             properties.setProperty(prefix + "fret", item.fret?.toString().orEmpty())
             properties.setProperty(prefix + "note", item.note)
             properties.setProperty(prefix + "solfege", item.solfege)
+            properties.setProperty(prefix + "degree", item.degree.toString())
             properties.setProperty(prefix + "status", item.status.name)
         }
 
@@ -185,6 +186,7 @@ class PersistentTrainingStore(
                 fret = properties.getProperty(prefix + "fret").toNullableInt(),
                 note = note,
                 solfege = solfege,
+                degree = properties.getProperty(prefix + "degree", "0").toIntOrNull() ?: 0,
                 status = enumValueOrDefault(
                     properties.getProperty(prefix + "status"),
                     MasteryStatus.UNLEARNED,
@@ -262,3 +264,4 @@ class PersistentTrainingStore(
         const val STORAGE_KEY = "v01.storage"
     }
 }
+
