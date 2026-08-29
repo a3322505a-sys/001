@@ -2,7 +2,9 @@ package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.storage.Settings
 
-/** Explicit lifecycle of one question from answering to manual advancement. */
+const val CORRECT_FEEDBACK_DURATION_MS = 400L
+
+/** Explicit lifecycle of one question from answering to manual or automatic advancement. */
 sealed interface QuestionState {
     val question: Question
 
@@ -21,7 +23,7 @@ sealed interface QuestionState {
     ) : QuestionState
 }
 
-/** Coordinates accepted answers, stable review feedback, and manual next-question actions. */
+/** Coordinates accepted answers, stable review feedback, and next-question actions. */
 class TrainingStateMachine(
     private val session: TrainingSession,
 ) {

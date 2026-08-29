@@ -14,7 +14,7 @@ import com.a3322505a.guitarlearning.training.Question
 private val reviewCorrectColor = Color(0xFF2E7D32)
 private val reviewIncorrectColor = Color(0xFFC62828)
 
-/** Stable, explicit review block shown until the user advances manually. */
+/** Stable, explicit review block shown until the question advances. */
 @Composable
 fun AnswerReview(
     question: Question,

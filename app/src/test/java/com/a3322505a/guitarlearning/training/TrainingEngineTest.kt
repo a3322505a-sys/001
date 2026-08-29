@@ -174,14 +174,21 @@ class TrainingEngineTest {
         engine.generateQuestion()
         engine.updateSettings(
             com.a3322505a.guitarlearning.storage.Settings(
-                selectedStrings = StringDifficulty.TWO.selectedStrings,
+                selectedStrings = StringDifficulty.CROSS_STRING.selectedStrings,
             ),
         )
 
         repeat(100) {
             val question = engine.nextQuestion()
-            assertEquals(StringDifficulty.TWO.selectedStrings, engine.settings().selectedStrings)
-            assertTrue(question.fretPosition?.string?.let { it in 1..2 } == true)
+            assertEquals(
+                StringDifficulty.CROSS_STRING.selectedStrings,
+                engine.settings().selectedStrings,
+            )
+            assertTrue(
+                question.fretPosition?.string?.let {
+                    it in StringDifficulty.CROSS_STRING.selectedStrings
+                } == true,
+            )
         }
     }
 }
