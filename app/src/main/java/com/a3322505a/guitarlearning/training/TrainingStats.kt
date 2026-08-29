@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.storage.Session
 
-/** Compact status blocks shared by both training surfaces. */
+/** Compact correct/error status blocks shared by both training surfaces. */
 @Composable
 fun CorrectErrorStats(
     session: Session,

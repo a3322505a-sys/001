@@ -15,9 +15,9 @@ class TrainingSessionTest {
         var now = 1_000L
         val store = InMemoryTrainingStore()
         val session = TrainingSession(
-            engine = TrainingEngine(random = Random(9), clockMs = { now }),
+            engine = TrainingEngine(random = Random(9)),
             store = store,
-            clockMs = { now },
+            nowMs = { now },
             sessionId = "session-1",
         )
 
@@ -38,7 +38,7 @@ class TrainingSessionTest {
         assertEquals(1, progress.attempts)
         assertEquals(1, progress.correct)
         assertEquals(1, progress.streak)
-        assertEquals(250.0, progress.avgResponseMs)
+        assertEquals(1_250L, progress.lastSeenAt)
         assertNotNull(item)
         assertEquals(question.knowledgeItemId, item.id)
         assertEquals(1, store.loadKnowledgeItems().size)

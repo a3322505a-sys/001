@@ -35,6 +35,5 @@ data class AnswerResult(
     val isCorrect: Boolean,
     val submittedAnswer: String,
     val correctAnswer: String,
-    val responseMs: Long,
     val knowledgeItemId: String,
 )

@@ -23,8 +23,6 @@ class PersistentTrainingStoreTest {
             attempts = 3,
             correct = 2,
             streak = 0,
-            avgResponseMs = 450.5,
-            lastResponseMs = 600L,
             lastSeenAt = 1_700_000_000_000L,
             mastery = MasteryStatus.LEARNING,
             recentResults = listOf(true, true, false),
@@ -36,7 +34,6 @@ class PersistentTrainingStoreTest {
             endedAt = 1_700_000_010_000L,
             questionCount = 3,
             correctCount = 2,
-            avgResponseMs = 450.5,
         )
         val settings = Settings(
             selectedStrings = setOf(1, 3, 6),

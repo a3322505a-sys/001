@@ -7,6 +7,30 @@ import kotlin.test.assertTrue
 
 class AnswerChoicesTest {
     @Test
+    fun incorrectReviewMarksSubmittedAnswerRedAndCorrectAnswerGreen() {
+        assertEquals(
+            AnswerChoiceStatus.INCORRECT,
+            answerChoiceStatus("G", submittedAnswer = "G", correctAnswer = "A"),
+        )
+        assertEquals(
+            AnswerChoiceStatus.CORRECT,
+            answerChoiceStatus("A", submittedAnswer = "G", correctAnswer = "A"),
+        )
+        assertEquals(
+            AnswerChoiceStatus.DEFAULT,
+            answerChoiceStatus("C", submittedAnswer = "G", correctAnswer = "A"),
+        )
+    }
+
+    @Test
+    fun correctReviewMarksTheSubmittedCorrectAnswerGreen() {
+        assertEquals(
+            AnswerChoiceStatus.CORRECT,
+            answerChoiceStatus("A", submittedAnswer = "A", correctAnswer = "A"),
+        )
+    }
+
+    @Test
     fun oneQuestionAcceptsOnlyOneAnswer() {
         val state = AnswerSubmissionState(listOf("C", "D", "E"))
 

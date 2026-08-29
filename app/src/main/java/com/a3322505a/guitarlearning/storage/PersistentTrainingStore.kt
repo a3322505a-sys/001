@@ -113,8 +113,6 @@ class PersistentTrainingStore(
             properties.setProperty(prefix + "attempts", item.attempts.toString())
             properties.setProperty(prefix + "correct", item.correct.toString())
             properties.setProperty(prefix + "streak", item.streak.toString())
-            properties.setProperty(prefix + "avgResponseMs", item.avgResponseMs.toString())
-            properties.setProperty(prefix + "lastResponseMs", item.lastResponseMs?.toString().orEmpty())
             properties.setProperty(prefix + "lastSeenAt", item.lastSeenAt?.toString().orEmpty())
             properties.setProperty(prefix + "mastery", item.mastery.name)
             properties.setProperty(
@@ -132,7 +130,6 @@ class PersistentTrainingStore(
             properties.setProperty(prefix + "endedAt", item.endedAt?.toString().orEmpty())
             properties.setProperty(prefix + "questionCount", item.questionCount.toString())
             properties.setProperty(prefix + "correctCount", item.correctCount.toString())
-            properties.setProperty(prefix + "avgResponseMs", item.avgResponseMs.toString())
         }
 
         val writer = StringWriter()
@@ -206,8 +203,6 @@ class PersistentTrainingStore(
                 attempts = properties.getProperty(prefix + "attempts", "0").toInt(),
                 correct = properties.getProperty(prefix + "correct", "0").toInt(),
                 streak = properties.getProperty(prefix + "streak", "0").toInt(),
-                avgResponseMs = properties.getProperty(prefix + "avgResponseMs", "0.0").toDouble(),
-                lastResponseMs = properties.getProperty(prefix + "lastResponseMs").toNullableLong(),
                 lastSeenAt = properties.getProperty(prefix + "lastSeenAt").toNullableLong(),
                 mastery = enumValueOrDefault(
                     properties.getProperty(prefix + "mastery"),
@@ -237,7 +232,6 @@ class PersistentTrainingStore(
                 endedAt = properties.getProperty(prefix + "endedAt").toNullableLong(),
                 questionCount = properties.getProperty(prefix + "questionCount", "0").toInt(),
                 correctCount = properties.getProperty(prefix + "correctCount", "0").toInt(),
-                avgResponseMs = properties.getProperty(prefix + "avgResponseMs", "0.0").toDouble(),
             )
         }.associateBy { it.id }
     }
