@@ -2,7 +2,7 @@ package com.a3322505a.guitarlearning.storage
 
 import com.a3322505a.guitarlearning.training.QuestionType
 
-/** The deliberately small mastery vocabulary used by V0.2.1. */
+/** The deliberately small mastery vocabulary used by V0.2.2. */
 enum class MasteryStatus {
     UNLEARNED,
     LEARNING,
@@ -30,7 +30,7 @@ data class Progress(
     val streak: Int = 0,
     val lastSeenAt: Long? = null,
     val mastery: MasteryStatus = MasteryStatus.UNLEARNED,
-    /** The latest outcomes are retained for the small V0.2.1 mastery rule. */
+    /** The latest outcomes are retained for the small V0.2.2 mastery rule. */
     val recentResults: List<Boolean> = emptyList(),
     /** UTC calendar days on which the item was answered. */
     val seenDays: Set<String> = emptySet(),
@@ -48,11 +48,12 @@ enum class NotationMode {
     FIXED_SOLFEGE,
 }
 
-/** Settings needed to construct the V0.2.1 question bank. */
+/** Settings needed to construct the V0.2.2 question bank. */
 data class Settings(
-    val selectedStrings: Set<Int> = (1..6).toSet(),
+    val selectedStrings: Set<Int> = setOf(1),
     val fretStart: Int = 0,
     val fretEnd: Int = 12,
+    val noteTrainingRangeId: String? = null,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {

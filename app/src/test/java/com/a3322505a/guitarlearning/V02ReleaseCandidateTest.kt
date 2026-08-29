@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** Final V0.2.1 regression checks; this test adds no product behavior. */
+/** Final V0.2.2 regression checks; this test adds no product behavior. */
 class V02ReleaseCandidateTest {
     @Test
     fun allSeventyEightCorePositionsRemainValid() {

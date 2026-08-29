@@ -90,6 +90,10 @@ class PersistentTrainingStore(
         )
         properties.setProperty("settings.fretStart", snapshot.settings.fretStart.toString())
         properties.setProperty("settings.fretEnd", snapshot.settings.fretEnd.toString())
+        properties.setProperty(
+            "settings.noteTrainingRangeId",
+            snapshot.settings.noteTrainingRangeId.orEmpty(),
+        )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
 
@@ -133,7 +137,7 @@ class PersistentTrainingStore(
         }
 
         val writer = StringWriter()
-        properties.store(writer, "GuitarLearning V0.2.1")
+        properties.store(writer, "GuitarLearning V0.2.2")
         backend.putString(STORAGE_KEY, writer.toString())
     }
 
@@ -146,12 +150,14 @@ class PersistentTrainingStore(
         val properties = Properties()
         properties.load(StringReader(raw))
         val settings = Settings(
-            selectedStrings = properties.getProperty("settings.selectedStrings", "1,2,3,4,5,6")
+            selectedStrings = properties.getProperty("settings.selectedStrings", "1")
                 .split(",")
                 .mapNotNull { it.toIntOrNull() }
                 .toSet(),
             fretStart = properties.getProperty("settings.fretStart", "0").toInt(),
             fretEnd = properties.getProperty("settings.fretEnd", "12").toInt(),
+            noteTrainingRangeId = properties.getProperty("settings.noteTrainingRangeId")
+                ?.takeIf { it.isNotEmpty() },
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,
@@ -258,4 +264,3 @@ class PersistentTrainingStore(
         const val STORAGE_KEY = "v01.storage"
     }
 }
-

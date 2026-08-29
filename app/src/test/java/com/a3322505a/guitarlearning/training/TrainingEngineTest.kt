@@ -162,7 +162,7 @@ class TrainingEngineTest {
     }
 
     @Test
-    fun updatingSettingsRegeneratesQuestionsInsideTheNewStringRange() {
+    fun updatingSettingsRegeneratesQuestionsInsideTheNewStringAndFretRange() {
         val engine = TrainingEngine(
             settings = com.a3322505a.guitarlearning.storage.Settings(
                 selectedStrings = (1..6).toSet(),
@@ -172,23 +172,21 @@ class TrainingEngineTest {
         )
 
         engine.generateQuestion()
-        engine.updateSettings(
-            com.a3322505a.guitarlearning.storage.Settings(
-                selectedStrings = StringDifficulty.CROSS_STRING.selectedStrings,
-            ),
-        )
+        val range = NoteTrainingRange.MID_POSITION
+        engine.updateSettings(range.applyTo(engine.settings()))
 
         repeat(100) {
             val question = engine.nextQuestion()
             assertEquals(
-                StringDifficulty.CROSS_STRING.selectedStrings,
+                range.selectedStrings,
                 engine.settings().selectedStrings,
             )
             assertTrue(
                 question.fretPosition?.string?.let {
-                    it in StringDifficulty.CROSS_STRING.selectedStrings
+                    it in range.selectedStrings
                 } == true,
             )
+            assertTrue(question.fretPosition?.fret?.let { it in range.fretRange } == true)
         }
     }
 }

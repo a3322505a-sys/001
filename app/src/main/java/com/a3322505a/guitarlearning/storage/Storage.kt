@@ -1,6 +1,6 @@
 package com.a3322505a.guitarlearning.storage
 
-/** Local-only storage boundary for the V0.2.1 learning records. */
+/** Local-only storage boundary for the V0.2.2 learning records. */
 interface TrainingStore {
     fun loadState(): StorageState
     fun saveState(state: StorageState)
