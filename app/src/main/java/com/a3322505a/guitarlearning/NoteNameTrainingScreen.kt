@@ -131,7 +131,7 @@ fun NoteNameTrainingScreen(
                     .weight(0.30f)
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
             ) {
                 CorrectErrorStats(session = trainingSession.currentSession)
 

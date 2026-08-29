@@ -3,7 +3,7 @@ package com.a3322505a.guitarlearning.training
 import com.a3322505a.guitarlearning.storage.MasteryStatus
 import com.a3322505a.guitarlearning.storage.Progress
 
-/** V0.2.2 mastery thresholds; this is intentionally not a full spaced-repetition scheduler. */
+/** V0.2.3 mastery thresholds; this is intentionally not a full spaced-repetition scheduler. */
 object MasteryEvaluator {
     private const val RECENT_WINDOW = 20
 
