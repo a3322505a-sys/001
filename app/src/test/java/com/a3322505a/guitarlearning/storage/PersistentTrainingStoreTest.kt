@@ -39,6 +39,7 @@ class PersistentTrainingStoreTest {
             selectedStrings = setOf(1, 3, 6),
             fretStart = 2,
             fretEnd = 8,
+            noteTrainingRangeId = "MID_POSITION",
             naturalOnly = true,
         )
 

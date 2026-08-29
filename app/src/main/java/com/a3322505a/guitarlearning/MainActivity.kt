@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
 import com.a3322505a.guitarlearning.training.QuestionType
-import com.a3322505a.guitarlearning.training.StringDifficulty
+import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingEngine
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
 
         val store = PersistentTrainingStore(applicationContext)
         val storedSettings = store.loadSettings()
-        val settings = StringDifficulty.normalize(storedSettings)
+        val settings = NoteTrainingRange.normalize(storedSettings)
         if (settings != storedSettings) store.saveSettings(settings)
         noteTrainingSession = TrainingSession(
             engine = TrainingEngine(

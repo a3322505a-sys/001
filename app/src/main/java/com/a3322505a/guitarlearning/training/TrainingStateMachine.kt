@@ -59,6 +59,6 @@ class TrainingStateMachine(
         return current
     }
 
-    fun resetStringDifficulty(difficulty: StringDifficulty): QuestionState =
-        resetRound(session.currentSettings().copy(selectedStrings = difficulty.selectedStrings))
+    fun resetNoteTrainingRange(range: NoteTrainingRange): QuestionState =
+        resetRound(range.applyTo(session.currentSettings()))
 }

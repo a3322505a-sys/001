@@ -73,7 +73,7 @@ class TrainingStateMachineTest {
     }
 
     @Test
-    fun changingStringDifficultyStartsAZeroedRoundWithLegalQuestions() {
+    fun changingNoteTrainingRangeStartsAZeroedRoundWithLegalQuestions() {
         val store = InMemoryTrainingStore()
         val session = TrainingSession(
             engine = TrainingEngine(
@@ -88,28 +88,33 @@ class TrainingStateMachineTest {
         machine.submitAnswer(machine.state.question.correctAnswer)
         assertEquals(1, session.currentSession.questionCount)
 
-        val reset = machine.resetStringDifficulty(StringDifficulty.CROSS_STRING)
+        val range = NoteTrainingRange.LOW_POSITION
+        val reset = machine.resetNoteTrainingRange(range)
         val awaiting = assertIs<QuestionState.AwaitingAnswer>(reset)
 
         assertEquals(0, session.currentSession.questionCount)
         assertEquals(0, session.currentSession.correctCount)
         assertEquals(
-            StringDifficulty.CROSS_STRING.selectedStrings,
+            range.selectedStrings,
             session.currentSettings().selectedStrings,
         )
         assertEquals(
-            StringDifficulty.CROSS_STRING.selectedStrings,
+            range.selectedStrings,
             store.loadSettings().selectedStrings,
         )
+        assertEquals(range.fretRange.first, store.loadSettings().fretStart)
+        assertEquals(range.fretRange.last, store.loadSettings().fretEnd)
+        assertEquals(range.name, store.loadSettings().noteTrainingRangeId)
         assertTrue(
             awaiting.question.fretPosition?.string?.let {
-                it in StringDifficulty.CROSS_STRING.selectedStrings
+                it in range.selectedStrings
             } == true,
         )
+        assertTrue(awaiting.question.fretPosition?.fret?.let { it in range.fretRange } == true)
     }
 
     @Test
-    fun everySupportedRangeKeepsAllGeneratedQuestionsInsideItsStrings() {
+    fun everySupportedRangeKeepsAllGeneratedQuestionsInsideItsCoordinates() {
         val session = TrainingSession(
             engine = TrainingEngine(
                 random = Random(7),
@@ -119,14 +124,17 @@ class TrainingStateMachineTest {
         )
         val machine = TrainingStateMachine(session)
 
-        StringDifficulty.entries.forEach { difficulty ->
-            var current = machine.resetStringDifficulty(difficulty)
+        NoteTrainingRange.entries.forEach { range ->
+            var current = machine.resetNoteTrainingRange(range)
             repeat(60) {
                 val awaiting = assertIs<QuestionState.AwaitingAnswer>(current)
                 assertTrue(
                     awaiting.question.fretPosition?.string?.let {
-                        it in difficulty.selectedStrings
+                        it in range.selectedStrings
                     } == true,
+                )
+                assertTrue(
+                    awaiting.question.fretPosition?.fret?.let { it in range.fretRange } == true,
                 )
                 assertIs<QuestionState.Correct>(
                     machine.submitAnswer(awaiting.question.correctAnswer),

@@ -34,7 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.CorrectErrorStats
 import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.QuestionState
-import com.a3322505a.guitarlearning.training.StringDifficulty
+import com.a3322505a.guitarlearning.training.NoteTrainingRange
+import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
@@ -42,13 +43,14 @@ import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 import kotlinx.coroutines.delay
 
-private val difficultySelectedColor = Color(0xFF1565C0)
+private val rangeSelectedColor = Color(0xFF1565C0)
 
 /** The landscape-only trainer for identifying physical fret locations by note name. */
 @Composable
 fun NoteNameTrainingScreen(
     trainingSession: TrainingSession,
     stateMachine: TrainingStateMachine,
+    selectedRange: NoteTrainingRange,
     onBack: (() -> Unit)? = null,
 ) {
     var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
@@ -100,6 +102,20 @@ fun NoteNameTrainingScreen(
                             Text(text = "返回")
                         }
                     }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "训练范围",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        Text(
+                            text = selectedRange.label,
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                    }
+                    Box(modifier = Modifier.sizeIn(minWidth = 64.dp))
                 }
 
                 Fretboard(
@@ -165,9 +181,9 @@ private fun NextQuestionButton(onClick: () -> Unit) {
 
 @Composable
 fun NoteNameRangeScreen(
-    selectedDifficulty: StringDifficulty,
+    selectedRange: NoteTrainingRange,
     onBack: () -> Unit,
-    onSelect: (StringDifficulty) -> Unit,
+    onSelect: (NoteTrainingRange) -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -212,25 +228,33 @@ fun NoteNameRangeScreen(
                     modifier = Modifier.fillMaxWidth(0.62f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    StringDifficulty.entries.forEach { option ->
-                        val selected = option == selectedDifficulty
-                        OutlinedButton(
-                            onClick = { onSelect(option) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 52.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) difficultySelectedColor else
-                                    MaterialTheme.colorScheme.outline,
-                            ),
-                        ) {
-                            Text(
-                                text = option.menuLabel,
-                                color = if (selected) difficultySelectedColor else
-                                    MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+                    NoteTrainingRangeGroup.entries.forEach { group ->
+                        Text(
+                            text = group.label,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        NoteTrainingRange.entries
+                            .filter { it.group == group }
+                            .forEach { option ->
+                                val selected = option == selectedRange
+                                OutlinedButton(
+                                    onClick = { onSelect(option) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 52.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color = if (selected) rangeSelectedColor else
+                                            MaterialTheme.colorScheme.outline,
+                                    ),
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        color = if (selected) rangeSelectedColor else
+                                            MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
                     }
                 }
             }
