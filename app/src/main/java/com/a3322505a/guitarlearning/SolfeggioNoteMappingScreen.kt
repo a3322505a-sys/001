@@ -29,12 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.a3322505a.guitarlearning.training.AnswerResult
 import com.a3322505a.guitarlearning.training.CorrectErrorStats
+import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.QuestionType
 import com.a3322505a.guitarlearning.training.TrainingSession
+import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
-import com.a3322505a.guitarlearning.ui.feedback.answerFeedback
+import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
 
 private val mappingQuestionTypes = setOf(
     QuestionType.NoteToSolfege,
@@ -51,9 +52,15 @@ fun SolfeggioNoteMappingScreen(
     trainingSession: TrainingSession,
     onBack: (() -> Unit)? = null,
 ) {
-    var question by remember { mutableStateOf(trainingSession.nextQuestion()) }
-    var result by remember { mutableStateOf<AnswerResult?>(null) }
-    var questionSequence by remember { mutableIntStateOf(0) }
+    val stateMachine = remember(trainingSession) { TrainingStateMachine(trainingSession) }
+    var state by remember(trainingSession) { mutableStateOf<QuestionState>(stateMachine.state) }
+    var questionSequence by remember(trainingSession) { mutableIntStateOf(0) }
+    val question = state.question
+    val submittedAnswer = when (val current = state) {
+        is QuestionState.AwaitingAnswer -> null
+        is QuestionState.Correct -> current.result
+        is QuestionState.Incorrect -> current.result
+    }
 
     require(question.type in mappingQuestionTypes) {
         "Mapping screen requires one of the six note/solfege/degree directions"
@@ -112,32 +119,35 @@ fun SolfeggioNoteMappingScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
 
-                    val session = trainingSession.currentSession
-                    CorrectErrorStats(session = session)
+                    CorrectErrorStats(session = trainingSession.currentSession)
 
                     AnswerChoices(
                         questionId = questionSequence.toString() + ":" + question.knowledgeItemId,
                         choices = question.choices,
-                        onAnswer = { answer ->
-                            val submission = trainingSession.submitAnswer(answer)
-                            if (submission.accepted) result = submission
-                        },
+                        submittedAnswer = submittedAnswer?.submittedAnswer,
+                        correctAnswer = submittedAnswer?.correctAnswer,
+                        onAnswer = { answer -> state = stateMachine.submitAnswer(answer) },
                     )
 
-                    result?.let { submission ->
-                        val feedback = answerFeedback(question, submission)
-                        Text(
-                            text = feedback.symbol + " " + feedback.answerPair,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        feedback.correctAnswerText?.let { Text(text = it) }
-                        Text(text = "本题反应时间：" + submission.responseMs + " ms")
-                        Button(onClick = {
-                            question = trainingSession.nextQuestion()
-                            result = null
-                            questionSequence += 1
-                        }) {
-                            Text(text = "下一题")
+                    when (val current = state) {
+                        is QuestionState.AwaitingAnswer -> Unit
+                        is QuestionState.Correct -> {
+                            AnswerReview(question = question, result = current.result)
+                            Button(onClick = {
+                                state = stateMachine.nextQuestion()
+                                questionSequence += 1
+                            }) {
+                                Text(text = "下一题")
+                            }
+                        }
+                        is QuestionState.Incorrect -> {
+                            AnswerReview(question = question, result = current.result)
+                            Button(onClick = {
+                                state = stateMachine.nextQuestion()
+                                questionSequence += 1
+                            }) {
+                                Text(text = "下一题")
+                            }
                         }
                     }
                 }

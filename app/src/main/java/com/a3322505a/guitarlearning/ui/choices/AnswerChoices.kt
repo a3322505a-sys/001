@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,8 +17,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private val correctAnswerColor = Color(0xFF2E7D32)
+private val incorrectAnswerColor = Color(0xFFC62828)
+
+enum class AnswerChoiceStatus {
+    DEFAULT,
+    CORRECT,
+    INCORRECT,
+}
+
+fun answerChoiceStatus(
+    choice: String,
+    submittedAnswer: String?,
+    correctAnswer: String?,
+): AnswerChoiceStatus {
+    if (submittedAnswer == null || correctAnswer == null) return AnswerChoiceStatus.DEFAULT
+    return when {
+        choice == correctAnswer -> AnswerChoiceStatus.CORRECT
+        choice == submittedAnswer -> AnswerChoiceStatus.INCORRECT
+        else -> AnswerChoiceStatus.DEFAULT
+    }
+}
 
 /** Pure interaction guard used by the answer-choice UI and by its unit tests. */
 class AnswerSubmissionState(private val allowedChoices: List<String>) {
@@ -63,8 +87,11 @@ fun AnswerChoices(
     choices: List<String>,
     onAnswer: (String) -> Unit,
     modifier: Modifier = Modifier,
+    submittedAnswer: String? = null,
+    correctAnswer: String? = null,
 ) {
-    var submittedAnswer by remember(questionId) { mutableStateOf<String?>(null) }
+    var localSubmittedAnswer by remember(questionId) { mutableStateOf<String?>(null) }
+    val answerSubmitted = submittedAnswer != null || localSubmittedAnswer != null
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -83,19 +110,36 @@ fun AnswerChoices(
                                 .height(48.dp),
                         )
                     } else {
+                        val buttonColor = when (answerChoiceStatus(
+                            choice = choice,
+                            submittedAnswer = submittedAnswer,
+                            correctAnswer = correctAnswer,
+                        )) {
+                            AnswerChoiceStatus.CORRECT -> correctAnswerColor
+                            AnswerChoiceStatus.INCORRECT -> incorrectAnswerColor
+                            else -> null
+                        }
                         Button(
                             onClick = {
-                                if (submittedAnswer == null) {
-                                    submittedAnswer = choice
+                                if (!answerSubmitted) {
+                                    localSubmittedAnswer = choice
                                     onAnswer(choice)
                                 }
                             },
-                            enabled = submittedAnswer == null,
+                            enabled = !answerSubmitted,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 4.dp),
+                            colors = buttonColor?.let {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = it,
+                                    contentColor = Color.White,
+                                    disabledContainerColor = it,
+                                    disabledContentColor = Color.White,
+                                )
+                            } ?: ButtonDefaults.buttonColors(),
                         ) {
                             Text(text = choice, fontSize = 16.sp, maxLines = 1)
                         }

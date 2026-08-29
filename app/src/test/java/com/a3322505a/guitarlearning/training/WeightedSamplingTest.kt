@@ -17,19 +17,16 @@ class WeightedSamplingTest {
             Progress(
                 knowledgeItemId = weakId,
                 mastery = MasteryStatus.LEARNING,
-                lastResponseMs = 2_501L,
                 recentResults = listOf(false),
             ),
             Progress(
                 knowledgeItemId = ordinaryId,
                 mastery = MasteryStatus.BASIC_MASTERY,
-                lastResponseMs = 500L,
                 recentResults = listOf(true),
             ),
             Progress(
                 knowledgeItemId = stableId,
                 mastery = MasteryStatus.STABLE_MASTERY,
-                lastResponseMs = 500L,
                 recentResults = listOf(true),
                 seenDays = setOf("2026-08-26", "2026-08-27"),
             ),

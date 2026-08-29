@@ -8,6 +8,7 @@ import com.a3322505a.guitarlearning.training.QuestionType
 data class AnswerFeedback(
     val symbol: String,
     val answerPair: String,
+    val submittedAnswerText: String?,
     val correctAnswerText: String?,
     val correctPositionText: String?,
 ) {
@@ -29,6 +30,7 @@ fun answerFeedback(question: Question, result: AnswerResult): AnswerFeedback {
         AnswerFeedback(
             symbol = "✓",
             answerPair = answerPair,
+            submittedAnswerText = null,
             correctAnswerText = null,
             correctPositionText = null,
         )
@@ -36,7 +38,8 @@ fun answerFeedback(question: Question, result: AnswerResult): AnswerFeedback {
         AnswerFeedback(
             symbol = "✗",
             answerPair = answerPair,
-            correctAnswerText = "正确答案：" + answerPair,
+            submittedAnswerText = "你的答案：" + result.submittedAnswer,
+            correctAnswerText = "正确答案：" + result.correctAnswer,
             correctPositionText = question.fretPosition?.let {
                 "正确位置：" + it.string + "弦" + it.fret + "品"
             },

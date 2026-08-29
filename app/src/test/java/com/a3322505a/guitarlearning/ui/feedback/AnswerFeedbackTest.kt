@@ -20,7 +20,6 @@ class AnswerFeedbackTest {
             isCorrect = true,
             submittedAnswer = "A",
             correctAnswer = "A",
-            responseMs = 250L,
             knowledgeItemId = question.knowledgeItemId,
         )
 
@@ -28,6 +27,7 @@ class AnswerFeedbackTest {
 
         assertEquals("✓", feedback.symbol)
         assertEquals("A", feedback.answerPair)
+        assertNull(feedback.submittedAnswerText)
         assertNull(feedback.correctAnswerText)
         assertNull(feedback.correctPositionText)
     }
@@ -40,7 +40,6 @@ class AnswerFeedbackTest {
             isCorrect = false,
             submittedAnswer = "G",
             correctAnswer = "A",
-            responseMs = 1_250L,
             knowledgeItemId = question.knowledgeItemId,
         )
 
@@ -48,6 +47,7 @@ class AnswerFeedbackTest {
 
         assertEquals("✗", feedback.symbol)
         assertEquals("A", feedback.answerPair)
+        assertEquals("你的答案：G", feedback.submittedAnswerText)
         assertEquals("正确答案：A", feedback.correctAnswerText)
         assertEquals("正确位置：6弦5品", feedback.correctPositionText)
     }
@@ -60,14 +60,14 @@ class AnswerFeedbackTest {
             isCorrect = false,
             submittedAnswer = "Mi",
             correctAnswer = "La",
-            responseMs = 400L,
             knowledgeItemId = question.knowledgeItemId,
         )
 
         val feedback = answerFeedback(question, result)
 
         assertEquals("A / La", feedback.answerPair)
-        assertEquals("正确答案：A / La", feedback.correctAnswerText)
+        assertEquals("你的答案：Mi", feedback.submittedAnswerText)
+        assertEquals("正确答案：La", feedback.correctAnswerText)
         assertNull(feedback.correctPositionText)
     }
 }

@@ -1,6 +1,7 @@
 package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.storage.Progress
+import com.a3322505a.guitarlearning.storage.Settings
 import com.a3322505a.guitarlearning.storage.Session
 import com.a3322505a.guitarlearning.storage.TrainingStore
 import java.time.Instant
@@ -13,15 +14,10 @@ object ProgressUpdater {
         require(result.accepted) { "Only accepted answers update progress" }
         val attempts = progress.attempts + 1
         val correct = progress.correct + if (result.isCorrect) 1 else 0
-        val avgResponseMs = (
-            progress.avgResponseMs * progress.attempts + result.responseMs
-            ) / attempts
         val updated = progress.copy(
             attempts = attempts,
             correct = correct,
             streak = if (result.isCorrect) progress.streak + 1 else 0,
-            avgResponseMs = avgResponseMs,
-            lastResponseMs = result.responseMs,
             lastSeenAt = seenAt,
             recentResults = (progress.recentResults + result.isCorrect).takeLast(20),
             seenDays = progress.seenDays + utcDay(seenAt),
@@ -37,11 +33,11 @@ object ProgressUpdater {
 class TrainingSession(
     private val engine: TrainingEngine,
     private val store: TrainingStore,
-    private val clockMs: () -> Long = System::currentTimeMillis,
+    private val nowMs: () -> Long = System::currentTimeMillis,
     sessionId: String = UUID.randomUUID().toString(),
 ) {
     private val factory = QuestionFactory()
-    private var activeSession = Session(id = sessionId, startedAt = clockMs())
+    private var activeSession = Session(id = sessionId, startedAt = nowMs())
 
     init {
         store.saveSession(activeSession)
@@ -49,6 +45,8 @@ class TrainingSession(
 
     val currentSession: Session
         get() = activeSession
+
+    fun currentSettings(): Settings = engine.settings()
 
     fun currentQuestion(): Question = engine.currentQuestion() ?: engine.generateQuestion()
 
@@ -60,7 +58,7 @@ class TrainingSession(
 
         val oldProgress = store.loadProgress(result.knowledgeItemId)
             ?: Progress(knowledgeItemId = result.knowledgeItemId)
-        val newProgress = ProgressUpdater.record(oldProgress, result, clockMs())
+        val newProgress = ProgressUpdater.record(oldProgress, result, nowMs())
         val item = store.findKnowledgeItem(result.knowledgeItemId)
             ?: factory.knowledgeItemFor(question)
         store.upsertKnowledgeItem(item.copy(status = newProgress.mastery))
@@ -70,9 +68,6 @@ class TrainingSession(
             endedAt = null,
             questionCount = activeSession.questionCount + 1,
             correctCount = activeSession.correctCount + if (result.isCorrect) 1 else 0,
-            avgResponseMs = (
-                activeSession.avgResponseMs * activeSession.questionCount + result.responseMs
-                ) / (activeSession.questionCount + 1),
         )
         store.saveSession(activeSession)
         return result
@@ -80,8 +75,16 @@ class TrainingSession(
 
     fun nextQuestion(): Question = engine.nextQuestion()
 
+    fun resetForSettings(settings: Settings): Question {
+        engine.updateSettings(settings)
+        store.saveSettings(settings)
+        activeSession = Session(id = UUID.randomUUID().toString(), startedAt = nowMs())
+        store.saveSession(activeSession)
+        return engine.nextQuestion()
+    }
+
     fun finish(): Session {
-        activeSession = activeSession.copy(endedAt = clockMs())
+        activeSession = activeSession.copy(endedAt = nowMs())
         store.saveSession(activeSession)
         return activeSession
     }

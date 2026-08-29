@@ -63,47 +63,39 @@ class TrainingEngineTest {
     }
 
     @Test
-    fun submitMeasuresTimeAndRejectsDuplicateSubmission() {
-        var now = 1_000L
-        val engine = TrainingEngine(random = Random(1), clockMs = { now })
+    fun submitAcceptsOneAnswerAndRejectsDuplicateSubmission() {
+        val engine = TrainingEngine(random = Random(1))
         val question = engine.generateQuestion(QuestionType.FretToNote)
 
-        now = 1_275L
         val first = engine.submitAnswer(question.correctAnswer)
         val duplicate = engine.submitAnswer(question.choices.first { it != question.correctAnswer })
 
         assertTrue(first.accepted)
         assertTrue(first.isCorrect)
-        assertEquals(275L, first.responseMs)
         assertFalse(duplicate.accepted)
         assertTrue(duplicate.isCorrect)
-        assertEquals(first.responseMs, duplicate.responseMs)
     }
 
     @Test
     fun invalidAnswerDoesNotConsumeTheQuestion() {
-        var now = 5_000L
-        val engine = TrainingEngine(clockMs = { now })
+        val engine = TrainingEngine()
         val question = engine.generateQuestion(QuestionType.NoteToSolfege)
 
-        now += 100L
         val invalid = engine.submitAnswer("C#")
         val valid = engine.submitAnswer(question.correctAnswer)
 
         assertFalse(invalid.accepted)
         assertTrue(valid.accepted)
-        assertEquals(100L, valid.responseMs)
     }
 
     @Test
     fun oneHundredQuestionSessionHasNoDuplicateOrStateLeak() {
-        var now = 10_000L
-        val engine = TrainingEngine(random = Random(19), clockMs = { now })
-        var stats = SessionStats()
+        val engine = TrainingEngine(random = Random(19))
+        var correctCount = 0
+        var incorrectCount = 0
         var question = engine.generateQuestion()
 
         repeat(100) { index ->
-            now += 100L + index
             val answer = if (index % 2 == 0) {
                 question.correctAnswer
             } else {
@@ -115,15 +107,13 @@ class TrainingEngineTest {
             assertTrue(result.accepted)
             assertEquals(question.knowledgeItemId, result.knowledgeItemId)
             assertFalse(duplicate.accepted)
-            stats = stats.record(result)
+            if (result.isCorrect) correctCount++ else incorrectCount++
             if (index < 99) question = engine.nextQuestion()
         }
 
-        assertEquals(100, stats.questionCount)
-        assertEquals(50, stats.correctCount)
-        assertEquals(50, stats.incorrectCount)
-        assertEquals(199L, stats.currentResponseMs)
-        assertTrue(stats.averageResponseMs in 100L..199L)
+        assertEquals(100, correctCount + incorrectCount)
+        assertEquals(50, correctCount)
+        assertEquals(50, incorrectCount)
     }
 
     @Test
@@ -157,20 +147,41 @@ class TrainingEngineTest {
 
     @Test
     fun mappingQuestionAcceptsCorrectAndRejectsAnIncorrectChoice() {
-        var now = 1_000L
         val engine = TrainingEngine(
             random = Random(29),
-            clockMs = { now },
             enabledQuestionTypes = listOf(QuestionType.NoteToSolfege),
         )
         val question = engine.generateQuestion()
         val wrongAnswer = question.choices.first { it != question.correctAnswer }
 
-        now += 120L
         val wrong = engine.submitAnswer(wrongAnswer)
 
         assertTrue(wrong.accepted)
         assertFalse(wrong.isCorrect)
         assertEquals(question.correctAnswer, wrong.correctAnswer)
+    }
+
+    @Test
+    fun updatingSettingsRegeneratesQuestionsInsideTheNewStringRange() {
+        val engine = TrainingEngine(
+            settings = com.a3322505a.guitarlearning.storage.Settings(
+                selectedStrings = (1..6).toSet(),
+            ),
+            random = Random(31),
+            enabledQuestionTypes = listOf(QuestionType.FretToNote),
+        )
+
+        engine.generateQuestion()
+        engine.updateSettings(
+            com.a3322505a.guitarlearning.storage.Settings(
+                selectedStrings = StringDifficulty.TWO.selectedStrings,
+            ),
+        )
+
+        repeat(100) {
+            val question = engine.nextQuestion()
+            assertEquals(StringDifficulty.TWO.selectedStrings, engine.settings().selectedStrings)
+            assertTrue(question.fretPosition?.string?.let { it in 1..2 } == true)
+        }
     }
 }

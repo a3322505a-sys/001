@@ -35,13 +35,12 @@ class V01ReleaseCandidateTest {
         val store = InMemoryTrainingStore()
         val engine = TrainingEngine(
             random = Random(101),
-            clockMs = { now },
             progressProvider = { store.loadProgress() },
         )
         val session = TrainingSession(
             engine = engine,
             store = store,
-            clockMs = { now },
+            nowMs = { now },
             sessionId = "release-session",
         )
         var question = session.currentQuestion()

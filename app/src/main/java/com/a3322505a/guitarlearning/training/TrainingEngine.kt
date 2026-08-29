@@ -12,12 +12,12 @@ import kotlin.random.Random
 class TrainingEngine(
     settings: Settings = Settings(),
     private val random: Random = Random.Default,
-    private val clockMs: () -> Long = System::currentTimeMillis,
     private val progressProvider: () -> List<Progress> = { emptyList() },
     private val enabledQuestionTypes: List<QuestionType> = QuestionType.entries,
 ) {
     private val factory = QuestionFactory()
-    private val positions: List<FretPosition> = GuitarCore.allPositions(
+    private var currentSettings = settings
+    private var positions: List<FretPosition> = GuitarCore.allPositions(
         strings = settings.selectedStrings.sorted(),
         frets = settings.fretStart..settings.fretEnd,
         naturalOnly = true,
@@ -29,7 +29,6 @@ class TrainingEngine(
     }
 
     private var currentQuestion: Question? = null
-    private var startedAtMs: Long? = null
     private var submitted = false
     private var lastResult: AnswerResult? = null
 
@@ -44,7 +43,6 @@ class TrainingEngine(
             QuestionWeights.forProgress(progressById[question.knowledgeItemId])
         }
         currentQuestion = question
-        startedAtMs = clockMs()
         submitted = false
         lastResult = null
         return question
@@ -61,7 +59,6 @@ class TrainingEngine(
                 isCorrect = false,
                 submittedAnswer = answer,
                 correctAnswer = question.correctAnswer,
-                responseMs = elapsedMs(),
                 knowledgeItemId = question.knowledgeItemId,
             )
         }
@@ -70,7 +67,6 @@ class TrainingEngine(
             isCorrect = answer == question.correctAnswer,
             submittedAnswer = answer,
             correctAnswer = question.correctAnswer,
-            responseMs = elapsedMs(),
             knowledgeItemId = question.knowledgeItemId,
         )
         submitted = true
@@ -81,6 +77,20 @@ class TrainingEngine(
     fun nextQuestion(): Question = generateQuestion()
 
     fun currentQuestion(): Question? = currentQuestion
+
+    fun settings(): Settings = currentSettings
+
+    fun updateSettings(newSettings: Settings) {
+        currentSettings = newSettings
+        positions = GuitarCore.allPositions(
+            strings = newSettings.selectedStrings.sorted(),
+            frets = newSettings.fretStart..newSettings.fretEnd,
+            naturalOnly = true,
+        ).also { require(it.isNotEmpty()) { "Question bank must contain a natural note" } }
+        currentQuestion = null
+        submitted = false
+        lastResult = null
+    }
 
     private fun candidatesFor(type: QuestionType): List<Question> = when (type) {
         QuestionType.FretToNote,
@@ -104,8 +114,4 @@ class TrainingEngine(
         return items.last()
     }
 
-    private fun elapsedMs(): Long {
-        val started = startedAtMs ?: error("Question timer has not started")
-        return (clockMs() - started).coerceAtLeast(0L)
-    }
 }

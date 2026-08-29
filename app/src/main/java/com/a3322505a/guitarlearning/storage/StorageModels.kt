@@ -28,8 +28,6 @@ data class Progress(
     val attempts: Int = 0,
     val correct: Int = 0,
     val streak: Int = 0,
-    val avgResponseMs: Double = 0.0,
-    val lastResponseMs: Long? = null,
     val lastSeenAt: Long? = null,
     val mastery: MasteryStatus = MasteryStatus.UNLEARNED,
     /** The latest outcomes are retained for the small V0.1 mastery rule in P08. */
@@ -44,7 +42,6 @@ data class Session(
     val endedAt: Long? = null,
     val questionCount: Int = 0,
     val correctCount: Int = 0,
-    val avgResponseMs: Double = 0.0,
 )
 
 enum class NotationMode {
