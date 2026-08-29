@@ -12,7 +12,6 @@ import com.a3322505a.guitarlearning.training.AnswerResult
 import com.a3322505a.guitarlearning.training.Question
 
 private val reviewCorrectColor = Color(0xFF2E7D32)
-private val reviewIncorrectColor = Color(0xFFC62828)
 
 /** Stable, explicit review block shown until the question advances. */
 @Composable
@@ -26,20 +25,19 @@ fun AnswerReview(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = feedback.symbol + " " + feedback.answerPair,
-            color = if (result.isCorrect) reviewCorrectColor else reviewIncorrectColor,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        if (!result.isCorrect) {
-            feedback.submittedAnswerText?.let {
-                Text(text = it, color = reviewIncorrectColor)
-            }
+        if (result.isCorrect) {
+            Text(
+                text = feedback.symbol + " " + feedback.answerPair,
+                color = reviewCorrectColor,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        } else {
             feedback.correctAnswerText?.let {
-                Text(text = it, color = reviewCorrectColor)
-            }
-            feedback.correctPositionText?.let {
-                Text(text = it, color = reviewCorrectColor)
+                Text(
+                    text = it,
+                    color = reviewCorrectColor,
+                    style = MaterialTheme.typography.titleMedium,
+                )
             }
         }
     }

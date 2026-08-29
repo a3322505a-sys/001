@@ -1,6 +1,5 @@
 package com.a3322505a.guitarlearning
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,15 +48,11 @@ private val difficultySelectedColor = Color(0xFF1565C0)
 @Composable
 fun NoteNameTrainingScreen(
     trainingSession: TrainingSession,
+    stateMachine: TrainingStateMachine,
     onBack: (() -> Unit)? = null,
 ) {
-    val stateMachine = remember(trainingSession) { TrainingStateMachine(trainingSession) }
-    var state by remember(trainingSession) { mutableStateOf<QuestionState>(stateMachine.state) }
-    var questionSequence by remember(trainingSession) { mutableIntStateOf(0) }
-    var difficulty by remember(trainingSession) {
-        mutableStateOf(StringDifficulty.fromSettings(trainingSession.currentSettings()))
-    }
-    var showDifficultyMenu by remember(trainingSession) { mutableStateOf(false) }
+    var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
+    var questionSequence by remember(stateMachine) { mutableIntStateOf(0) }
     val question = state.question
     val submittedAnswer = when (val current = state) {
         is QuestionState.AwaitingAnswer -> null
@@ -65,32 +60,13 @@ fun NoteNameTrainingScreen(
         is QuestionState.Incorrect -> current.result
     }
 
-    LaunchedEffect(state, showDifficultyMenu) {
+    LaunchedEffect(state) {
         val correctState = state as? QuestionState.Correct ?: return@LaunchedEffect
-        if (showDifficultyMenu) return@LaunchedEffect
         delay(CORRECT_FEEDBACK_DURATION_MS)
-        if (state === correctState && !showDifficultyMenu) {
+        if (state === correctState) {
             state = stateMachine.nextQuestion()
             questionSequence += 1
         }
-    }
-
-    BackHandler(enabled = showDifficultyMenu) {
-        showDifficultyMenu = false
-    }
-
-    if (showDifficultyMenu) {
-        StringDifficultyMenu(
-            selectedDifficulty = difficulty,
-            onBack = { showDifficultyMenu = false },
-            onSelect = { selected ->
-                difficulty = selected
-                state = stateMachine.resetStringDifficulty(selected)
-                questionSequence += 1
-                showDifficultyMenu = false
-            },
-        )
-        return
     }
 
     Surface(
@@ -141,18 +117,6 @@ fun NoteNameTrainingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                OutlinedButton(
-                    onClick = { showDifficultyMenu = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 40.dp),
-                ) {
-                    Text(
-                        text = "训练弦范围：${difficulty.summaryLabel}  >",
-                        maxLines = 1,
-                    )
-                }
-
                 CorrectErrorStats(session = trainingSession.currentSession)
 
                 AnswerChoices(
@@ -200,7 +164,7 @@ private fun NextQuestionButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun StringDifficultyMenu(
+fun NoteNameRangeScreen(
     selectedDifficulty: StringDifficulty,
     onBack: () -> Unit,
     onSelect: (StringDifficulty) -> Unit,
@@ -230,7 +194,7 @@ private fun StringDifficultyMenu(
                     Text(text = "返回")
                 }
                 Text(
-                    text = "训练弦范围",
+                    text = "训练范围",
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.titleLarge,

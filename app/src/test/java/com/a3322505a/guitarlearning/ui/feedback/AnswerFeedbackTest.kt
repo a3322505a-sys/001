@@ -27,13 +27,11 @@ class AnswerFeedbackTest {
 
         assertEquals("✓", feedback.symbol)
         assertEquals("A", feedback.answerPair)
-        assertNull(feedback.submittedAnswerText)
         assertNull(feedback.correctAnswerText)
-        assertNull(feedback.correctPositionText)
     }
 
     @Test
-    fun incorrectFretFeedbackShowsAnswerAndPosition() {
+    fun incorrectFretFeedbackKeepsOnlyTheCorrectAnswer() {
         val question = factory.create(QuestionType.FretToNote, position)
         val result = AnswerResult(
             accepted = true,
@@ -47,13 +45,11 @@ class AnswerFeedbackTest {
 
         assertEquals("✗", feedback.symbol)
         assertEquals("A", feedback.answerPair)
-        assertEquals("你的答案：G", feedback.submittedAnswerText)
         assertEquals("正确答案：A", feedback.correctAnswerText)
-        assertEquals("正确位置：6弦5品", feedback.correctPositionText)
     }
 
     @Test
-    fun mappingFeedbackKeepsTheTwoLabelsTogether() {
+    fun mappingIncorrectFeedbackKeepsOnlyTheCorrectAnswer() {
         val question = factory.createForNote(QuestionType.NoteToSolfege, "A")
         val result = AnswerResult(
             accepted = true,
@@ -66,8 +62,6 @@ class AnswerFeedbackTest {
         val feedback = answerFeedback(question, result)
 
         assertEquals("A / La", feedback.answerPair)
-        assertEquals("你的答案：Mi", feedback.submittedAnswerText)
         assertEquals("正确答案：La", feedback.correctAnswerText)
-        assertNull(feedback.correctPositionText)
     }
 }

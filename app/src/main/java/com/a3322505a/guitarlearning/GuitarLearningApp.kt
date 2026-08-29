@@ -16,21 +16,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.training.StringDifficulty
 import com.a3322505a.guitarlearning.training.TrainingSession
+import com.a3322505a.guitarlearning.training.TrainingStateMachine
 
 enum class AppDestination {
     Home,
+    NoteNameRange,
     NoteName,
     SolfeggioNoteMapping,
 }
 
 fun usesLandscapeLayout(destination: AppDestination): Boolean =
     destination == AppDestination.NoteName
+
+fun previousDestination(destination: AppDestination): AppDestination = when (destination) {
+    AppDestination.NoteName -> AppDestination.NoteNameRange
+    AppDestination.NoteNameRange,
+    AppDestination.SolfeggioNoteMapping -> AppDestination.Home
+    AppDestination.Home -> AppDestination.Home
+}
 
 @Composable
 fun GuitarLearningApp(
@@ -39,7 +50,14 @@ fun GuitarLearningApp(
     onDestinationChanged: (AppDestination) -> Unit,
 ) {
     var destinationName by rememberSaveable { mutableStateOf(AppDestination.Home.name) }
+    var noteDifficultyName by rememberSaveable {
+        mutableStateOf(StringDifficulty.fromSettings(noteTrainingSession.currentSettings()).name)
+    }
     val destination = AppDestination.valueOf(destinationName)
+    val noteDifficulty = StringDifficulty.valueOf(noteDifficultyName)
+    val noteStateMachine = remember(noteTrainingSession) {
+        TrainingStateMachine(noteTrainingSession)
+    }
 
     fun navigateTo(next: AppDestination) {
         destinationName = next.name
@@ -51,17 +69,27 @@ fun GuitarLearningApp(
     }
 
     BackHandler(enabled = destination != AppDestination.Home) {
-        navigateTo(AppDestination.Home)
+        navigateTo(previousDestination(destination))
     }
 
     when (destination) {
         AppDestination.Home -> HomeScreen(
-            onOpenNoteName = { navigateTo(AppDestination.NoteName) },
+            onOpenNoteName = { navigateTo(AppDestination.NoteNameRange) },
             onOpenMapping = { navigateTo(AppDestination.SolfeggioNoteMapping) },
+        )
+        AppDestination.NoteNameRange -> NoteNameRangeScreen(
+            selectedDifficulty = noteDifficulty,
+            onBack = { navigateTo(AppDestination.Home) },
+            onSelect = { selected ->
+                noteDifficultyName = selected.name
+                noteStateMachine.resetStringDifficulty(selected)
+                navigateTo(AppDestination.NoteName)
+            },
         )
         AppDestination.NoteName -> NoteNameTrainingScreen(
             trainingSession = noteTrainingSession,
-            onBack = { navigateTo(AppDestination.Home) },
+            stateMachine = noteStateMachine,
+            onBack = { navigateTo(AppDestination.NoteNameRange) },
         )
         AppDestination.SolfeggioNoteMapping -> SolfeggioNoteMappingScreen(
             trainingSession = mappingTrainingSession,
