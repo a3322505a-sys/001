@@ -2,32 +2,40 @@ package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.storage.Settings
 
-/** Continuous note-training ranges: 1弦, then 1–2弦, up to all six strings. */
+/** The three deliberate training stages exposed by the note-name trainer. */
 enum class StringDifficulty(
-    val stringCount: Int,
+    val selectedStrings: Set<Int>,
+    val summaryLabel: String,
+    val menuLabel: String,
 ) {
-    ONE(1),
-    TWO(2),
-    THREE(3),
-    FOUR(4),
-    FIVE(5),
-    SIX(6);
-
-    val selectedStrings: Set<Int>
-        get() = (1..stringCount).toSet()
-
-    val label: String
-        get() = if (stringCount == 1) {
-            "1弦"
-        } else {
-            "1–" + stringCount + "弦"
-        }
+    BASIC(
+        selectedStrings = setOf(1),
+        summaryLabel = "仅 1 弦",
+        menuLabel = "基础｜仅 1 弦",
+    ),
+    CROSS_STRING(
+        selectedStrings = (1..3).toSet(),
+        summaryLabel = "1–3 弦",
+        menuLabel = "跨弦｜1–3 弦",
+    ),
+    FULL_FRETBOARD(
+        selectedStrings = (1..6).toSet(),
+        summaryLabel = "全指板",
+        menuLabel = "全指板｜1–6 弦",
+    );
 
     companion object {
-        fun fromStringCount(count: Int): StringDifficulty =
-            entries.first { it.stringCount == count }
+        fun fromStringCount(count: Int): StringDifficulty = when {
+            count <= 1 -> BASIC
+            count <= 3 -> CROSS_STRING
+            else -> FULL_FRETBOARD
+        }
 
         fun fromSettings(settings: Settings): StringDifficulty =
-            fromStringCount(settings.selectedStrings.size.coerceIn(1, 6))
+            fromStringCount(settings.selectedStrings.maxOrNull() ?: 1)
+
+        /** Maps settings saved by the former six-stage UI onto a supported stage. */
+        fun normalize(settings: Settings): Settings =
+            settings.copy(selectedStrings = fromSettings(settings).selectedStrings)
     }
 }

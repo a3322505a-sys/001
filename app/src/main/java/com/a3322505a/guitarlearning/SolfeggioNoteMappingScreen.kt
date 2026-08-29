@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,12 +31,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.CorrectErrorStats
+import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.QuestionType
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
+import kotlinx.coroutines.delay
 
 private val mappingQuestionTypes = setOf(
     QuestionType.NoteToSolfege,
@@ -60,6 +63,15 @@ fun SolfeggioNoteMappingScreen(
         is QuestionState.AwaitingAnswer -> null
         is QuestionState.Correct -> current.result
         is QuestionState.Incorrect -> current.result
+    }
+
+    LaunchedEffect(state) {
+        val correctState = state as? QuestionState.Correct ?: return@LaunchedEffect
+        delay(CORRECT_FEEDBACK_DURATION_MS)
+        if (state === correctState) {
+            state = stateMachine.nextQuestion()
+            questionSequence += 1
+        }
     }
 
     require(question.type in mappingQuestionTypes) {
@@ -133,12 +145,6 @@ fun SolfeggioNoteMappingScreen(
                         is QuestionState.AwaitingAnswer -> Unit
                         is QuestionState.Correct -> {
                             AnswerReview(question = question, result = current.result)
-                            Button(onClick = {
-                                state = stateMachine.nextQuestion()
-                                questionSequence += 1
-                            }) {
-                                Text(text = "下一题")
-                            }
                         }
                         is QuestionState.Incorrect -> {
                             AnswerReview(question = question, result = current.result)

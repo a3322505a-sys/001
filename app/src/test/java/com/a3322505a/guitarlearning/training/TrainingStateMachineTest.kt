@@ -88,13 +88,51 @@ class TrainingStateMachineTest {
         machine.submitAnswer(machine.state.question.correctAnswer)
         assertEquals(1, session.currentSession.questionCount)
 
-        val reset = machine.resetStringDifficulty(StringDifficulty.TWO)
+        val reset = machine.resetStringDifficulty(StringDifficulty.CROSS_STRING)
         val awaiting = assertIs<QuestionState.AwaitingAnswer>(reset)
 
         assertEquals(0, session.currentSession.questionCount)
         assertEquals(0, session.currentSession.correctCount)
-        assertEquals(StringDifficulty.TWO.selectedStrings, session.currentSettings().selectedStrings)
-        assertEquals(StringDifficulty.TWO.selectedStrings, store.loadSettings().selectedStrings)
-        assertTrue(awaiting.question.fretPosition?.string?.let { it in 1..2 } == true)
+        assertEquals(
+            StringDifficulty.CROSS_STRING.selectedStrings,
+            session.currentSettings().selectedStrings,
+        )
+        assertEquals(
+            StringDifficulty.CROSS_STRING.selectedStrings,
+            store.loadSettings().selectedStrings,
+        )
+        assertTrue(
+            awaiting.question.fretPosition?.string?.let {
+                it in StringDifficulty.CROSS_STRING.selectedStrings
+            } == true,
+        )
+    }
+
+    @Test
+    fun everySupportedRangeKeepsAllGeneratedQuestionsInsideItsStrings() {
+        val session = TrainingSession(
+            engine = TrainingEngine(
+                random = Random(7),
+                enabledQuestionTypes = listOf(QuestionType.FretToNote),
+            ),
+            store = InMemoryTrainingStore(),
+        )
+        val machine = TrainingStateMachine(session)
+
+        StringDifficulty.entries.forEach { difficulty ->
+            var current = machine.resetStringDifficulty(difficulty)
+            repeat(60) {
+                val awaiting = assertIs<QuestionState.AwaitingAnswer>(current)
+                assertTrue(
+                    awaiting.question.fretPosition?.string?.let {
+                        it in difficulty.selectedStrings
+                    } == true,
+                )
+                assertIs<QuestionState.Correct>(
+                    machine.submitAnswer(awaiting.question.correctAnswer),
+                )
+                current = machine.nextQuestion()
+            }
+        }
     }
 }
