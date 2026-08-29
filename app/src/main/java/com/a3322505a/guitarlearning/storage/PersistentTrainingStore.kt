@@ -133,7 +133,7 @@ class PersistentTrainingStore(
         }
 
         val writer = StringWriter()
-        properties.store(writer, "GuitarLearning V0.2.0")
+        properties.store(writer, "GuitarLearning V0.2.1")
         backend.putString(STORAGE_KEY, writer.toString())
     }
 
