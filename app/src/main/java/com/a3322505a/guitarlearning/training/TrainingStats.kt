@@ -21,17 +21,30 @@ fun CorrectErrorStats(
     session: Session,
     modifier: Modifier = Modifier,
 ) {
+    CorrectErrorStats(
+        correctCount = session.correctCount,
+        errorCount = session.questionCount - session.correctCount,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun CorrectErrorStats(
+    correctCount: Int,
+    errorCount: Int,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StatBlock(
-            text = "正确 ${session.correctCount}",
+            text = "正确 $correctCount",
             color = Color(0xFF2E7D32),
             modifier = Modifier.weight(1f),
         )
         StatBlock(
-            text = "错误 ${session.questionCount - session.correctCount}",
+            text = "错误 $errorCount",
             color = Color(0xFFC62828),
             modifier = Modifier.weight(1f),
         )

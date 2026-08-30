@@ -11,22 +11,20 @@ class NavigationTest {
         assertTrue(usesLandscapeLayout(AppDestination.NoteName))
         assertFalse(usesLandscapeLayout(AppDestination.Home))
         assertFalse(usesLandscapeLayout(AppDestination.NoteNameRange))
+        assertFalse(usesLandscapeLayout(AppDestination.MappingMode))
         assertFalse(usesLandscapeLayout(AppDestination.SolfeggioNoteMapping))
+        assertFalse(usesLandscapeLayout(AppDestination.CombinedMapping))
     }
 
     @Test
-    fun noteTrainingBackStackIncludesTheRangeScreen() {
+    fun trainingBackStacksIncludeTheirSelectionScreens() {
+        assertEquals(AppDestination.NoteNameRange, previousDestination(AppDestination.NoteName))
+        assertEquals(AppDestination.Home, previousDestination(AppDestination.NoteNameRange))
+        assertEquals(AppDestination.Home, previousDestination(AppDestination.MappingMode))
         assertEquals(
-            AppDestination.NoteNameRange,
-            previousDestination(AppDestination.NoteName),
-        )
-        assertEquals(
-            AppDestination.Home,
-            previousDestination(AppDestination.NoteNameRange),
-        )
-        assertEquals(
-            AppDestination.Home,
+            AppDestination.MappingMode,
             previousDestination(AppDestination.SolfeggioNoteMapping),
         )
+        assertEquals(AppDestination.MappingMode, previousDestination(AppDestination.CombinedMapping))
     }
 }
