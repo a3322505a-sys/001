@@ -30,7 +30,9 @@ enum class AppDestination {
     Home,
     NoteNameRange,
     NoteName,
+    MappingMode,
     SolfeggioNoteMapping,
+    CombinedMapping,
 }
 
 fun usesLandscapeLayout(destination: AppDestination): Boolean =
@@ -39,7 +41,9 @@ fun usesLandscapeLayout(destination: AppDestination): Boolean =
 fun previousDestination(destination: AppDestination): AppDestination = when (destination) {
     AppDestination.NoteName -> AppDestination.NoteNameRange
     AppDestination.NoteNameRange,
-    AppDestination.SolfeggioNoteMapping -> AppDestination.Home
+    AppDestination.MappingMode -> AppDestination.Home
+    AppDestination.SolfeggioNoteMapping,
+    AppDestination.CombinedMapping -> AppDestination.MappingMode
     AppDestination.Home -> AppDestination.Home
 }
 
@@ -76,7 +80,7 @@ fun GuitarLearningApp(
     when (destination) {
         AppDestination.Home -> HomeScreen(
             onOpenNoteName = { navigateTo(AppDestination.NoteNameRange) },
-            onOpenMapping = { navigateTo(AppDestination.SolfeggioNoteMapping) },
+            onOpenMapping = { navigateTo(AppDestination.MappingMode) },
         )
         AppDestination.NoteNameRange -> NoteNameRangeScreen(
             selectedRange = noteRange,
@@ -93,9 +97,17 @@ fun GuitarLearningApp(
             selectedRange = noteRange,
             onBack = { navigateTo(AppDestination.NoteNameRange) },
         )
+        AppDestination.MappingMode -> MappingModeScreen(
+            onBack = { navigateTo(AppDestination.Home) },
+            onOpenBasic = { navigateTo(AppDestination.SolfeggioNoteMapping) },
+            onOpenCombined = { navigateTo(AppDestination.CombinedMapping) },
+        )
         AppDestination.SolfeggioNoteMapping -> SolfeggioNoteMappingScreen(
             trainingSession = mappingTrainingSession,
-            onBack = { navigateTo(AppDestination.Home) },
+            onBack = { navigateTo(AppDestination.MappingMode) },
+        )
+        AppDestination.CombinedMapping -> CombinedMappingTrainingScreen(
+            onBack = { navigateTo(AppDestination.MappingMode) },
         )
     }
 }
@@ -130,6 +142,49 @@ private fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(0.78f),
             ) {
                 Text(text = "音名 / 唱名 / 级数")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MappingModeScreen(
+    onBack: () -> Unit,
+    onOpenBasic: () -> Unit,
+    onOpenCombined: () -> Unit,
+) {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "训练模式",
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onOpenBasic,
+                modifier = Modifier.fillMaxWidth(0.78f),
+            ) {
+                Text(text = "基础训练")
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onOpenCombined,
+                modifier = Modifier.fillMaxWidth(0.78f),
+            ) {
+                Text(text = "综合训练")
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(0.78f),
+            ) {
+                Text(text = "返回")
             }
         }
     }
