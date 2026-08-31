@@ -3,6 +3,7 @@ package com.a3322505a.guitarlearning
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -11,15 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.a3322505a.guitarlearning.training.CorrectErrorStats
 import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
@@ -38,9 +35,11 @@ import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
+import com.a3322505a.guitarlearning.ui.components.PixelButton
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
+import com.a3322505a.guitarlearning.ui.components.PixelStats
 import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 import kotlinx.coroutines.delay
@@ -61,6 +60,7 @@ fun NoteNameTrainingScreen(
         is QuestionState.Correct -> current.result
         is QuestionState.Incorrect -> current.result
     }
+    val session = trainingSession.currentSession
 
     LaunchedEffect(state) {
         val correctState = state as? QuestionState.Correct ?: return@LaunchedEffect
@@ -89,52 +89,37 @@ fun NoteNameTrainingScreen(
                     .fillMaxHeight(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (onBack != null) {
-                        TextButton(
-                            onClick = onBack,
-                            modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                        ) {
-                            Text(text = "返回")
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "训练范围",
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                        Text(
-                            text = selectedRange.label,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                    }
-                    Box(modifier = Modifier.sizeIn(minWidth = 64.dp))
-                }
+                PixelHeader(
+                    title = "训练范围",
+                    subtitle = selectedRange.label,
+                    onBack = onBack,
+                )
 
-                Fretboard(
-                    selectedPosition = question.fretPosition,
+                PixelPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                )
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    Fretboard(
+                        selectedPosition = question.fretPosition,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
 
             Column(
                 modifier = Modifier
                     .weight(0.30f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                CorrectErrorStats(session = trainingSession.currentSession)
+                PixelStats(
+                    correctCount = session.correctCount,
+                    errorCount = session.questionCount - session.correctCount,
+                )
 
                 AnswerChoices(
                     questionId = questionSequence.toString() + ":" + question.knowledgeItemId,
@@ -170,14 +155,13 @@ fun NoteNameTrainingScreen(
 
 @Composable
 private fun NextQuestionButton(onClick: () -> Unit) {
-    Button(
+    PixelButton(
+        text = "下一题",
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp),
-    ) {
-        Text(text = "下一题")
-    }
+    )
 }
 
 @Composable
