@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +29,7 @@ fun PixelHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Box(modifier = Modifier.sizeIn(minWidth = 84.dp)) {
+        Box(modifier = Modifier.width(84.dp)) {
             if (onBack != null) {
                 PixelOutlinedButton(
                     text = "返回",
@@ -56,6 +56,6 @@ fun PixelHeader(
                 )
             }
         }
-        Box(modifier = Modifier.sizeIn(minWidth = 84.dp))
+        Box(modifier = Modifier.width(84.dp))
     }
 }

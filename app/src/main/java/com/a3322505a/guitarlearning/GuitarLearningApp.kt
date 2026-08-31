@@ -2,13 +2,13 @@ package com.a3322505a.guitarlearning
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +25,12 @@ import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
+import com.a3322505a.guitarlearning.ui.components.PixelButton
+import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
+import com.a3322505a.guitarlearning.ui.components.PixelHeader
+import com.a3322505a.guitarlearning.ui.components.PixelPanel
+import com.a3322505a.guitarlearning.ui.theme.PixelGold
+import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 
 enum class AppDestination {
     Home,
@@ -117,7 +123,10 @@ private fun HomeScreen(
     onOpenNoteName: () -> Unit,
     onOpenMapping: () -> Unit,
 ) {
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -125,24 +134,41 @@ private fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = "电吉他训练",
-                style = MaterialTheme.typography.headlineMedium,
-            )
+            PixelPanel(modifier = Modifier.fillMaxWidth(0.78f)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "ELECTRIC GUITAR",
+                        color = PixelInkMuted,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Text(
+                        text = "电吉他训练",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Text(
+                        text = "♪  ◆  ♫",
+                        color = PixelGold,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
-            Button(
+            PixelButton(
+                text = "音名训练",
                 onClick = onOpenNoteName,
                 modifier = Modifier.fillMaxWidth(0.78f),
-            ) {
-                Text(text = "音名训练")
-            }
+            )
             Spacer(modifier = Modifier.height(12.dp))
-            Button(
+            PixelButton(
+                text = "音名 / 唱名 / 级数",
                 onClick = onOpenMapping,
                 modifier = Modifier.fillMaxWidth(0.78f),
-            ) {
-                Text(text = "音名 / 唱名 / 级数")
-            }
+                style = PixelButtonStyle.Secondary,
+            )
         }
     }
 }
@@ -153,38 +179,47 @@ private fun MappingModeScreen(
     onOpenBasic: () -> Unit,
     onOpenCombined: () -> Unit,
 ) {
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = "训练模式",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onOpenBasic,
-                modifier = Modifier.fillMaxWidth(0.78f),
+            PixelHeader(title = "训练模式", onBack = onBack)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(text = "基础训练")
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onOpenCombined,
-                modifier = Modifier.fillMaxWidth(0.78f),
-            ) {
-                Text(text = "综合训练")
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(0.78f),
-            ) {
-                Text(text = "返回")
+                PixelPanel(modifier = Modifier.fillMaxWidth(0.78f)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = "SELECT MODE",
+                            color = PixelInkMuted,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        PixelButton(
+                            text = "基础训练",
+                            onClick = onOpenBasic,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        PixelButton(
+                            text = "综合训练",
+                            onClick = onOpenCombined,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = PixelButtonStyle.Secondary,
+                        )
+                    }
+                }
             }
         }
     }

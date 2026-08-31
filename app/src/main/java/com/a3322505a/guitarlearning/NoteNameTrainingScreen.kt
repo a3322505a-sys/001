@@ -13,12 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,8 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.training.CorrectErrorStats
 import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
@@ -39,11 +38,12 @@ import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
+import com.a3322505a.guitarlearning.ui.components.PixelHeader
+import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
+import com.a3322505a.guitarlearning.ui.components.PixelPanel
 import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 import kotlinx.coroutines.delay
-
-private val rangeSelectedColor = Color(0xFF1565C0)
 
 /** The landscape-only trainer for identifying physical fret locations by note name. */
 @Composable
@@ -75,6 +75,7 @@ fun NoteNameTrainingScreen(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing),
+        color = MaterialTheme.colorScheme.background,
     ) {
         Row(
             modifier = Modifier
@@ -189,6 +190,7 @@ fun NoteNameRangeScreen(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing),
+        color = MaterialTheme.colorScheme.background,
     ) {
         Column(
             modifier = Modifier
@@ -197,26 +199,7 @@ fun NoteNameRangeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(
-                    onClick = onBack,
-                    modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                ) {
-                    Text(text = "返回")
-                }
-                Text(
-                    text = "训练范围",
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Box(modifier = Modifier.sizeIn(minWidth = 64.dp))
-            }
+            PixelHeader(title = "训练范围", onBack = onBack)
 
             Box(
                 modifier = Modifier
@@ -225,36 +208,35 @@ fun NoteNameRangeScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(0.62f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.68f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     NoteTrainingRangeGroup.entries.forEach { group ->
-                        Text(
-                            text = group.label,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        NoteTrainingRange.entries
-                            .filter { it.group == group }
-                            .forEach { option ->
-                                val selected = option == selectedRange
-                                OutlinedButton(
-                                    onClick = { onSelect(option) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 52.dp),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = if (selected) 2.dp else 1.dp,
-                                        color = if (selected) rangeSelectedColor else
-                                            MaterialTheme.colorScheme.outline,
-                                    ),
-                                ) {
-                                    Text(
-                                        text = option.label,
-                                        color = if (selected) rangeSelectedColor else
-                                            MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
+                        PixelPanel(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = group.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                NoteTrainingRange.entries
+                                    .filter { it.group == group }
+                                    .forEach { option ->
+                                        PixelOutlinedButton(
+                                            text = option.label,
+                                            onClick = { onSelect(option) },
+                                            selected = option == selectedRange,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 52.dp),
+                                        )
+                                    }
                             }
+                        }
                     }
                 }
             }
