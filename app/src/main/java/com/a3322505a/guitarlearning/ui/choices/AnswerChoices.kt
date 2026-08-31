@@ -6,23 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-
-private val correctAnswerColor = Color(0xFF2E7D32)
-private val incorrectAnswerColor = Color(0xFFC62828)
+import com.a3322505a.guitarlearning.ui.components.PixelButton
+import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
 
 enum class AnswerChoiceStatus {
     DEFAULT,
@@ -110,16 +102,18 @@ fun AnswerChoices(
                                 .height(48.dp),
                         )
                     } else {
-                        val buttonColor = when (answerChoiceStatus(
+                        val status = answerChoiceStatus(
                             choice = choice,
                             submittedAnswer = submittedAnswer,
                             correctAnswer = correctAnswer,
-                        )) {
-                            AnswerChoiceStatus.CORRECT -> correctAnswerColor
-                            AnswerChoiceStatus.INCORRECT -> incorrectAnswerColor
-                            else -> null
+                        )
+                        val buttonStyle = when (status) {
+                            AnswerChoiceStatus.CORRECT -> PixelButtonStyle.Success
+                            AnswerChoiceStatus.INCORRECT -> PixelButtonStyle.Error
+                            AnswerChoiceStatus.DEFAULT -> PixelButtonStyle.Secondary
                         }
-                        Button(
+                        PixelButton(
+                            text = choice,
                             onClick = {
                                 if (!answerSubmitted) {
                                     localSubmittedAnswer = choice
@@ -130,19 +124,13 @@ fun AnswerChoices(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            colors = buttonColor?.let {
-                                ButtonDefaults.buttonColors(
-                                    containerColor = it,
-                                    contentColor = Color.White,
-                                    disabledContainerColor = it,
-                                    disabledContentColor = Color.White,
-                                )
-                            } ?: ButtonDefaults.buttonColors(),
-                        ) {
-                            Text(text = choice, fontSize = 16.sp, maxLines = 1)
-                        }
+                            style = buttonStyle,
+                            leadingSymbol = when (status) {
+                                AnswerChoiceStatus.CORRECT -> "✓"
+                                AnswerChoiceStatus.INCORRECT -> "×"
+                                AnswerChoiceStatus.DEFAULT -> null
+                            },
+                        )
                     }
                 }
             }

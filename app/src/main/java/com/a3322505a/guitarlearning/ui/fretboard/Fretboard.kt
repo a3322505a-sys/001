@@ -11,15 +11,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -27,18 +26,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.a3322505a.guitarlearning.core.FretPosition
+import com.a3322505a.guitarlearning.ui.theme.FretMetal
+import com.a3322505a.guitarlearning.ui.theme.FretboardWood
+import com.a3322505a.guitarlearning.ui.theme.FretboardWoodDark
+import com.a3322505a.guitarlearning.ui.theme.FretboardWoodLight
+import com.a3322505a.guitarlearning.ui.theme.Inlay
+import com.a3322505a.guitarlearning.ui.theme.NutIvory
+import com.a3322505a.guitarlearning.ui.theme.PixelGlow
+import com.a3322505a.guitarlearning.ui.theme.StringMetal
 
 const val FIRST_FRET = 0
 const val LAST_FRET = 12
 private const val STRING_LABEL_WIDTH_DP = 42
 private const val FRET_HEADER_HEIGHT_DP = 22
 private const val FRET_COUNT = LAST_FRET - FIRST_FRET + 1
-
-private val selectedCellColor = Color(0xFFFFD54F)
-private val fretboardColor = Color(0xFF795548)
-private val fretLineColor = Color(0xFFE8DCCB)
-private val stringColor = Color(0xFFF4F1EA)
-private val markerColor = Color(0xFF2D211B)
 
 data class FretboardCell(
     val string: Int,
@@ -180,31 +181,92 @@ private fun FretboardCanvas(
     Canvas(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(CutCornerShape(6.dp))
             .semantics {
                 contentDescription = "代码绘制的真实结构指板"
             },
     ) {
-        drawRoundRect(
-            color = fretboardColor,
-            cornerRadius = CornerRadius(8.dp.toPx()),
-        )
-
-        highlightedCells(selectedPosition).forEach { cell ->
-            val left = size.width * fretLeftFraction(cell.fret)
-            val right = size.width * fretRightFraction(cell.fret)
-            val cellHeight = size.height / 6f
-            val top = cellHeight * rowIndexForString(cell.string)
-            drawRect(
-                color = selectedCellColor.copy(alpha = 0.75f),
-                topLeft = androidx.compose.ui.geometry.Offset(left, top),
-                size = androidx.compose.ui.geometry.Size(right - left, cellHeight),
-            )
-        }
-
+        drawRect(color = FretboardWood)
+        drawPixelWoodGrain()
+        drawTargetHighlights(selectedPosition)
         drawFretLines()
         drawInlayMarkers()
         drawStrings()
+        drawRect(
+            color = FretboardWoodDark,
+            style = Stroke(width = 2.dp.toPx()),
+        )
+    }
+}
+
+private fun DrawScope.drawPixelWoodGrain() {
+    for (index in 0 until 12) {
+        val y = size.height * (index + 1) / 13f
+        val start = size.width * ((index * 17) % 29) / 100f
+        val length = size.width * (0.18f + (index % 4) * 0.06f)
+        drawRect(
+            color = if (index % 2 == 0) {
+                FretboardWoodLight.copy(alpha = 0.72f)
+            } else {
+                FretboardWoodDark.copy(alpha = 0.55f)
+            },
+            topLeft = androidx.compose.ui.geometry.Offset(start, y),
+            size = androidx.compose.ui.geometry.Size(
+                width = length.coerceAtMost(size.width - start),
+                height = 1.dp.toPx(),
+            ),
+        )
+
+        val secondStart = size.width * (0.58f + ((index * 7) % 16) / 100f)
+        drawRect(
+            color = FretboardWoodDark.copy(alpha = 0.38f),
+            topLeft = androidx.compose.ui.geometry.Offset(secondStart, y + 3.dp.toPx()),
+            size = androidx.compose.ui.geometry.Size(
+                width = (size.width * 0.14f).coerceAtMost(size.width - secondStart),
+                height = 1.dp.toPx(),
+            ),
+        )
+    }
+}
+
+private fun DrawScope.drawTargetHighlights(selectedPosition: FretPosition?) {
+    highlightedCells(selectedPosition).forEach { cell ->
+        val left = size.width * fretLeftFraction(cell.fret)
+        val right = size.width * fretRightFraction(cell.fret)
+        val cellHeight = size.height / 6f
+        val center = androidx.compose.ui.geometry.Offset(
+            x = (left + right) / 2f,
+            y = cellHeight * (rowIndexForString(cell.string) + 0.5f),
+        )
+        val outerSize = minOf(right - left, cellHeight) * 0.72f
+        val outerTopLeft = androidx.compose.ui.geometry.Offset(
+            center.x - outerSize / 2f,
+            center.y - outerSize / 2f,
+        )
+        drawRect(
+            color = PixelGlow.copy(alpha = 0.18f),
+            topLeft = outerTopLeft,
+            size = androidx.compose.ui.geometry.Size(outerSize, outerSize),
+        )
+        val ringSize = outerSize * 0.68f
+        drawRect(
+            color = PixelGlow,
+            topLeft = androidx.compose.ui.geometry.Offset(
+                center.x - ringSize / 2f,
+                center.y - ringSize / 2f,
+            ),
+            size = androidx.compose.ui.geometry.Size(ringSize, ringSize),
+            style = Stroke(width = 2.dp.toPx()),
+        )
+        val coreSize = 5.dp.toPx()
+        drawRect(
+            color = NutIvory,
+            topLeft = androidx.compose.ui.geometry.Offset(
+                center.x - coreSize / 2f,
+                center.y - coreSize / 2f,
+            ),
+            size = androidx.compose.ui.geometry.Size(coreSize, coreSize),
+        )
     }
 }
 
@@ -218,11 +280,18 @@ private fun DrawScope.drawFretLines() {
             FRET_COUNT -> size.width - regularWidth / 2f
             else -> rawX
         }
+        val strokeWidth = if (boundary == 0) nutWidth else regularWidth
         drawLine(
-            color = if (boundary == 0) Color(0xFFFFF4D6) else fretLineColor,
+            color = FretboardWoodDark,
             start = androidx.compose.ui.geometry.Offset(x, 0f),
             end = androidx.compose.ui.geometry.Offset(x, size.height),
-            strokeWidth = if (boundary == 0) nutWidth else regularWidth,
+            strokeWidth = strokeWidth + 2.dp.toPx(),
+        )
+        drawLine(
+            color = if (boundary == 0) NutIvory else FretMetal,
+            start = androidx.compose.ui.geometry.Offset(x, 0f),
+            end = androidx.compose.ui.geometry.Offset(x, size.height),
+            strokeWidth = strokeWidth,
         )
     }
 }
@@ -239,10 +308,23 @@ private fun DrawScope.drawInlayMarkers() {
             listOf(size.height * 0.36f, size.height * 0.64f)
         }
         yPositions.forEach { y ->
-            drawCircle(
-                color = markerColor,
-                radius = 4.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(centerX, y),
+            val markerSize = 8.dp.toPx()
+            drawRect(
+                color = FretboardWoodDark,
+                topLeft = androidx.compose.ui.geometry.Offset(
+                    centerX - markerSize / 2f,
+                    y - markerSize / 2f,
+                ),
+                size = androidx.compose.ui.geometry.Size(markerSize, markerSize),
+            )
+            val innerSize = 5.dp.toPx()
+            drawRect(
+                color = Inlay,
+                topLeft = androidx.compose.ui.geometry.Offset(
+                    centerX - innerSize / 2f,
+                    y - innerSize / 2f,
+                ),
+                size = androidx.compose.ui.geometry.Size(innerSize, innerSize),
             )
         }
     }
@@ -252,11 +334,18 @@ private fun DrawScope.drawStrings() {
     (6 downTo 1).forEach { string ->
         val y = size.height * stringCenterFraction(string)
         val rowIndex = rowIndexForString(string)
+        val strokeWidth = (4.5f - rowIndex * 0.65f).coerceAtLeast(1.2f).dp.toPx()
         drawLine(
-            color = stringColor,
+            color = FretboardWoodDark.copy(alpha = 0.8f),
+            start = androidx.compose.ui.geometry.Offset(0f, y + 1.dp.toPx()),
+            end = androidx.compose.ui.geometry.Offset(size.width, y + 1.dp.toPx()),
+            strokeWidth = strokeWidth + 1.dp.toPx(),
+        )
+        drawLine(
+            color = StringMetal,
             start = androidx.compose.ui.geometry.Offset(0f, y),
             end = androidx.compose.ui.geometry.Offset(size.width, y),
-            strokeWidth = (4.5f - rowIndex * 0.65f).coerceAtLeast(1.2f).dp.toPx(),
+            strokeWidth = strokeWidth,
         )
     }
 }
