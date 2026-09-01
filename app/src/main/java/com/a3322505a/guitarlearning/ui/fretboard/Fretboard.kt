@@ -76,24 +76,26 @@ fun fretWidthWeight(fret: Int): Float {
     return if (fret == 0) OPEN_STRING_WIDTH_UNITS else 1f
 }
 
+private fun fretBoundaryFraction(boundary: Int): Float {
+    require(boundary in FIRST_FRET..(LAST_FRET + 1)) { "boundary must be between 0 and 13" }
+    return when (boundary) {
+        FIRST_FRET -> 0f
+        FIRST_FRET + 1 -> OPEN_STRING_WIDTH_UNITS / FRETBOARD_WIDTH_UNITS
+        LAST_FRET + 1 -> 1f
+        else -> (OPEN_STRING_WIDTH_UNITS + boundary - 1f) / FRETBOARD_WIDTH_UNITS
+    }
+}
+
 /** The horizontal start of an open-string region or fretted cell. */
 fun fretLeftFraction(fret: Int): Float {
     require(fret in FIRST_FRET..LAST_FRET) { "fret must be between 0 and 12" }
-    return if (fret == 0) {
-        0f
-    } else {
-        (OPEN_STRING_WIDTH_UNITS + fret - 1f) / FRETBOARD_WIDTH_UNITS
-    }
+    return fretBoundaryFraction(fret)
 }
 
 /** The horizontal end of an open-string region or fretted cell. */
 fun fretRightFraction(fret: Int): Float {
     require(fret in FIRST_FRET..LAST_FRET) { "fret must be between 0 and 12" }
-    return if (fret == 0) {
-        OPEN_STRING_WIDTH_UNITS / FRETBOARD_WIDTH_UNITS
-    } else {
-        (OPEN_STRING_WIDTH_UNITS + fret) / FRETBOARD_WIDTH_UNITS
-    }
+    return fretBoundaryFraction(fret + 1)
 }
 
 /** Horizontal center for the open-string target or a numbered fret. */
@@ -301,7 +303,7 @@ private fun DrawScope.drawTargetHighlights(selectedPosition: FretPosition?) {
 private fun DrawScope.drawFretLines() {
     val regularWidth = 1.dp.toPx()
     val nutWidth = 5.dp.toPx()
-    for (boundary in 1..LAST_FRET + 1) {
+    for (boundary in 1..(LAST_FRET + 1)) {
         val x = if (boundary <= LAST_FRET) {
             size.width * fretLeftFraction(boundary)
         } else {

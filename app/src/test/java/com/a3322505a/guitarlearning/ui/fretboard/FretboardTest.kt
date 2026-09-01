@@ -70,6 +70,9 @@ class FretboardTest {
     fun openStringRegionSitsLeftOfTheNutAndIsNarrowerThanAFret() {
         assertEquals(0f, fretLeftFraction(0))
         assertEquals(fretRightFraction(0), fretLeftFraction(1))
+        for (fret in FIRST_FRET until LAST_FRET) {
+            assertEquals(fretRightFraction(fret), fretLeftFraction(fret + 1))
+        }
         assertTrue(
             fretRightFraction(0) - fretLeftFraction(0) <
                 fretRightFraction(1) - fretLeftFraction(1),
