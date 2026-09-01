@@ -48,7 +48,7 @@ data class FretboardCell(
 
 fun rowIndexForString(string: Int): Int {
     require(string in 1..6) { "string must be between 1 and 6" }
-    return 6 - string
+    return string - 1
 }
 
 fun isHighlighted(
@@ -59,7 +59,7 @@ fun isHighlighted(
 
 /** Cells highlighted for a target. The renderer uses this same list as the regression tests. */
 fun highlightedCells(selectedPosition: FretPosition?): List<FretboardCell> =
-    (6 downTo 1).flatMap { string ->
+    (1..6).flatMap { string ->
         (FIRST_FRET..LAST_FRET).mapNotNull { fret ->
             if (isHighlighted(selectedPosition, string, fret)) {
                 FretboardCell(string = string, fret = fret)
@@ -155,7 +155,7 @@ private fun StringLabels() {
             .width(STRING_LABEL_WIDTH_DP.dp)
             .fillMaxHeight(),
     ) {
-        (6 downTo 1).forEach { string ->
+        (1..6).forEach { string ->
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -331,10 +331,9 @@ private fun DrawScope.drawInlayMarkers() {
 }
 
 private fun DrawScope.drawStrings() {
-    (6 downTo 1).forEach { string ->
+    (1..6).forEach { string ->
         val y = size.height * stringCenterFraction(string)
-        val rowIndex = rowIndexForString(string)
-        val strokeWidth = (4.5f - rowIndex * 0.65f).coerceAtLeast(1.2f).dp.toPx()
+        val strokeWidth = (1.25f + (string - 1) * 0.65f).dp.toPx()
         drawLine(
             color = FretboardWoodDark.copy(alpha = 0.8f),
             start = androidx.compose.ui.geometry.Offset(0f, y + 1.dp.toPx()),

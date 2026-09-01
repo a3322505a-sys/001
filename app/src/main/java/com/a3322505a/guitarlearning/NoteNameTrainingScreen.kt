@@ -114,7 +114,7 @@ fun NoteNameTrainingScreen(
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
             ) {
                 PixelStats(
                     correctCount = session.correctCount,
