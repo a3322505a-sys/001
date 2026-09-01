@@ -67,11 +67,42 @@ class FretboardTest {
     }
 
     @Test
-    fun fretCellsCoverTheWholeBoardWithZeroAsTheNutSide() {
+    fun openStringRegionSitsLeftOfTheNutAndIsNarrowerThanAFret() {
         assertEquals(0f, fretLeftFraction(0))
-        assertEquals(1f / 13f, fretRightFraction(0))
-        assertEquals(12f / 13f, fretLeftFraction(12))
+        assertEquals(fretRightFraction(0), fretLeftFraction(1))
+        for (fret in FIRST_FRET until LAST_FRET) {
+            assertEquals(fretRightFraction(fret), fretLeftFraction(fret + 1))
+        }
+        assertTrue(
+            fretRightFraction(0) - fretLeftFraction(0) <
+                fretRightFraction(1) - fretLeftFraction(1),
+        )
+        assertEquals(
+            fretRightFraction(1) - fretLeftFraction(1),
+            fretRightFraction(3) - fretLeftFraction(3),
+            0.0001f,
+        )
         assertEquals(1f, fretRightFraction(12))
+    }
+
+    @Test
+    fun targetCentersFollowOpenStringAndPhysicalFretCells() {
+        assertTrue(fretCenterFraction(0) < fretRightFraction(0))
+        assertTrue(fretCenterFraction(1) > fretRightFraction(0))
+        for (fret in 1..LAST_FRET) {
+            assertEquals(
+                (fretLeftFraction(fret) + fretRightFraction(fret)) / 2f,
+                fretCenterFraction(fret),
+                0.0001f,
+            )
+        }
+    }
+
+    @Test
+    fun headerUsesTheSameNarrowOpenStringWidthAsTheBoard() {
+        assertTrue(fretWidthWeight(0) < fretWidthWeight(1))
+        assertEquals(1f, fretWidthWeight(1))
+        assertEquals(1f, fretWidthWeight(12))
     }
 
     @Test
