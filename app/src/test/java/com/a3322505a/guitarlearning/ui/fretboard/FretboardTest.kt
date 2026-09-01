@@ -9,11 +9,11 @@ import kotlin.test.assertTrue
 
 class FretboardTest {
     @Test
-    fun rowsAreOrderedFromSixthStringToFirstString() {
-        assertEquals(0, rowIndexForString(6))
-        assertEquals(1, rowIndexForString(5))
-        assertEquals(3, rowIndexForString(3))
-        assertEquals(5, rowIndexForString(1))
+    fun rowsAreOrderedFromFirstStringToSixthString() {
+        assertEquals(0, rowIndexForString(1))
+        assertEquals(1, rowIndexForString(2))
+        assertEquals(2, rowIndexForString(3))
+        assertEquals(5, rowIndexForString(6))
     }
 
     @Test
@@ -56,7 +56,7 @@ class FretboardTest {
         references.forEach { (string, fret) ->
             val selected = GuitarCore.getFretPosition(string, fret)
             assertTrue(isHighlighted(selected, string, fret))
-            assertEquals(6 - string, rowIndexForString(selected.string))
+            assertEquals(string - 1, rowIndexForString(selected.string))
         }
     }
 
