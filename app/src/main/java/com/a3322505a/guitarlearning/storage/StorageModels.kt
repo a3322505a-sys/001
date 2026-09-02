@@ -1,6 +1,7 @@
 package com.a3322505a.guitarlearning.storage
 
 import com.a3322505a.guitarlearning.training.QuestionType
+import com.a3322505a.guitarlearning.training.TrainingModuleIds
 
 /** The deliberately small mastery vocabulary used by V0.2.3. */
 enum class MasteryStatus {
@@ -13,14 +14,22 @@ enum class MasteryStatus {
 /** A direction-specific learning item with one canonical note/solfege/degree triple. */
 data class KnowledgeItem(
     val id: String,
-    val questionType: QuestionType,
-    val string: Int?,
-    val fret: Int?,
-    val note: String,
-    val solfege: String,
-    val degree: Int = 0,
+    val questionType: QuestionType? = null,
+    val string: Int? = null,
+    val fret: Int? = null,
+    val note: String? = null,
+    val solfege: String? = null,
+    val degree: Int? = null,
     val status: MasteryStatus = MasteryStatus.UNLEARNED,
+    val moduleId: String = defaultModuleId(questionType),
+    val kind: String = questionType?.name.orEmpty(),
 )
+
+private fun defaultModuleId(questionType: QuestionType?): String = when (questionType) {
+    QuestionType.FretToNote, QuestionType.FretToSolfege -> TrainingModuleIds.FRET_NOTE
+    null -> ""
+    else -> TrainingModuleIds.NOTE_MAPPING
+}
 
 /** Per-Knowledge-Item progress kept separate for every training direction. */
 data class Progress(
@@ -56,6 +65,7 @@ data class Settings(
     val fretStart: Int = 0,
     val fretEnd: Int = 12,
     val noteTrainingRangeId: String? = null,
+    val intervalLevelId: String? = null,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {

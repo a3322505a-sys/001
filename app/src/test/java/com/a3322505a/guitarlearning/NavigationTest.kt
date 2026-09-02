@@ -14,6 +14,9 @@ class NavigationTest {
         assertFalse(usesLandscapeLayout(AppDestination.MappingMode))
         assertFalse(usesLandscapeLayout(AppDestination.SolfeggioNoteMapping))
         assertFalse(usesLandscapeLayout(AppDestination.CombinedMapping))
+        assertFalse(usesLandscapeLayout(AppDestination.BasicTheory))
+        assertFalse(usesLandscapeLayout(AppDestination.IntervalLevels))
+        assertFalse(usesLandscapeLayout(AppDestination.IntervalTraining))
     }
 
     @Test
@@ -26,5 +29,8 @@ class NavigationTest {
             previousDestination(AppDestination.SolfeggioNoteMapping),
         )
         assertEquals(AppDestination.MappingMode, previousDestination(AppDestination.CombinedMapping))
+        assertEquals(AppDestination.Home, previousDestination(AppDestination.BasicTheory))
+        assertEquals(AppDestination.BasicTheory, previousDestination(AppDestination.IntervalLevels))
+        assertEquals(AppDestination.IntervalLevels, previousDestination(AppDestination.IntervalTraining))
     }
 }

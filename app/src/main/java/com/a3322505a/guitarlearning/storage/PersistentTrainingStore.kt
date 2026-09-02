@@ -95,6 +95,10 @@ class PersistentTrainingStore(
             "settings.noteTrainingRangeId",
             snapshot.settings.noteTrainingRangeId.orEmpty(),
         )
+        properties.setProperty(
+            "settings.intervalLevelId",
+            snapshot.settings.intervalLevelId.orEmpty(),
+        )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
 
@@ -102,12 +106,14 @@ class PersistentTrainingStore(
         snapshot.knowledgeItems.values.forEachIndexed { index, item ->
             val prefix = "knowledge.$index."
             properties.setProperty(prefix + "id", item.id)
-            properties.setProperty(prefix + "questionType", item.questionType.name)
+            properties.setProperty(prefix + "moduleId", item.moduleId)
+            properties.setProperty(prefix + "kind", item.kind)
+            properties.setProperty(prefix + "questionType", item.questionType?.name.orEmpty())
             properties.setProperty(prefix + "string", item.string?.toString().orEmpty())
             properties.setProperty(prefix + "fret", item.fret?.toString().orEmpty())
-            properties.setProperty(prefix + "note", item.note)
-            properties.setProperty(prefix + "solfege", item.solfege)
-            properties.setProperty(prefix + "degree", item.degree.toString())
+            properties.setProperty(prefix + "note", item.note.orEmpty())
+            properties.setProperty(prefix + "solfege", item.solfege.orEmpty())
+            properties.setProperty(prefix + "degree", item.degree?.toString().orEmpty())
             properties.setProperty(prefix + "status", item.status.name)
         }
 
@@ -160,6 +166,8 @@ class PersistentTrainingStore(
             fretEnd = properties.getProperty("settings.fretEnd", "12").toInt(),
             noteTrainingRangeId = properties.getProperty("settings.noteTrainingRangeId")
                 ?.takeIf { it.isNotEmpty() },
+            intervalLevelId = properties.getProperty("settings.intervalLevelId")
+                ?.takeIf { it.isNotEmpty() },
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,
@@ -181,21 +189,29 @@ class PersistentTrainingStore(
             val prefix = "knowledge.$index."
             val id = properties.getProperty(prefix + "id") ?: return@mapNotNull null
             val type = enumOrNull<QuestionType>(properties.getProperty(prefix + "questionType"))
-                ?: return@mapNotNull null
-            val note = properties.getProperty(prefix + "note") ?: return@mapNotNull null
-            val solfege = properties.getProperty(prefix + "solfege") ?: return@mapNotNull null
             KnowledgeItem(
                 id = id,
                 questionType = type,
                 string = properties.getProperty(prefix + "string").toNullableInt(),
                 fret = properties.getProperty(prefix + "fret").toNullableInt(),
-                note = note,
-                solfege = solfege,
-                degree = properties.getProperty(prefix + "degree", "0").toIntOrNull() ?: 0,
+                note = properties.getProperty(prefix + "note")?.takeIf { it.isNotEmpty() },
+                solfege = properties.getProperty(prefix + "solfege")?.takeIf { it.isNotEmpty() },
+                degree = properties.getProperty(prefix + "degree")?.toIntOrNull(),
                 status = enumValueOrDefault(
                     properties.getProperty(prefix + "status"),
                     MasteryStatus.UNLEARNED,
                 ),
+                moduleId = properties.getProperty(prefix + "moduleId")
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: when (type) {
+                        QuestionType.FretToNote, QuestionType.FretToSolfege ->
+                            com.a3322505a.guitarlearning.training.TrainingModuleIds.FRET_NOTE
+                        null -> ""
+                        else -> com.a3322505a.guitarlearning.training.TrainingModuleIds.NOTE_MAPPING
+                    },
+                kind = properties.getProperty(prefix + "kind")
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: type?.name.orEmpty(),
             )
         }.associateBy { it.id }
     }

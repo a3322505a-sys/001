@@ -1,6 +1,7 @@
 package com.a3322505a.guitarlearning.storage
 
 import com.a3322505a.guitarlearning.training.QuestionType
+import com.a3322505a.guitarlearning.training.TrainingModuleIds
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -99,6 +100,25 @@ class PersistentTrainingStoreTest {
         assertEquals("FretToNote:s1:f3", progress.knowledgeItemId)
         assertEquals(2, progress.attempts)
         assertEquals(1.0, progress.weight)
+    }
+
+    @Test
+    fun intervalSettingsAndGenericKnowledgeSurviveReconstruction() {
+        val backend = FakePreferenceBackend()
+        val store = PersistentTrainingStore(backend)
+        val settings = Settings(intervalLevelId = "LV3")
+        val item = KnowledgeItem(
+            id = "interval:identify:C:G",
+            moduleId = TrainingModuleIds.INTERVAL,
+            kind = "identify",
+        )
+
+        store.saveSettings(settings)
+        store.upsertKnowledgeItem(item)
+
+        val restored = PersistentTrainingStore(backend)
+        assertEquals("LV3", restored.loadSettings().intervalLevelId)
+        assertEquals(item, restored.findKnowledgeItem(item.id))
     }
 
     private class FakePreferenceBackend : PreferenceBackend {

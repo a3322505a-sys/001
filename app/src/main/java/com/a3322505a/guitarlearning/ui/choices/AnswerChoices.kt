@@ -81,6 +81,7 @@ fun AnswerChoices(
     modifier: Modifier = Modifier,
     submittedAnswer: String? = null,
     correctAnswer: String? = null,
+    columns: Int = ANSWER_GRID_COLUMNS,
 ) {
     var localSubmittedAnswer by remember(questionId) { mutableStateOf<String?>(null) }
     val answerSubmitted = submittedAnswer != null || localSubmittedAnswer != null
@@ -89,7 +90,7 @@ fun AnswerChoices(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        answerChoiceGridSlots(choices).forEach { rowChoices ->
+        answerChoiceGridSlots(choices, columns).forEach { rowChoices ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

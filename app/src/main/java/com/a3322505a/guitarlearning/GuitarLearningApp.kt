@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.training.IntervalLevel
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
@@ -39,6 +40,9 @@ enum class AppDestination {
     MappingMode,
     SolfeggioNoteMapping,
     CombinedMapping,
+    BasicTheory,
+    IntervalLevels,
+    IntervalTraining,
 }
 
 fun usesLandscapeLayout(destination: AppDestination): Boolean =
@@ -50,6 +54,9 @@ fun previousDestination(destination: AppDestination): AppDestination = when (des
     AppDestination.MappingMode -> AppDestination.Home
     AppDestination.SolfeggioNoteMapping,
     AppDestination.CombinedMapping -> AppDestination.MappingMode
+    AppDestination.BasicTheory -> AppDestination.Home
+    AppDestination.IntervalLevels -> AppDestination.BasicTheory
+    AppDestination.IntervalTraining -> AppDestination.IntervalLevels
     AppDestination.Home -> AppDestination.Home
 }
 
@@ -57,11 +64,17 @@ fun previousDestination(destination: AppDestination): AppDestination = when (des
 fun GuitarLearningApp(
     noteTrainingSession: TrainingSession,
     mappingTrainingSession: TrainingSession,
+    intervalTrainingSession: TrainingSession,
     onDestinationChanged: (AppDestination) -> Unit,
 ) {
     var destinationName by rememberSaveable { mutableStateOf(AppDestination.Home.name) }
     var noteRangeId by rememberSaveable {
         mutableStateOf(NoteTrainingRange.fromSettings(noteTrainingSession.currentSettings()).name)
+    }
+    var intervalLevelId by rememberSaveable {
+        mutableStateOf(
+            IntervalLevel.fromId(intervalTrainingSession.currentSettings().intervalLevelId).name,
+        )
     }
     val destination = AppDestination.valueOf(destinationName)
     val noteRange = NoteTrainingRange.fromId(noteRangeId)
@@ -69,6 +82,10 @@ fun GuitarLearningApp(
     val noteStateMachine = remember(noteTrainingSession) {
         TrainingStateMachine(noteTrainingSession)
     }
+    val intervalStateMachine = remember(intervalTrainingSession) {
+        TrainingStateMachine(intervalTrainingSession)
+    }
+    val intervalLevel = IntervalLevel.fromId(intervalLevelId)
 
     fun navigateTo(next: AppDestination) {
         destinationName = next.name
@@ -87,6 +104,7 @@ fun GuitarLearningApp(
         AppDestination.Home -> HomeScreen(
             onOpenNoteName = { navigateTo(AppDestination.NoteNameRange) },
             onOpenMapping = { navigateTo(AppDestination.MappingMode) },
+            onOpenTheory = { navigateTo(AppDestination.BasicTheory) },
         )
         AppDestination.NoteNameRange -> NoteNameRangeScreen(
             selectedRange = noteRange,
@@ -115,6 +133,29 @@ fun GuitarLearningApp(
         AppDestination.CombinedMapping -> CombinedMappingTrainingScreen(
             onBack = { navigateTo(AppDestination.MappingMode) },
         )
+        AppDestination.BasicTheory -> BasicTheoryScreen(
+            onBack = { navigateTo(AppDestination.Home) },
+            onOpenIntervals = { navigateTo(AppDestination.IntervalLevels) },
+        )
+        AppDestination.IntervalLevels -> IntervalLevelScreen(
+            selectedLevel = intervalLevel,
+            onBack = { navigateTo(AppDestination.BasicTheory) },
+            onSelect = { selected ->
+                intervalLevelId = selected.name
+                intervalStateMachine.resetRound(
+                    intervalTrainingSession.currentSettings().copy(
+                        intervalLevelId = selected.name,
+                    ),
+                )
+                navigateTo(AppDestination.IntervalTraining)
+            },
+        )
+        AppDestination.IntervalTraining -> IntervalTrainingScreen(
+            trainingSession = intervalTrainingSession,
+            stateMachine = intervalStateMachine,
+            level = intervalLevel,
+            onBack = { navigateTo(AppDestination.IntervalLevels) },
+        )
     }
 }
 
@@ -122,6 +163,7 @@ fun GuitarLearningApp(
 private fun HomeScreen(
     onOpenNoteName: () -> Unit,
     onOpenMapping: () -> Unit,
+    onOpenTheory: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -166,6 +208,13 @@ private fun HomeScreen(
             PixelButton(
                 text = "音名 / 唱名 / 级数",
                 onClick = onOpenMapping,
+                modifier = Modifier.fillMaxWidth(0.78f),
+                style = PixelButtonStyle.Secondary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PixelButton(
+                text = "基础乐理",
+                onClick = onOpenTheory,
                 modifier = Modifier.fillMaxWidth(0.78f),
                 style = PixelButtonStyle.Secondary,
             )

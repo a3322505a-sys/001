@@ -59,7 +59,7 @@ class TrainingSession(
         val oldProgress = store.loadProgress(result.knowledgeItemId)
             ?: Progress(knowledgeItemId = result.knowledgeItemId)
         val recordedProgress = ProgressUpdater.record(oldProgress, result, nowMs())
-        val newProgress = if (question.type == QuestionType.FretToNote) {
+        val newProgress = if (question.weightPolicy == QuestionWeightPolicy.BOUNDED_PER_ITEM) {
             recordedProgress.copy(
                 weight = PositionQuestionWeights.afterAnswer(
                     previousWeight = oldProgress.weight,
