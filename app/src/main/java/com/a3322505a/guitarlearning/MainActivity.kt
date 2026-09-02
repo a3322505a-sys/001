@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
+import com.a3322505a.guitarlearning.training.IntervalModule
 import com.a3322505a.guitarlearning.training.QuestionType
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingEngine
@@ -14,6 +15,7 @@ import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 class MainActivity : ComponentActivity() {
     private lateinit var noteTrainingSession: TrainingSession
     private lateinit var mappingTrainingSession: TrainingSession
+    private lateinit var intervalTrainingSession: TrainingSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,12 +48,21 @@ class MainActivity : ComponentActivity() {
             ),
             store = store,
         )
+        intervalTrainingSession = TrainingSession(
+            engine = TrainingEngine(
+                settings = settings,
+                progressProvider = { store.loadProgress() },
+                module = IntervalModule(),
+            ),
+            store = store,
+        )
 
         setContent {
             GuitarLearningTheme {
                 GuitarLearningApp(
                     noteTrainingSession = noteTrainingSession,
                     mappingTrainingSession = mappingTrainingSession,
+                    intervalTrainingSession = intervalTrainingSession,
                     onDestinationChanged = { destination ->
                         requestedOrientation = if (usesLandscapeLayout(destination)) {
                             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -67,6 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         if (::noteTrainingSession.isInitialized) noteTrainingSession.finish()
         if (::mappingTrainingSession.isInitialized) mappingTrainingSession.finish()
+        if (::intervalTrainingSession.isInitialized) intervalTrainingSession.finish()
         super.onStop()
     }
 }

@@ -39,6 +39,7 @@ fun PixelButton(
     enabled: Boolean = true,
     style: PixelButtonStyle = PixelButtonStyle.Primary,
     leadingSymbol: String? = null,
+    maxLines: Int = 1,
 ) {
     val (container, border) = when (style) {
         PixelButtonStyle.Primary -> PixelGreen to PixelGreenDark
@@ -69,7 +70,7 @@ fun PixelButton(
         Text(
             text = listOfNotNull(leadingSymbol, text).joinToString(" "),
             style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
+            maxLines = maxLines,
         )
     }
 }

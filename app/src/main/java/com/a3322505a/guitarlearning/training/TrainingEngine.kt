@@ -1,50 +1,34 @@
 package com.a3322505a.guitarlearning.training
 
-import com.a3322505a.guitarlearning.core.FretPosition
-import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.storage.Progress
 import com.a3322505a.guitarlearning.storage.Settings
 import kotlin.random.Random
 
-/**
- * Question generation and answer submission with no Compose or Android state.
- */
+/** Module-neutral question selection and answer submission with no Compose or Android state. */
 class TrainingEngine(
     settings: Settings = Settings(),
     private val random: Random = Random.Default,
     private val progressProvider: () -> List<Progress> = { emptyList() },
-    private val enabledQuestionTypes: List<QuestionType> = QuestionType.entries,
+    enabledQuestionTypes: List<QuestionType> = QuestionType.entries,
+    module: TrainingModule? = null,
 ) {
-    private val factory = QuestionFactory()
+    private val trainingModule = module ?: LegacyTrainingModule(enabledQuestionTypes)
     private var currentSettings = settings
-    private var positions: List<FretPosition> = GuitarCore.allPositions(
-        strings = settings.selectedStrings.sorted(),
-        frets = settings.fretStart..settings.fretEnd,
-        naturalOnly = true,
-    ).also { require(it.isNotEmpty()) { "Question bank must contain a natural note" } }
-    private val mappingNotes: List<String> = GuitarCore.fixedMappings.map { it.note }
-    private val mappingDegrees: List<Int> = GuitarCore.fixedMappings.map { it.degree }
-    private val questionTypes = enabledQuestionTypes.distinct().also {
-        require(it.isNotEmpty()) { "At least one question type must be enabled" }
-    }
-
+    private var questionBank = trainingModule.buildQuestionBank(settings)
     private var currentQuestion: Question? = null
     private var submitted = false
     private var lastResult: AnswerResult? = null
 
     fun generateQuestion(type: QuestionType? = null): Question {
-        val candidates = if (type == null) {
-            questionTypes.flatMap(::candidatesFor)
-        } else {
-            candidatesFor(type)
-        }
+        val candidates = if (type == null) questionBank else questionBank.filter { it.type == type }
+        require(candidates.isNotEmpty()) { "Question bank does not contain the requested type" }
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
-        val question = weightedSample(candidates) { question ->
-            val progress = progressById[question.knowledgeItemId]
-            if (question.type == QuestionType.FretToNote) {
-                PositionQuestionWeights.forProgress(progress)
-            } else {
-                QuestionWeights.forProgress(progress)
+        val question = weightedSample(candidates) { candidate ->
+            val progress = progressById[candidate.knowledgeItemId]
+            when (candidate.weightPolicy) {
+                QuestionWeightPolicy.MASTERY -> QuestionWeights.forProgress(progress)
+                QuestionWeightPolicy.BOUNDED_PER_ITEM ->
+                    PositionQuestionWeights.forProgress(progress)
             }
         }
         currentQuestion = question
@@ -55,28 +39,17 @@ class TrainingEngine(
 
     fun submitAnswer(answer: String): AnswerResult {
         val question = currentQuestion ?: error("Generate a question before submitting an answer")
-        if (submitted) {
-            return requireNotNull(lastResult).copy(accepted = false)
-        }
-        if (answer !in question.choices) {
-            return AnswerResult(
-                accepted = false,
-                isCorrect = false,
-                submittedAnswer = answer,
-                correctAnswer = question.correctAnswer,
-                knowledgeItemId = question.knowledgeItemId,
-            )
-        }
-        val result = AnswerResult(
-            accepted = true,
-            isCorrect = answer == question.correctAnswer,
-            submittedAnswer = answer,
-            correctAnswer = question.correctAnswer,
-            knowledgeItemId = question.knowledgeItemId,
-        )
-        submitted = true
-        lastResult = result
-        return result
+        if (submitted) return requireNotNull(lastResult).copy(accepted = false)
+        val choice = question.choiceForLabel(answer) ?: return invalidResult(question, answer)
+        return submitChoiceInternal(question, choice)
+    }
+
+    fun submitChoice(choiceId: String): AnswerResult {
+        val question = currentQuestion ?: error("Generate a question before submitting an answer")
+        if (submitted) return requireNotNull(lastResult).copy(accepted = false)
+        val choice = question.answerChoices.singleOrNull { it.id == choiceId }
+            ?: return invalidResult(question, choiceId)
+        return submitChoiceInternal(question, choice)
     }
 
     fun nextQuestion(): Question = generateQuestion()
@@ -85,32 +58,44 @@ class TrainingEngine(
 
     fun settings(): Settings = currentSettings
 
+    fun moduleId(): String = trainingModule.id
+
     fun updateSettings(newSettings: Settings) {
         currentSettings = newSettings
-        positions = GuitarCore.allPositions(
-            strings = newSettings.selectedStrings.sorted(),
-            frets = newSettings.fretStart..newSettings.fretEnd,
-            naturalOnly = true,
-        ).also { require(it.isNotEmpty()) { "Question bank must contain a natural note" } }
+        questionBank = trainingModule.buildQuestionBank(newSettings)
         currentQuestion = null
         submitted = false
         lastResult = null
     }
 
-    private fun candidatesFor(type: QuestionType): List<Question> = when (type) {
-        QuestionType.FretToNote,
-        QuestionType.FretToSolfege -> positions.map { factory.create(type, it) }
-        QuestionType.NoteToSolfege,
-        QuestionType.SolfegeToNote,
-        QuestionType.NoteToDegree,
-        QuestionType.SolfegeToDegree -> mappingNotes.map { factory.createForNote(type, it) }
-        QuestionType.DegreeToNote,
-        QuestionType.DegreeToSolfege -> mappingDegrees.map { factory.createForDegree(type, it) }
+    private fun submitChoiceInternal(question: Question, choice: AnswerChoice): AnswerResult {
+        val result = AnswerResult(
+            accepted = true,
+            isCorrect = choice.id == question.correctChoiceId,
+            submittedAnswer = choice.label,
+            correctAnswer = question.correctAnswer,
+            knowledgeItemId = question.knowledgeItemId,
+            submittedChoiceId = choice.id,
+            correctChoiceId = question.correctChoiceId,
+        )
+        submitted = true
+        lastResult = result
+        return result
     }
 
+    private fun invalidResult(question: Question, submitted: String): AnswerResult = AnswerResult(
+        accepted = false,
+        isCorrect = false,
+        submittedAnswer = submitted,
+        correctAnswer = question.correctAnswer,
+        knowledgeItemId = question.knowledgeItemId,
+        submittedChoiceId = null,
+        correctChoiceId = question.correctChoiceId,
+    )
+
     private fun <T> weightedSample(items: List<T>, weight: (T) -> Double): T {
-        require(items.isNotEmpty()) { "Question bank must contain a question" }
         val total = items.sumOf(weight)
+        require(total > 0.0) { "Question bank must have positive total weight" }
         var cursor = random.nextDouble() * total
         items.forEach { item ->
             cursor -= weight(item)
@@ -118,5 +103,4 @@ class TrainingEngine(
         }
         return items.last()
     }
-
 }
