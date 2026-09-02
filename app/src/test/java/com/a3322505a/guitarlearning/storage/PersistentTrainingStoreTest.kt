@@ -23,6 +23,7 @@ class PersistentTrainingStoreTest {
             attempts = 3,
             correct = 2,
             streak = 0,
+            weight = 2.56,
             lastSeenAt = 1_700_000_000_000L,
             mastery = MasteryStatus.LEARNING,
             recentResults = listOf(true, true, false),
@@ -76,6 +77,28 @@ class PersistentTrainingStoreTest {
 
         assertEquals(1, store.loadKnowledgeItems().size)
         assertEquals(MasteryStatus.BASIC_MASTERY, store.findKnowledgeItem(item.id)?.status)
+    }
+
+    @Test
+    fun legacyProgressWithoutWeightRestoresAtInitialWeight() {
+        val backend = FakePreferenceBackend()
+        backend.putString(
+            "v01.storage",
+            """
+            version=1
+            progress.count=1
+            progress.0.knowledgeItemId=FretToNote\:s1\:f3
+            progress.0.attempts=2
+            progress.0.correct=2
+            progress.0.streak=2
+            """.trimIndent(),
+        )
+
+        val progress = PersistentTrainingStore(backend).loadProgress().single()
+
+        assertEquals("FretToNote:s1:f3", progress.knowledgeItemId)
+        assertEquals(2, progress.attempts)
+        assertEquals(1.0, progress.weight)
     }
 
     private class FakePreferenceBackend : PreferenceBackend {

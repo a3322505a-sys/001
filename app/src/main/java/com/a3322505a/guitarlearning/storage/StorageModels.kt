@@ -28,6 +28,8 @@ data class Progress(
     val attempts: Int = 0,
     val correct: Int = 0,
     val streak: Int = 0,
+    /** Persisted sampling weight for a physical string-and-fret note-name question. */
+    val weight: Double = 1.0,
     val lastSeenAt: Long? = null,
     val mastery: MasteryStatus = MasteryStatus.UNLEARNED,
     /** The latest outcomes are retained for the small V0.2.3 mastery rule. */
