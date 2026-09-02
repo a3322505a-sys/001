@@ -40,7 +40,12 @@ class TrainingEngine(
         }
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
         val question = weightedSample(candidates) { question ->
-            QuestionWeights.forProgress(progressById[question.knowledgeItemId])
+            val progress = progressById[question.knowledgeItemId]
+            if (question.type == QuestionType.FretToNote) {
+                PositionQuestionWeights.forProgress(progress)
+            } else {
+                QuestionWeights.forProgress(progress)
+            }
         }
         currentQuestion = question
         submitted = false

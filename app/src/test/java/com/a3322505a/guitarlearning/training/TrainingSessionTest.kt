@@ -1,6 +1,8 @@
 package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.storage.InMemoryTrainingStore
+import com.a3322505a.guitarlearning.storage.Progress
+import com.a3322505a.guitarlearning.storage.Settings
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,5 +51,60 @@ class TrainingSessionTest {
         val finished = session.finish()
         assertEquals(2_000L, finished.endedAt)
         assertEquals(finished, store.loadSessions().single())
+    }
+
+    @Test
+    fun wrongNoteNameAnswerRaisesOnlyThatPhysicalPositionsWeight() {
+        val store = InMemoryTrainingStore()
+        val session = TrainingSession(
+            engine = TrainingEngine(
+                settings = Settings(selectedStrings = setOf(1), fretStart = 0, fretEnd = 1),
+                random = Random(12),
+                progressProvider = { store.loadProgress() },
+                enabledQuestionTypes = listOf(QuestionType.FretToNote),
+            ),
+            store = store,
+            nowMs = { 1_000L },
+            sessionId = "weighted-session",
+        )
+        val question = session.currentQuestion()
+
+        session.submitAnswer(question.choices.first { it != question.correctAnswer })
+
+        val updated = assertNotNull(store.loadProgress(question.knowledgeItemId))
+        assertEquals(1, updated.attempts)
+        assertEquals(1.6, updated.weight, absoluteTolerance = 0.000_001)
+        val otherId = if (question.knowledgeItemId.endsWith(":f0")) {
+            "FretToNote:s1:f1"
+        } else {
+            "FretToNote:s1:f0"
+        }
+        assertNull(store.loadProgress(otherId))
+    }
+
+    @Test
+    fun changingTrainingRangeDoesNotResetStoredPositionHistory() {
+        val store = InMemoryTrainingStore()
+        val history = Progress(
+            knowledgeItemId = "FretToNote:s1:f3",
+            attempts = 7,
+            correct = 3,
+            weight = 2.0,
+        )
+        store.saveProgress(history)
+        val session = TrainingSession(
+            engine = TrainingEngine(
+                settings = NoteTrainingRange.SINGLE_STRING_1.applyTo(Settings()),
+                progressProvider = { store.loadProgress() },
+                enabledQuestionTypes = listOf(QuestionType.FretToNote),
+            ),
+            store = store,
+            nowMs = { 1_000L },
+            sessionId = "range-session",
+        )
+
+        session.resetForSettings(NoteTrainingRange.CROSS_STRING_1_TO_3.applyTo(Settings()))
+
+        assertEquals(history, store.loadProgress(history.knowledgeItemId))
     }
 }

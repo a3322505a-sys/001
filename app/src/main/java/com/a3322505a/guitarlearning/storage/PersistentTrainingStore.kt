@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.storage
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.a3322505a.guitarlearning.training.PositionQuestionWeights
 import com.a3322505a.guitarlearning.training.QuestionType
 import java.io.StringReader
 import java.io.StringWriter
@@ -117,6 +118,7 @@ class PersistentTrainingStore(
             properties.setProperty(prefix + "attempts", item.attempts.toString())
             properties.setProperty(prefix + "correct", item.correct.toString())
             properties.setProperty(prefix + "streak", item.streak.toString())
+            properties.setProperty(prefix + "weight", item.weight.toString())
             properties.setProperty(prefix + "lastSeenAt", item.lastSeenAt?.toString().orEmpty())
             properties.setProperty(prefix + "mastery", item.mastery.name)
             properties.setProperty(
@@ -209,6 +211,11 @@ class PersistentTrainingStore(
                 attempts = properties.getProperty(prefix + "attempts", "0").toInt(),
                 correct = properties.getProperty(prefix + "correct", "0").toInt(),
                 streak = properties.getProperty(prefix + "streak", "0").toInt(),
+                weight = properties.getProperty(prefix + "weight")
+                    ?.toDoubleOrNull()
+                    ?.takeIf { it.isFinite() }
+                    ?.coerceIn(PositionQuestionWeights.MINIMUM, PositionQuestionWeights.MAXIMUM)
+                    ?: PositionQuestionWeights.INITIAL,
                 lastSeenAt = properties.getProperty(prefix + "lastSeenAt").toNullableLong(),
                 mastery = enumValueOrDefault(
                     properties.getProperty(prefix + "mastery"),

@@ -58,7 +58,18 @@ class TrainingSession(
 
         val oldProgress = store.loadProgress(result.knowledgeItemId)
             ?: Progress(knowledgeItemId = result.knowledgeItemId)
-        val newProgress = ProgressUpdater.record(oldProgress, result, nowMs())
+        val recordedProgress = ProgressUpdater.record(oldProgress, result, nowMs())
+        val newProgress = if (question.type == QuestionType.FretToNote) {
+            recordedProgress.copy(
+                weight = PositionQuestionWeights.afterAnswer(
+                    previousWeight = oldProgress.weight,
+                    totalAttempts = recordedProgress.attempts,
+                    isCorrect = result.isCorrect,
+                ),
+            )
+        } else {
+            recordedProgress
+        }
         val item = store.findKnowledgeItem(result.knowledgeItemId)
             ?: factory.knowledgeItemFor(question)
         store.upsertKnowledgeItem(item.copy(status = newProgress.mastery))

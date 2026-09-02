@@ -36,3 +36,32 @@ object QuestionWeights {
         return weight
     }
 }
+
+/** Bounded, deliberately asymmetric weight updates for physical note-name positions. */
+object PositionQuestionWeights {
+    const val INITIAL = 1.0
+    const val MINIMUM = 0.4
+    const val MAXIMUM = 3.0
+    private const val WRONG_MULTIPLIER = 1.6
+    private const val CORRECT_MULTIPLIER = 0.9
+    private const val MINIMUM_ATTEMPTS_BEFORE_DECAY = 3
+
+    fun forProgress(progress: Progress?): Double = sanitize(progress?.weight ?: INITIAL)
+
+    fun afterAnswer(
+        previousWeight: Double,
+        totalAttempts: Int,
+        isCorrect: Boolean,
+    ): Double {
+        val current = sanitize(previousWeight)
+        return when {
+            !isCorrect -> (current * WRONG_MULTIPLIER).coerceAtMost(MAXIMUM)
+            totalAttempts >= MINIMUM_ATTEMPTS_BEFORE_DECAY ->
+                (current * CORRECT_MULTIPLIER).coerceAtLeast(MINIMUM)
+            else -> current
+        }
+    }
+
+    private fun sanitize(weight: Double): Double =
+        if (weight.isFinite()) weight.coerceIn(MINIMUM, MAXIMUM) else INITIAL
+}
