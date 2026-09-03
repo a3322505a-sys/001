@@ -1,5 +1,8 @@
 package com.a3322505a.guitarlearning.training
 
+import com.a3322505a.guitarlearning.audio.PitchCatalog
+import com.a3322505a.guitarlearning.audio.PitchCue
+import com.a3322505a.guitarlearning.audio.PitchPlaybackStyle
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.core.NoteMapping
 import kotlin.random.Random
@@ -32,6 +35,7 @@ data class CombinedQuestion(
     val form: MappingForm = MappingForm.SINGLE,
     val missingIndex: Int? = null,
     val structuralChoices: List<String> = emptyList(),
+    val usesAudioPrompt: Boolean = false,
 ) {
     init {
         require(mappings.isNotEmpty()) { "A mapping question needs at least one value" }
@@ -94,7 +98,27 @@ data class CombinedQuestion(
             }
         }
 
-    fun promptFor(step: CombinedStep): String = when (form) {
+    val audioCue: PitchCue?
+        get() = if (usesAudioPrompt) {
+            PitchCue(
+                pitches = mappings.map { PitchCatalog.forNaturalNote(it.note) },
+                style = if (form == MappingForm.CHORD_SET) {
+                    PitchPlaybackStyle.CHORD
+                } else {
+                    PitchPlaybackStyle.SEQUENCE
+                },
+            )
+        } else {
+            null
+        }
+
+    fun promptFor(step: CombinedStep): String = when {
+        usesAudioPrompt && form == MappingForm.SINGLE -> "♪ 听声音，选择对应符号"
+        usesAudioPrompt -> "♪ 听声音结构，选择对应符号"
+        else -> visualPromptFor(step)
+    }
+
+    private fun visualPromptFor(step: CombinedStep): String = when (form) {
         MappingForm.SINGLE -> when (step) {
             CombinedStep.FIRST -> valueFor(sourceType) + " = ?"
             CombinedStep.SECOND ->
@@ -132,12 +156,16 @@ class CombinedQuestionFactory(
 ) {
     private var nextId = 0
 
-    fun create(level: Int = 1): CombinedQuestion {
+    fun create(level: Int = 1, audioPrompt: Boolean = false): CombinedQuestion {
         require(level in 1..6) { "Mapping level must be between 1 and 6" }
-        return if (level == 1) createSingle() else createStructure(MappingForm.forLevel(level))
+        return if (level == 1) {
+            createSingle(audioPrompt)
+        } else {
+            createStructure(MappingForm.forLevel(level), audioPrompt)
+        }
     }
 
-    private fun createSingle(): CombinedQuestion {
+    private fun createSingle(audioPrompt: Boolean): CombinedQuestion {
         val mapping = GuitarCore.fixedMappings[random.nextInt(GuitarCore.fixedMappings.size)]
         val path = AnswerKind.entries.shuffled(random)
         return CombinedQuestion(
@@ -146,10 +174,11 @@ class CombinedQuestionFactory(
             sourceType = path[0],
             firstTargetType = path[1],
             secondTargetType = path[2],
+            usesAudioPrompt = audioPrompt,
         )
     }
 
-    private fun createStructure(form: MappingForm): CombinedQuestion {
+    private fun createStructure(form: MappingForm, audioPrompt: Boolean): CombinedQuestion {
         val path = AnswerKind.entries.shuffled(random)
         val degreePattern = patterns.getValue(form).random(random)
         val mappings = degreePattern.map { degree ->
@@ -175,6 +204,7 @@ class CombinedQuestionFactory(
             form = form,
             missingIndex = missingIndex,
             structuralChoices = choices,
+            usesAudioPrompt = audioPrompt && form != MappingForm.MISSING,
         )
     }
 
@@ -291,12 +321,19 @@ sealed interface CombinedMappingState {
 class CombinedMappingStateMachine(
     random: Random = Random.Default,
     initialLevel: Int = 1,
+    initialAudioPromptsEnabled: Boolean = false,
 ) {
     private val factory = CombinedQuestionFactory(random)
     var selectedLevel: Int = initialLevel
         private set
 
-    private var current: CombinedMappingState = awaiting(factory.create(selectedLevel), CombinedStep.FIRST)
+    var audioPromptsEnabled: Boolean = initialAudioPromptsEnabled
+        private set
+
+    private var current: CombinedMappingState = awaiting(
+        factory.create(selectedLevel, audioPromptsEnabled),
+        CombinedStep.FIRST,
+    )
 
     var correctCount: Int = 0
         private set
@@ -313,7 +350,9 @@ class CombinedMappingStateMachine(
 
         current = if (answer == awaiting.correctAnswer) {
             val completesQuestion =
-                awaiting.question.form != MappingForm.SINGLE || awaiting.step == CombinedStep.SECOND
+                awaiting.question.usesAudioPrompt ||
+                    awaiting.question.form != MappingForm.SINGLE ||
+                    awaiting.step == CombinedStep.SECOND
             if (completesQuestion) correctCount += 1
             CombinedMappingState.Correct(
                 question = awaiting.question,
@@ -339,7 +378,7 @@ class CombinedMappingStateMachine(
     fun advanceAfterCorrect(): CombinedMappingState {
         val correct = current as? CombinedMappingState.Correct ?: return current
         current = if (correct.completesQuestion) {
-            awaiting(factory.create(selectedLevel), CombinedStep.FIRST)
+            awaiting(factory.create(selectedLevel, audioPromptsEnabled), CombinedStep.FIRST)
         } else {
             awaiting(correct.question, CombinedStep.SECOND)
         }
@@ -350,14 +389,23 @@ class CombinedMappingStateMachine(
         check(current is CombinedMappingState.Incorrect) {
             "Only an incorrect question requires manual advancement"
         }
-        current = awaiting(factory.create(selectedLevel), CombinedStep.FIRST)
+        current = awaiting(
+            factory.create(selectedLevel, audioPromptsEnabled),
+            CombinedStep.FIRST,
+        )
         return current
     }
 
     fun selectLevel(level: Int): CombinedMappingState {
         require(level in 1..6) { "Mapping level must be between 1 and 6" }
         selectedLevel = level
-        current = awaiting(factory.create(level), CombinedStep.FIRST)
+        current = awaiting(factory.create(level, audioPromptsEnabled), CombinedStep.FIRST)
+        return current
+    }
+
+    fun setAudioPromptsEnabled(enabled: Boolean): CombinedMappingState {
+        audioPromptsEnabled = enabled
+        current = awaiting(factory.create(selectedLevel, enabled), CombinedStep.FIRST)
         return current
     }
 

@@ -1,5 +1,7 @@
 package com.a3322505a.guitarlearning
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,33 +13,33 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.width
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import com.a3322505a.guitarlearning.audio.PitchPlayer
+import com.a3322505a.guitarlearning.audio.handleFretboardTap
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.training.AnswerValue
-import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
+import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.components.PixelButton
@@ -63,6 +65,7 @@ private const val CORRECT_PULSE_SCALE = 1.14f
 fun NoteNameTrainingScreen(
     trainingSession: TrainingSession,
     stateMachine: TrainingStateMachine,
+    pitchPlayer: PitchPlayer,
     onBack: (() -> Unit)? = null,
 ) {
     var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
@@ -287,9 +290,11 @@ fun NoteNameTrainingScreen(
                         interactionMode = interactionMode,
                         markerScale = markerScale.value,
                         onPositionClick = { position ->
-                            state = stateMachine.submitAnswer(
-                                AnswerValue.FretPosition(position.string, position.fret),
-                            )
+                            handleFretboardTap(position, pitchPlayer) { tapped ->
+                                state = stateMachine.submitAnswer(
+                                    AnswerValue.FretPosition(tapped.string, tapped.fret),
+                                )
+                            }
                         },
                         showLabels = false,
                         modifier = Modifier.fillMaxSize(),

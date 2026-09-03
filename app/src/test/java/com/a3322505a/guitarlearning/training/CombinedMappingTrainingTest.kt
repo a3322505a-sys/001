@@ -1,5 +1,6 @@
 package com.a3322505a.guitarlearning.training
 
+import com.a3322505a.guitarlearning.audio.PitchPlaybackStyle
 import com.a3322505a.guitarlearning.core.GuitarCore
 import kotlin.random.Random
 import kotlin.test.Test
@@ -151,5 +152,50 @@ class CombinedMappingTrainingTest {
         assertEquals(MappingForm.CHORD_SET, chord.question.form)
         assertIs<CombinedMappingState.Correct>(machine.submitAnswer(chord.correctAnswer))
         assertEquals(2, machine.correctCount)
+    }
+
+    @Test
+    fun audioSingleUsesOnePitchAndCompletesInOneAnswer() {
+        val machine = CombinedMappingStateMachine(
+            random = Random(101),
+            initialLevel = 1,
+            initialAudioPromptsEnabled = true,
+        )
+        val awaiting = assertIs<CombinedMappingState.AwaitingAnswer>(machine.state)
+
+        assertTrue(awaiting.question.usesAudioPrompt)
+        assertEquals(1, awaiting.question.audioCue?.pitches?.size)
+        val correct = assertIs<CombinedMappingState.Correct>(
+            machine.submitAnswer(awaiting.correctAnswer),
+        )
+        assertTrue(correct.completesQuestion)
+        assertEquals(1, machine.correctCount)
+    }
+
+    @Test
+    fun audioStructuresUseSequencesAndChordPlayback() {
+        val factory = CombinedQuestionFactory(Random(102))
+
+        listOf(2, 3, 5).forEach { level ->
+            val question = factory.create(level, audioPrompt = true)
+            assertTrue(question.usesAudioPrompt)
+            assertEquals(PitchPlaybackStyle.SEQUENCE, question.audioCue?.style)
+            assertEquals(question.mappings.size, question.audioCue?.pitches?.size)
+        }
+        val chord = factory.create(6, audioPrompt = true)
+        assertEquals(PitchPlaybackStyle.CHORD, chord.audioCue?.style)
+        assertEquals(chord.mappings.size, chord.audioCue?.pitches?.size)
+    }
+
+    @Test
+    fun missingItemsRemainVisualAndDefaultQuestionsDoNotRegress() {
+        val factory = CombinedQuestionFactory(Random(103))
+
+        val missing = factory.create(4, audioPrompt = true)
+        assertTrue(!missing.usesAudioPrompt)
+        assertEquals(null, missing.audioCue)
+        (1..6).forEach { level ->
+            assertTrue(!factory.create(level).usesAudioPrompt)
+        }
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.CombinedMappingState
 import com.a3322505a.guitarlearning.training.CombinedMappingStateMachine
@@ -38,10 +39,15 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun CombinedMappingTrainingScreen(
+    pitchPlayer: PitchPlayer,
     onBack: () -> Unit,
 ) {
     val stateMachine = remember { CombinedMappingStateMachine() }
     var state by remember { mutableStateOf<CombinedMappingState>(stateMachine.state) }
+
+    LaunchedEffect(state.question.id, state.question.usesAudioPrompt) {
+        state.question.audioCue?.let(pitchPlayer::play)
+    }
 
     LaunchedEffect(state) {
         val correct = state as? CombinedMappingState.Correct ?: return@LaunchedEffect
@@ -73,7 +79,32 @@ fun CombinedMappingTrainingScreen(
 
             MappingLevelSelector(
                 selectedLevel = stateMachine.selectedLevel,
-                onSelect = { level -> state = stateMachine.selectLevel(level) },
+                onSelect = { level ->
+                    pitchPlayer.stop()
+                    state = stateMachine.selectLevel(level)
+                },
+            )
+
+            PixelButton(
+                text = when {
+                    state.question.form == MappingForm.MISSING -> "Lv.4 缺失题仅视觉"
+                    stateMachine.audioPromptsEnabled -> "声音题：开"
+                    else -> "声音题：关"
+                },
+                onClick = {
+                    pitchPlayer.stop()
+                    state = stateMachine.setAudioPromptsEnabled(
+                        !stateMachine.audioPromptsEnabled,
+                    )
+                },
+                enabled = state.question.form != MappingForm.MISSING,
+                modifier = Modifier.fillMaxWidth(),
+                style = if (stateMachine.audioPromptsEnabled) {
+                    PixelButtonStyle.Primary
+                } else {
+                    PixelButtonStyle.Secondary
+                },
+                leadingSymbol = "♪",
             )
 
             Box(
@@ -96,6 +127,15 @@ fun CombinedMappingTrainingScreen(
                             text = state.prompt,
                             style = MaterialTheme.typography.headlineMedium,
                         )
+                        state.question.audioCue?.let { cue ->
+                            PixelButton(
+                                text = "重新播放",
+                                onClick = { pitchPlayer.play(cue) },
+                                modifier = Modifier.fillMaxWidth(),
+                                style = PixelButtonStyle.Secondary,
+                                leadingSymbol = "▶",
+                            )
+                        }
 
                         PixelStats(
                             correctCount = stateMachine.correctCount,
