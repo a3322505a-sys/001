@@ -100,6 +100,33 @@ class QuestionFactory {
         )
     }
 
+    fun createSequenceCurriculumQuestion(
+        level: Int,
+        kind: String,
+        prompt: String,
+        targets: List<FretPosition>,
+        relationId: String,
+    ): Question {
+        require(targets.size >= 2) { "A sequence question needs at least two targets" }
+        val targetId = targets.joinToString(":") { "s${it.string}f${it.fret}" }
+        val answer = AnswerValue.FretSequence(
+            targets.map { AnswerValue.FretPosition(it.string, it.fret) },
+        )
+        return TrainingQuestion(
+            moduleId = TrainingModuleIds.FRET_NOTE,
+            kind = kind,
+            prompt = prompt,
+            answerChoices = emptyList(),
+            correctChoiceId = targetId,
+            knowledgeItemId = "fretboard:lv$level:$relationId:$targetId",
+            payload = FretboardSequencePayload(level, targets, relationId),
+            weightPolicy = QuestionWeightPolicy.BOUNDED_PER_ITEM,
+            answerMode = AnswerMode.FRETBOARD_SEQUENCE,
+            correctAnswerValue = answer,
+            curriculumLevel = level,
+        )
+    }
+
     private fun createMapping(type: QuestionType, mapping: NoteMapping): Question {
         val answer = when (type) {
             QuestionType.NoteToSolfege -> mapping.solfege

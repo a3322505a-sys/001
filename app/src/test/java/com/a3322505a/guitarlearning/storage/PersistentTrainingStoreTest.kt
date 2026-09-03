@@ -127,6 +127,19 @@ class PersistentTrainingStoreTest {
         assertEquals(item, restored.findKnowledgeItem(item.id))
     }
 
+    @Test
+    fun levelSixUnlockAndProgressSurviveReconstruction() {
+        val backend = FakePreferenceBackend()
+        val store = PersistentTrainingStore(backend)
+
+        store.saveSettings(Settings(unlockedFretboardLevel = 6))
+        store.saveLevelProgress(LevelProgress(6, listOf(true, false, true)))
+
+        val restored = PersistentTrainingStore(backend)
+        assertEquals(6, restored.loadSettings().unlockedFretboardLevel)
+        assertEquals(listOf(true, false, true), restored.loadLevelProgress(6)?.recentResults)
+    }
+
     private class FakePreferenceBackend : PreferenceBackend {
         private var value: String? = null
 

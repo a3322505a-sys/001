@@ -28,7 +28,12 @@ class FirstFretboardModuleTest {
             )
 
             assertEquals((1..5).toSet(), questions.map { it.curriculumLevel }.toSet(), range.name)
-            assertTrue(questions.all { it.answerMode == AnswerMode.FRETBOARD })
+            assertTrue(
+                questions.all {
+                    it.answerMode == AnswerMode.FRETBOARD ||
+                        it.answerMode == AnswerMode.FRETBOARD_SEQUENCE
+                },
+            )
         }
     }
 

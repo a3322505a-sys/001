@@ -28,6 +28,7 @@ data class AnswerChoice(
 enum class AnswerMode {
     CHOICE,
     FRETBOARD,
+    FRETBOARD_SEQUENCE,
 }
 
 sealed interface AnswerValue {
@@ -37,6 +38,14 @@ sealed interface AnswerValue {
         val string: Int,
         val fret: Int,
     ) : AnswerValue
+
+    data class FretSequence(
+        val positions: List<FretPosition>,
+    ) : AnswerValue {
+        init {
+            require(positions.isNotEmpty()) { "A submitted fret sequence must not be empty" }
+        }
+    }
 }
 
 sealed interface QuestionPayload
@@ -53,6 +62,12 @@ data class FretboardCurriculumPayload(
     val level: Int,
     val anchor: FretPosition?,
     val target: FretPosition,
+    val relationId: String,
+) : QuestionPayload
+
+data class FretboardSequencePayload(
+    val level: Int,
+    val targets: List<FretPosition>,
     val relationId: String,
 ) : QuestionPayload
 
@@ -92,7 +107,7 @@ data class TrainingQuestion(
     val curriculumLevel: Int = 1,
 ) {
     init {
-        require(curriculumLevel in 1..5) { "curriculumLevel must be between 1 and 5" }
+        require(curriculumLevel in 1..6) { "curriculumLevel must be between 1 and 6" }
         require(answerChoices.map { it.id }.distinct().size == answerChoices.size) {
             "Answer choice IDs must be unique"
         }
@@ -109,6 +124,14 @@ data class TrainingQuestion(
             AnswerMode.FRETBOARD -> require(correctAnswerValue is AnswerValue.FretPosition) {
                 "Fretboard questions must use a fret position as their semantic answer"
             }
+            AnswerMode.FRETBOARD_SEQUENCE -> {
+                require(correctAnswerValue is AnswerValue.FretSequence) {
+                    "Fretboard sequence questions must use a fret sequence as their semantic answer"
+                }
+                require(correctAnswerValue.positions.size >= 2) {
+                    "A correct fret sequence must contain at least two positions"
+                }
+            }
         }
     }
 
@@ -120,6 +143,9 @@ data class TrainingQuestion(
         get() = when (val value = correctAnswerValue) {
             is AnswerValue.Choice -> answerChoices.first { it.id == value.id }.label
             is AnswerValue.FretPosition -> value.string.toString() + "弦" + value.fret + "品"
+            is AnswerValue.FretSequence -> value.positions.joinToString(" → ") {
+                it.string.toString() + "弦" + it.fret + "品"
+            }
         }
 
     val type: QuestionType?
@@ -128,6 +154,7 @@ data class TrainingQuestion(
             is MappingPayload -> value.questionType
             is IntervalPayload -> null
             is FretboardCurriculumPayload -> null
+            is FretboardSequencePayload -> null
         }
 
     val fretPosition: FretPosition?
@@ -135,6 +162,14 @@ data class TrainingQuestion(
             is FretNotePayload -> value.position
             is FretboardCurriculumPayload -> value.target
             else -> null
+        }
+
+    val targetPositions: List<FretPosition>
+        get() = when (val value = payload) {
+            is FretNotePayload -> listOf(value.position)
+            is FretboardCurriculumPayload -> listOf(value.target)
+            is FretboardSequencePayload -> value.targets
+            else -> emptyList()
         }
 
     val anchorPosition: FretPosition?
@@ -146,6 +181,7 @@ data class TrainingQuestion(
             is MappingPayload -> value.note
             is IntervalPayload -> value.startNote
             is FretboardCurriculumPayload -> value.target.note
+            is FretboardSequencePayload -> value.targets.first().note
         }
 
     val solfege: String
@@ -154,6 +190,7 @@ data class TrainingQuestion(
             is MappingPayload -> value.solfege
             is IntervalPayload -> ""
             is FretboardCurriculumPayload -> value.target.solfege.orEmpty()
+            is FretboardSequencePayload -> value.targets.first().solfege.orEmpty()
         }
 
     val degree: Int
@@ -163,6 +200,9 @@ data class TrainingQuestion(
             is IntervalPayload -> value.degreeSpan ?: 0
             is FretboardCurriculumPayload ->
                 com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.target.note) ?: 0
+            is FretboardSequencePayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.targets.first().note)
+                    ?: 0
         }
 
     fun choiceForLabel(label: String): AnswerChoice? =
