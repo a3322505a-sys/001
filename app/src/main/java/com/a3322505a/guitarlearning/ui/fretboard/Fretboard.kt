@@ -36,6 +36,7 @@ import com.a3322505a.guitarlearning.ui.theme.FretboardWoodLight
 import com.a3322505a.guitarlearning.ui.theme.Inlay
 import com.a3322505a.guitarlearning.ui.theme.NutIvory
 import com.a3322505a.guitarlearning.ui.theme.PixelGlow
+import com.a3322505a.guitarlearning.ui.theme.PixelGold
 import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import com.a3322505a.guitarlearning.ui.theme.StringMetal
@@ -58,6 +59,7 @@ data class FretboardCell(
 
 enum class FretboardMarkerRole {
     TARGET,
+    ANCHOR,
     CORRECT,
     INCORRECT,
     CONFIRMED,
@@ -361,6 +363,7 @@ private fun DrawScope.drawMarkers(markers: List<FretboardMarker>, markerScale: F
         )
         val markerColor = when (marker.role) {
             FretboardMarkerRole.TARGET -> PixelGlow
+            FretboardMarkerRole.ANCHOR -> PixelGold
             FretboardMarkerRole.CORRECT, FretboardMarkerRole.CONFIRMED -> PixelSuccess
             FretboardMarkerRole.INCORRECT -> PixelError
         }

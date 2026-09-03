@@ -49,6 +49,13 @@ data class FretNotePayload(
     val degree: Int,
 ) : QuestionPayload
 
+data class FretboardCurriculumPayload(
+    val level: Int,
+    val anchor: FretPosition?,
+    val target: FretPosition,
+    val relationId: String,
+) : QuestionPayload
+
 data class MappingPayload(
     val questionType: QuestionType,
     val note: String,
@@ -82,8 +89,10 @@ data class TrainingQuestion(
     val weightPolicy: QuestionWeightPolicy = QuestionWeightPolicy.MASTERY,
     val answerMode: AnswerMode = AnswerMode.CHOICE,
     val correctAnswerValue: AnswerValue = AnswerValue.Choice(correctChoiceId),
+    val curriculumLevel: Int = 1,
 ) {
     init {
+        require(curriculumLevel in 1..5) { "curriculumLevel must be between 1 and 5" }
         require(answerChoices.map { it.id }.distinct().size == answerChoices.size) {
             "Answer choice IDs must be unique"
         }
@@ -118,16 +127,25 @@ data class TrainingQuestion(
             is FretNotePayload -> value.questionType
             is MappingPayload -> value.questionType
             is IntervalPayload -> null
+            is FretboardCurriculumPayload -> null
         }
 
     val fretPosition: FretPosition?
-        get() = (payload as? FretNotePayload)?.position
+        get() = when (val value = payload) {
+            is FretNotePayload -> value.position
+            is FretboardCurriculumPayload -> value.target
+            else -> null
+        }
+
+    val anchorPosition: FretPosition?
+        get() = (payload as? FretboardCurriculumPayload)?.anchor
 
     val note: String
         get() = when (val value = payload) {
             is FretNotePayload -> value.note
             is MappingPayload -> value.note
             is IntervalPayload -> value.startNote
+            is FretboardCurriculumPayload -> value.target.note
         }
 
     val solfege: String
@@ -135,6 +153,7 @@ data class TrainingQuestion(
             is FretNotePayload -> value.solfege
             is MappingPayload -> value.solfege
             is IntervalPayload -> ""
+            is FretboardCurriculumPayload -> value.target.solfege.orEmpty()
         }
 
     val degree: Int
@@ -142,6 +161,8 @@ data class TrainingQuestion(
             is FretNotePayload -> value.degree
             is MappingPayload -> value.degree
             is IntervalPayload -> value.degreeSpan ?: 0
+            is FretboardCurriculumPayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.target.note) ?: 0
         }
 
     fun choiceForLabel(label: String): AnswerChoice? =

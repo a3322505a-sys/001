@@ -12,6 +12,9 @@ interface TrainingStore {
     fun saveProgress(progress: Progress)
     fun loadProgress(knowledgeItemId: String): Progress?
     fun loadProgress(): List<Progress>
+    fun saveLevelProgress(progress: LevelProgress)
+    fun loadLevelProgress(level: Int): LevelProgress?
+    fun loadLevelProgress(): List<LevelProgress>
     fun saveSession(session: Session)
     fun loadSessions(): List<Session>
 }
@@ -23,6 +26,7 @@ class InMemoryTrainingStore(initialState: StorageState = StorageState()) : Train
     private var settings = Settings()
     private val knowledgeItems = linkedMapOf<String, KnowledgeItem>()
     private val progress = linkedMapOf<String, Progress>()
+    private val levelProgress = linkedMapOf<Int, LevelProgress>()
     private val sessions = linkedMapOf<String, Session>()
 
     override fun loadState(): StorageState = state
@@ -52,6 +56,14 @@ class InMemoryTrainingStore(initialState: StorageState = StorageState()) : Train
     override fun loadProgress(knowledgeItemId: String): Progress? = progress[knowledgeItemId]
 
     override fun loadProgress(): List<Progress> = progress.values.toList()
+
+    override fun saveLevelProgress(progress: LevelProgress) {
+        levelProgress[progress.level] = progress
+    }
+
+    override fun loadLevelProgress(level: Int): LevelProgress? = levelProgress[level]
+
+    override fun loadLevelProgress(): List<LevelProgress> = levelProgress.values.toList()
 
     override fun saveSession(session: Session) {
         sessions[session.id] = session

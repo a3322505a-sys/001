@@ -73,6 +73,19 @@ class PersistentTrainingStore(
 
     override fun loadProgress(): List<Progress> = snapshot.progress.values.toList()
 
+    override fun saveLevelProgress(progress: LevelProgress) {
+        snapshot = snapshot.copy(
+            levelProgress = snapshot.levelProgress.toMutableMap().apply {
+                put(progress.level, progress)
+            },
+        )
+        persist()
+    }
+
+    override fun loadLevelProgress(level: Int): LevelProgress? = snapshot.levelProgress[level]
+
+    override fun loadLevelProgress(): List<LevelProgress> = snapshot.levelProgress.values.toList()
+
     override fun saveSession(session: Session) {
         snapshot = snapshot.copy(
             sessions = snapshot.sessions.toMutableMap().apply { put(session.id, session) },
@@ -98,6 +111,10 @@ class PersistentTrainingStore(
         properties.setProperty(
             "settings.intervalLevelId",
             snapshot.settings.intervalLevelId.orEmpty(),
+        )
+        properties.setProperty(
+            "settings.unlockedFretboardLevel",
+            snapshot.settings.unlockedFretboardLevel.toString(),
         )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
@@ -134,6 +151,16 @@ class PersistentTrainingStore(
             properties.setProperty(prefix + "seenDays", item.seenDays.sorted().joinToString(","))
         }
 
+        properties.setProperty("levelProgress.count", snapshot.levelProgress.size.toString())
+        snapshot.levelProgress.values.forEachIndexed { index, item ->
+            val prefix = "levelProgress.$index."
+            properties.setProperty(prefix + "level", item.level.toString())
+            properties.setProperty(
+                prefix + "recentResults",
+                item.recentResults.joinToString(",") { if (it) "1" else "0" },
+            )
+        }
+
         properties.setProperty("session.count", snapshot.sessions.size.toString())
         snapshot.sessions.values.forEachIndexed { index, item ->
             val prefix = "session.$index."
@@ -168,6 +195,11 @@ class PersistentTrainingStore(
                 ?.takeIf { it.isNotEmpty() },
             intervalLevelId = properties.getProperty("settings.intervalLevelId")
                 ?.takeIf { it.isNotEmpty() },
+            unlockedFretboardLevel = properties
+                .getProperty("settings.unlockedFretboardLevel", "1")
+                .toIntOrNull()
+                ?.coerceIn(1, 5)
+                ?: 1,
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,
@@ -179,8 +211,28 @@ class PersistentTrainingStore(
             settings = settings,
             knowledgeItems = decodeKnowledgeItems(properties),
             progress = decodeProgress(properties),
+            levelProgress = decodeLevelProgress(properties),
             sessions = decodeSessions(properties),
         )
+    }
+
+    private fun decodeLevelProgress(properties: Properties): Map<Int, LevelProgress> {
+        val count = properties.getProperty("levelProgress.count", "0").toIntOrNull() ?: 0
+        return (0 until count).mapNotNull { index ->
+            val prefix = "levelProgress.$index."
+            val level = properties.getProperty(prefix + "level")
+                ?.toIntOrNull()
+                ?.takeIf { it in 1..5 }
+                ?: return@mapNotNull null
+            LevelProgress(
+                level = level,
+                recentResults = properties.getProperty(prefix + "recentResults")
+                    .orEmpty()
+                    .split(",")
+                    .mapNotNull { when (it) { "1" -> true; "0" -> false; else -> null } }
+                    .takeLast(20),
+            )
+        }.associateBy { it.level }
     }
 
     private fun decodeKnowledgeItems(properties: Properties): Map<String, KnowledgeItem> {
@@ -280,6 +332,7 @@ class PersistentTrainingStore(
         val settings: Settings = Settings(),
         val knowledgeItems: Map<String, KnowledgeItem> = emptyMap(),
         val progress: Map<String, Progress> = emptyMap(),
+        val levelProgress: Map<Int, LevelProgress> = emptyMap(),
         val sessions: Map<String, Session> = emptyMap(),
     )
 
