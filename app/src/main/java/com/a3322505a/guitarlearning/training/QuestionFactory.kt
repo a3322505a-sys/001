@@ -71,9 +71,9 @@ class QuestionFactory {
             questionType = question.type,
             string = question.fretPosition?.string,
             fret = question.fretPosition?.fret,
-            note = question.fretPosition?.note,
-            solfege = question.fretPosition?.solfege,
-            degree = question.fretPosition?.note?.let(GuitarCore::degreeFor),
+            note = question.note,
+            solfege = question.solfege.takeIf { it.isNotEmpty() },
+            degree = question.degree.takeIf { it != 0 },
         )
 
     fun createCurriculumQuestion(
@@ -97,6 +97,33 @@ class QuestionFactory {
             answerMode = AnswerMode.FRETBOARD,
             correctAnswerValue = AnswerValue.FretPosition(target.string, target.fret),
             curriculumLevel = level,
+        )
+    }
+
+    fun createFretboardNoteSetQuestion(
+        note: String,
+        targets: List<FretPosition>,
+        rangeId: String,
+    ): Question {
+        require(targets.isNotEmpty()) { "A fretboard note set needs at least one target" }
+        require(targets.all { it.note == note }) { "Every fret target must match the prompt note" }
+        val sortedTargets = targets.sortedWith(compareBy({ it.string }, { it.fret }))
+        val signature = sortedTargets.joinToString("-") { "s${it.string}f${it.fret}" }
+        val answer = AnswerValue.FretSet(
+            sortedTargets.map { AnswerValue.FretPosition(it.string, it.fret) }.toSet(),
+        )
+        return TrainingQuestion(
+            moduleId = TrainingModuleIds.FRET_NOTE,
+            kind = "fret_to_note_set",
+            prompt = note,
+            answerChoices = emptyList(),
+            correctChoiceId = signature,
+            knowledgeItemId = "FretToNoteSet:$rangeId:$note:$signature",
+            payload = FretboardNoteSetPayload(note, sortedTargets, rangeId),
+            weightPolicy = QuestionWeightPolicy.BOUNDED_PER_ITEM,
+            answerMode = AnswerMode.FRETBOARD_SET,
+            correctAnswerValue = answer,
+            curriculumLevel = 1,
         )
     }
 

@@ -9,8 +9,10 @@ class NavigationTest {
     @Test
     fun onlyNoteNameTrainingUsesLandscape() {
         assertTrue(usesLandscapeLayout(AppDestination.NoteName))
+        assertTrue(usesImmersiveSystemBars(AppDestination.NoteName))
         assertFalse(usesLandscapeLayout(AppDestination.Home))
         assertFalse(usesLandscapeLayout(AppDestination.NoteNameRange))
+        assertFalse(usesImmersiveSystemBars(AppDestination.NoteNameRange))
         assertFalse(usesLandscapeLayout(AppDestination.CombinedMapping))
         assertFalse(usesLandscapeLayout(AppDestination.BasicTheory))
         assertFalse(usesLandscapeLayout(AppDestination.IntervalLevels))

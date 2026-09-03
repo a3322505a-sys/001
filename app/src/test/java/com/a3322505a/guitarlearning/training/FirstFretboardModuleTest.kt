@@ -13,24 +13,32 @@ class FirstFretboardModuleTest {
     private val module = FirstFretboardModule()
 
     @Test
-    fun defaultBankContainsOnlyLevelOneAndKeepsLegacyPositionIds() {
+    fun defaultBankContainsOnlyLevelOneNoteSets() {
         val questions = module.buildQuestionBank(Settings())
 
         assertTrue(questions.all { it.curriculumLevel == 1 })
-        assertTrue(questions.all { it.knowledgeItemId.startsWith("FretToNote:s") })
+        assertTrue(questions.all { it.answerMode == AnswerMode.FRETBOARD_SET })
+        assertTrue(questions.all { it.knowledgeItemId.startsWith("FretToNoteSet:") })
     }
 
     @Test
     fun fullyUnlockedBankContainsEverySingleTargetLevel() {
         NoteTrainingRange.entries.forEach { range ->
             val questions = module.buildQuestionBank(
-                range.applyTo(Settings(unlockedFretboardLevel = 5)),
+                range.applyTo(
+                    Settings(
+                        unlockedFretboardLevel = 5,
+                        firstPositionMaxFret = 4,
+                        firstPositionComplete = true,
+                    ),
+                ),
             )
 
             assertEquals((1..5).toSet(), questions.map { it.curriculumLevel }.toSet(), range.name)
             assertTrue(
                 questions.all {
                     it.answerMode == AnswerMode.FRETBOARD ||
+                        it.answerMode == AnswerMode.FRETBOARD_SET ||
                         it.answerMode == AnswerMode.FRETBOARD_SEQUENCE
                 },
             )
@@ -102,8 +110,8 @@ class FirstFretboardModuleTest {
 
         repeat(20) { index ->
             val question = session.currentQuestion()
-            val correct = assertIs<AnswerValue.FretPosition>(question.correctAnswerValue)
-            val answer = if (index < 18) correct else wrongPosition(correct)
+            val correct = assertIs<AnswerValue.FretSet>(question.correctAnswerValue)
+            val answer = if (index < 18) correct else wrongSet(correct)
             session.submitAnswer(answer)
             if (index < 19) session.nextQuestion()
         }
@@ -124,11 +132,14 @@ class FirstFretboardModuleTest {
         assertTrue(!FretboardLevelRules.qualifies(progress))
     }
 
-    private fun wrongPosition(correct: AnswerValue.FretPosition): AnswerValue.FretPosition =
-        AnswerValue.FretPosition(
-            string = correct.string,
-            fret = if (correct.fret == 12) 11 else correct.fret + 1,
+    private fun wrongSet(correct: AnswerValue.FretSet): AnswerValue.FretSet {
+        val first = correct.positions.first()
+        return AnswerValue.FretSet(
+            correct.positions - first + first.copy(
+                fret = if (first.fret == 12) 11 else first.fret + 1,
+            ),
         )
+    }
 
     private fun pitch(position: com.a3322505a.guitarlearning.core.FretPosition): Int =
         mapOf(6 to 40, 5 to 45, 4 to 50, 3 to 55, 2 to 59, 1 to 64)

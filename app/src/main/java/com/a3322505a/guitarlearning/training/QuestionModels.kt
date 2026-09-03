@@ -28,6 +28,7 @@ data class AnswerChoice(
 enum class AnswerMode {
     CHOICE,
     FRETBOARD,
+    FRETBOARD_SET,
     FRETBOARD_SEQUENCE,
 }
 
@@ -38,6 +39,14 @@ sealed interface AnswerValue {
         val string: Int,
         val fret: Int,
     ) : AnswerValue
+
+    data class FretSet(
+        val positions: Set<FretPosition>,
+    ) : AnswerValue {
+        init {
+            require(positions.isNotEmpty()) { "A submitted fret set must not be empty" }
+        }
+    }
 
     data class FretSequence(
         val positions: List<FretPosition>,
@@ -63,6 +72,12 @@ data class FretboardCurriculumPayload(
     val anchor: FretPosition?,
     val target: FretPosition,
     val relationId: String,
+) : QuestionPayload
+
+data class FretboardNoteSetPayload(
+    val note: String,
+    val targets: List<FretPosition>,
+    val rangeId: String,
 ) : QuestionPayload
 
 data class FretboardSequencePayload(
@@ -124,6 +139,14 @@ data class TrainingQuestion(
             AnswerMode.FRETBOARD -> require(correctAnswerValue is AnswerValue.FretPosition) {
                 "Fretboard questions must use a fret position as their semantic answer"
             }
+            AnswerMode.FRETBOARD_SET -> {
+                require(correctAnswerValue is AnswerValue.FretSet) {
+                    "Fretboard set questions must use a fret-position set as their semantic answer"
+                }
+                require(correctAnswerValue.positions.isNotEmpty()) {
+                    "A correct fret set must not be empty"
+                }
+            }
             AnswerMode.FRETBOARD_SEQUENCE -> {
                 require(correctAnswerValue is AnswerValue.FretSequence) {
                     "Fretboard sequence questions must use a fret sequence as their semantic answer"
@@ -143,6 +166,9 @@ data class TrainingQuestion(
         get() = when (val value = correctAnswerValue) {
             is AnswerValue.Choice -> answerChoices.first { it.id == value.id }.label
             is AnswerValue.FretPosition -> value.string.toString() + "弦" + value.fret + "品"
+            is AnswerValue.FretSet -> value.positions
+                .sortedWith(compareBy({ it.string }, { it.fret }))
+                .joinToString("、") { it.string.toString() + "弦" + it.fret + "品" }
             is AnswerValue.FretSequence -> value.positions.joinToString(" → ") {
                 it.string.toString() + "弦" + it.fret + "品"
             }
@@ -154,6 +180,7 @@ data class TrainingQuestion(
             is MappingPayload -> value.questionType
             is IntervalPayload -> null
             is FretboardCurriculumPayload -> null
+            is FretboardNoteSetPayload -> QuestionType.FretToNote
             is FretboardSequencePayload -> null
         }
 
@@ -168,6 +195,7 @@ data class TrainingQuestion(
         get() = when (val value = payload) {
             is FretNotePayload -> listOf(value.position)
             is FretboardCurriculumPayload -> listOf(value.target)
+            is FretboardNoteSetPayload -> value.targets
             is FretboardSequencePayload -> value.targets
             else -> emptyList()
         }
@@ -181,6 +209,7 @@ data class TrainingQuestion(
             is MappingPayload -> value.note
             is IntervalPayload -> value.startNote
             is FretboardCurriculumPayload -> value.target.note
+            is FretboardNoteSetPayload -> value.note
             is FretboardSequencePayload -> value.targets.first().note
         }
 
@@ -190,6 +219,8 @@ data class TrainingQuestion(
             is MappingPayload -> value.solfege
             is IntervalPayload -> ""
             is FretboardCurriculumPayload -> value.target.solfege.orEmpty()
+            is FretboardNoteSetPayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.solfegeFor(value.note).orEmpty()
             is FretboardSequencePayload -> value.targets.first().solfege.orEmpty()
         }
 
@@ -200,6 +231,8 @@ data class TrainingQuestion(
             is IntervalPayload -> value.degreeSpan ?: 0
             is FretboardCurriculumPayload ->
                 com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.target.note) ?: 0
+            is FretboardNoteSetPayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.note) ?: 0
             is FretboardSequencePayload ->
                 com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.targets.first().note)
                     ?: 0

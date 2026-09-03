@@ -4,11 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,7 +51,6 @@ import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
 import com.a3322505a.guitarlearning.ui.theme.PixelError
-import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import kotlinx.coroutines.delay
 
@@ -65,6 +69,10 @@ fun NoteNameTrainingScreen(
     val markerScale = remember { Animatable(1f) }
     val question = state.question
     val session = trainingSession.currentSession
+    val unlockedLevel = trainingSession.currentSettings().unlockedFretboardLevel
+    var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
+    var overlayText by remember { mutableStateOf<String?>(null) }
+    var overlayIsError by remember { mutableStateOf(false) }
     val anchorMarker = question.anchorPosition?.let {
         FretboardMarker(it, FretboardMarkerRole.ANCHOR)
     }
@@ -74,9 +82,37 @@ fun NoteNameTrainingScreen(
         positions: List<AnswerValue.FretPosition>,
         role: FretboardMarkerRole,
     ): List<FretboardMarker> = positions.map { markerFor(it, role) }
+    fun setMarkers(
+        positions: Set<AnswerValue.FretPosition>,
+        role: FretboardMarkerRole,
+    ): List<FretboardMarker> = positions.map { markerFor(it, role) }
+    fun expectedSetPositions(): Set<AnswerValue.FretPosition> =
+        (question.correctAnswerValue as? AnswerValue.FretSet)?.positions.orEmpty()
     val markers = when (val current = state) {
         is QuestionState.AwaitingAnswer -> withAnchor()
         is QuestionState.AwaitingSequenceAnswer -> emptyList()
+        is QuestionState.AwaitingSetAnswer -> emptyList()
+        is QuestionState.SetProgress ->
+            setMarkers(current.selectedPositions, FretboardMarkerRole.CONFIRMED)
+        is QuestionState.SetCompleted ->
+            setMarkers(current.selectedPositions, FretboardMarkerRole.CORRECT)
+        is QuestionState.SetCorrectionRequired ->
+            setMarkers(current.confirmedPositions, FretboardMarkerRole.CONFIRMED) +
+                markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT) +
+                setMarkers(
+                    expectedSetPositions() - current.confirmedPositions,
+                    FretboardMarkerRole.CORRECT,
+                )
+        is QuestionState.SetCorrectionProgress ->
+            setMarkers(current.confirmedPositions, FretboardMarkerRole.CONFIRMED) +
+                markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT) +
+                setMarkers(
+                    expectedSetPositions() - current.confirmedPositions,
+                    FretboardMarkerRole.CORRECT,
+                )
+        is QuestionState.SetCorrectionConfirmed ->
+            setMarkers(current.confirmedPositions, FretboardMarkerRole.CONFIRMED) +
+                markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT)
         is QuestionState.SequenceProgress ->
             sequenceMarkers(current.selectedPositions, FretboardMarkerRole.CONFIRMED)
         is QuestionState.SequenceCompleted ->
@@ -108,14 +144,20 @@ fun NoteNameTrainingScreen(
     val interactionMode = when (state) {
         is QuestionState.AwaitingAnswer,
         is QuestionState.AwaitingSequenceAnswer,
+        is QuestionState.AwaitingSetAnswer,
+        is QuestionState.SetProgress,
         is QuestionState.SequenceProgress -> FretboardInteractionMode.Enabled
-        is QuestionState.CorrectionRequired -> FretboardInteractionMode.CorrectionOnly
+        is QuestionState.CorrectionRequired,
+        is QuestionState.SetCorrectionRequired,
+        is QuestionState.SetCorrectionProgress -> FretboardInteractionMode.CorrectionOnly
         else -> FretboardInteractionMode.Disabled
     }
 
     LaunchedEffect(state) {
         val completedState = state.takeIf {
-            it is QuestionState.Correct || it is QuestionState.SequenceCompleted
+            it is QuestionState.Correct ||
+                it is QuestionState.SequenceCompleted ||
+                it is QuestionState.SetCompleted
         }
         if (completedState == null) {
             markerScale.snapTo(1f)
@@ -139,108 +181,115 @@ fun NoteNameTrainingScreen(
         }
     }
 
+    LaunchedEffect(state, unlockedLevel) {
+        val feedback = when {
+            unlockedLevel > seenUnlockedLevel -> "已解锁 Lv.$unlockedLevel" to false
+            state is QuestionState.Correct ||
+                state is QuestionState.SequenceCompleted ||
+                state is QuestionState.SetCompleted ->
+                "✓ 正确" to false
+            state is QuestionState.CorrectionRequired ||
+                state is QuestionState.SetCorrectionRequired -> "错了" to true
+            state is QuestionState.CorrectionConfirmed ||
+                state is QuestionState.SetCorrectionConfirmed -> "已纠正" to false
+            else -> null
+        }
+        seenUnlockedLevel = maxOf(seenUnlockedLevel, unlockedLevel)
+        overlayText = feedback?.first
+        overlayIsError = feedback?.second == true
+        if (feedback != null) {
+            delay(FRETBOARD_CORRECT_FEEDBACK_DURATION_MS)
+            if (overlayText == feedback.first) overlayText = null
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing),
+            .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp),
-                contentAlignment = Alignment.Center,
+                    .fillMaxSize()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (onBack != null) {
-                    PixelOutlinedButton(
-                        text = "返回",
-                        onClick = onBack,
-                        modifier = Modifier
-                            .width(84.dp)
-                            .align(Alignment.CenterStart),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (onBack != null) {
+                        PixelOutlinedButton(
+                            text = "返回",
+                            onClick = onBack,
+                            modifier = Modifier
+                                .width(84.dp)
+                                .align(Alignment.CenterStart),
+                        )
+                    }
+                    Text(
+                        text = question.prompt,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PixelStats(
+                            correctCount = session.correctCount,
+                            errorCount = session.questionCount - session.correctCount,
+                            modifier = Modifier.width(132.dp),
+                        )
+                        if (
+                            state is QuestionState.CorrectionConfirmed ||
+                            state is QuestionState.SetCorrectionConfirmed
+                        ) {
+                            NextQuestionButton(
+                                onClick = { state = stateMachine.nextQuestion() },
+                                modifier = Modifier.width(112.dp),
+                            )
+                        }
+                    }
+                }
+
+                PixelPanel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    Fretboard(
+                        markers = markers,
+                        interactionMode = interactionMode,
+                        markerScale = markerScale.value,
+                        onPositionClick = { position ->
+                            state = stateMachine.submitAnswer(
+                                AnswerValue.FretPosition(position.string, position.fret),
+                            )
+                        },
+                        showLabels = false,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-                Text(
-                    text = if (question.curriculumLevel == 1) {
-                        "Lv.1 · ${question.prompt}"
-                    } else {
-                        question.prompt
-                    },
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                PixelStats(
-                    correctCount = session.correctCount,
-                    errorCount = session.questionCount - session.correctCount,
-                    modifier = Modifier
-                        .width(132.dp)
-                        .align(Alignment.CenterEnd),
-                )
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val feedback = when (state) {
-                    is QuestionState.Correct -> "✓ 正确" to PixelSuccess
-                    is QuestionState.SequenceCompleted -> "✓ 正确" to PixelSuccess
-                    is QuestionState.AwaitingSequenceAnswer ->
-                        "按顺序点选 · 0/${question.targetPositions.size}" to PixelInkMuted
-                    is QuestionState.SequenceProgress -> {
-                        val progress = (state as QuestionState.SequenceProgress).selectedPositions.size
-                        "已完成 $progress/${question.targetPositions.size} · 继续" to PixelSuccess
-                    }
-                    is QuestionState.CorrectionRequired ->
-                        "错了，点一下正确位置" to PixelError
-                    is QuestionState.CorrectionConfirmed -> "已纠正" to PixelSuccess
-                    else -> "已解锁 Lv.${trainingSession.currentSettings().unlockedFretboardLevel}" to
-                        PixelInkMuted
-                }
+            overlayText?.let { message ->
                 Text(
-                    text = feedback.first,
-                    color = feedback.second,
+                    text = message,
+                    color = if (overlayIsError) PixelError else PixelSuccess,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                )
-                if (state is QuestionState.CorrectionConfirmed) {
-                    NextQuestionButton(
-                        onClick = { state = stateMachine.nextQuestion() },
-                        modifier = Modifier
-                            .width(112.dp)
-                            .align(Alignment.CenterEnd),
-                    )
-                }
-            }
-
-            PixelPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                Fretboard(
-                    markers = markers,
-                    interactionMode = interactionMode,
-                    markerScale = markerScale.value,
-                    onPositionClick = { position ->
-                        state = stateMachine.submitAnswer(
-                            AnswerValue.FretPosition(position.string, position.fret),
-                        )
-                    },
-                    showLabels = false,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 64.dp),
                 )
             }
-
         }
     }
 }

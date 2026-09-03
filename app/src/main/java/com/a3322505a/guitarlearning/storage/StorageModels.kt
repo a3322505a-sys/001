@@ -37,7 +37,7 @@ data class Progress(
     val attempts: Int = 0,
     val correct: Int = 0,
     val streak: Int = 0,
-    /** Persisted sampling weight for a physical string-and-fret note-name question. */
+    /** Persisted sampling weight for a concrete training item. */
     val weight: Double = 1.0,
     val lastSeenAt: Long? = null,
     val mastery: MasteryStatus = MasteryStatus.UNLEARNED,
@@ -72,7 +72,7 @@ enum class NotationMode {
     FIXED_SOLFEGE,
 }
 
-/** Settings needed to construct the V0.2.3 question bank. */
+/** Settings needed to construct the local question banks. */
 data class Settings(
     val selectedStrings: Set<Int> = setOf(1),
     val fretStart: Int = 0,
@@ -80,6 +80,9 @@ data class Settings(
     val noteTrainingRangeId: String? = null,
     val intervalLevelId: String? = null,
     val unlockedFretboardLevel: Int = 1,
+    val firstPositionMaxFret: Int = 0,
+    val firstPositionStageAttempts: Int = 0,
+    val firstPositionComplete: Boolean = false,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {
@@ -91,6 +94,12 @@ data class Settings(
         require(fretStart <= fretEnd) { "fretStart must not exceed fretEnd" }
         require(unlockedFretboardLevel in 1..6) {
             "unlockedFretboardLevel must be between 1 and 6"
+        }
+        require(firstPositionMaxFret in 0..4) {
+            "firstPositionMaxFret must be between 0 and 4"
+        }
+        require(firstPositionStageAttempts >= 0) {
+            "firstPositionStageAttempts must not be negative"
         }
     }
 }

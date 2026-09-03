@@ -30,7 +30,7 @@ enum class NoteTrainingRange(
         group = NoteTrainingRangeGroup.POSITION,
         selectedStrings = (1..6).toSet(),
         fretRange = 0..4,
-        label = "低把位｜0–4 品",
+        label = "第一把位｜0–4 品",
     ),
     MID_POSITION(
         group = NoteTrainingRangeGroup.POSITION,

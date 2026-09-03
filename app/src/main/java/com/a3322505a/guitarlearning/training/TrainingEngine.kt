@@ -23,7 +23,22 @@ class TrainingEngine(
         val candidates = if (type == null) questionBank else questionBank.filter { it.type == type }
         require(candidates.isNotEmpty()) { "Question bank does not contain the requested type" }
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
-        val itemWeights = candidates.associateWith { candidate ->
+        val coverageCandidates = if (isFirstPositionCoverageActive(candidates)) {
+            val underCovered = candidates.filter {
+                (progressById[it.knowledgeItemId]?.attempts ?: 0) < COVERAGE_ATTEMPTS
+            }
+            if (underCovered.isEmpty()) candidates else {
+                val minimumAttempts = underCovered.minOf {
+                    progressById[it.knowledgeItemId]?.attempts ?: 0
+                }
+                underCovered.filter {
+                    (progressById[it.knowledgeItemId]?.attempts ?: 0) == minimumAttempts
+                }
+            }
+        } else {
+            candidates
+        }
+        val itemWeights = coverageCandidates.associateWith { candidate ->
             val progress = progressById[candidate.knowledgeItemId]
             when (candidate.weightPolicy) {
                 QuestionWeightPolicy.MASTERY -> QuestionWeights.forProgress(progress)
@@ -31,15 +46,15 @@ class TrainingEngine(
                     PositionQuestionWeights.forProgress(progress)
             }
         }
-        val itemWeightTotals = candidates
+        val itemWeightTotals = coverageCandidates
             .groupBy { it.curriculumLevel }
             .mapValues { (_, questions) -> questions.sumOf { itemWeights.getValue(it) } }
         val mixWeights = if (trainingModule.id == TrainingModuleIds.FRET_NOTE) {
             FretboardMixingWeights.forUnlockedLevel(currentSettings.unlockedFretboardLevel)
         } else {
-            candidates.map { it.curriculumLevel }.distinct().associateWith { 1.0 }
+            coverageCandidates.map { it.curriculumLevel }.distinct().associateWith { 1.0 }
         }
-        val question = weightedSample(candidates) { candidate ->
+        val question = weightedSample(coverageCandidates) { candidate ->
             val level = candidate.curriculumLevel
             mixWeights.getOrDefault(level, 0.0) *
                 itemWeights.getValue(candidate) / itemWeightTotals.getValue(level)
@@ -63,6 +78,9 @@ class TrainingEngine(
         val submittedLabel = when (answer) {
             is AnswerValue.Choice -> question.answerChoices.singleOrNull { it.id == answer.id }?.label
             is AnswerValue.FretPosition -> answer.string.toString() + "弦" + answer.fret + "品"
+            is AnswerValue.FretSet -> answer.positions
+                .sortedWith(compareBy({ it.string }, { it.fret }))
+                .joinToString("、") { it.string.toString() + "弦" + it.fret + "品" }
             is AnswerValue.FretSequence -> answer.positions.joinToString(" → ") {
                 it.string.toString() + "弦" + it.fret + "品"
             }
@@ -70,6 +88,7 @@ class TrainingEngine(
         val modeMatches = when (question.answerMode) {
             AnswerMode.CHOICE -> answer is AnswerValue.Choice
             AnswerMode.FRETBOARD -> answer is AnswerValue.FretPosition
+            AnswerMode.FRETBOARD_SET -> answer is AnswerValue.FretSet
             AnswerMode.FRETBOARD_SEQUENCE -> answer is AnswerValue.FretSequence
         }
         if (!modeMatches) return invalidResult(question, submittedLabel)
@@ -98,6 +117,11 @@ class TrainingEngine(
         currentQuestion = null
         submitted = false
         lastResult = null
+    }
+
+    fun updateSettingsAfterAnswer(newSettings: Settings) {
+        currentSettings = newSettings
+        questionBank = trainingModule.buildQuestionBank(newSettings)
     }
 
     private fun submitAnswerInternal(
@@ -142,6 +166,15 @@ class TrainingEngine(
             if (cursor < 0.0) return item
         }
         return items.last()
+    }
+
+    private fun isFirstPositionCoverageActive(candidates: List<Question>): Boolean =
+        currentSettings.noteTrainingRangeId == NoteTrainingRange.LOW_POSITION.name &&
+            !currentSettings.firstPositionComplete &&
+            candidates.all { it.answerMode == AnswerMode.FRETBOARD_SET }
+
+    private companion object {
+        const val COVERAGE_ATTEMPTS = 2
     }
 }
 

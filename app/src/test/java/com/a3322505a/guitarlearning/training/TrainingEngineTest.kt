@@ -235,6 +235,15 @@ class TrainingEngineTest {
                 if (correct.fret == 12) 11 else correct.fret + 1,
             )
         }
+        AnswerMode.FRETBOARD_SET -> {
+            val correct = question.correctAnswerValue as AnswerValue.FretSet
+            val first = correct.positions.first()
+            AnswerValue.FretSet(
+                correct.positions - first + first.copy(
+                    fret = if (first.fret == 12) 11 else first.fret + 1,
+                ),
+            )
+        }
         AnswerMode.FRETBOARD_SEQUENCE -> {
             val correct = question.correctAnswerValue as AnswerValue.FretSequence
             val first = correct.positions.first()
