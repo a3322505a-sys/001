@@ -117,16 +117,20 @@ class PersistentTrainingStore(
             snapshot.settings.unlockedFretboardLevel.toString(),
         )
         properties.setProperty(
-            "settings.firstPositionMaxFret",
-            snapshot.settings.firstPositionMaxFret.toString(),
+            "settings.firstPositionActiveKnowledgeIds",
+            snapshot.settings.firstPositionActiveKnowledgeIds.sorted().joinToString(","),
         )
         properties.setProperty(
-            "settings.firstPositionStageAttempts",
-            snapshot.settings.firstPositionStageAttempts.toString(),
+            "settings.firstPositionBaselineComplete",
+            snapshot.settings.firstPositionBaselineComplete.toString(),
         )
         properties.setProperty(
             "settings.firstPositionComplete",
             snapshot.settings.firstPositionComplete.toString(),
+        )
+        properties.setProperty(
+            "settings.seenIntroductionIds",
+            snapshot.settings.seenIntroductionIds.sorted().joinToString(","),
         )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
@@ -184,7 +188,7 @@ class PersistentTrainingStore(
         }
 
         val writer = StringWriter()
-        properties.store(writer, "GuitarLearning V0.8.0")
+        properties.store(writer, "GuitarLearning V0.9.0")
         backend.putString(STORAGE_KEY, writer.toString())
     }
 
@@ -196,13 +200,25 @@ class PersistentTrainingStore(
     private fun decode(raw: String): StorageSnapshot {
         val properties = Properties()
         properties.load(StringReader(raw))
+        val legacyMaxFret = properties.getProperty("settings.firstPositionMaxFret")
+            ?.toIntOrNull()
+            ?.coerceIn(0, 4)
+        val legacyComplete = properties
+            .getProperty("settings.firstPositionComplete", "false")
+            .toBoolean()
+        val activeKnowledgeIds = properties
+            .getProperty("settings.firstPositionActiveKnowledgeIds")
+            ?.split(",")
+            ?.filter { it.matches(Regex("s[1-6]f[1-4]")) }
+            ?.toSet()
+            ?: legacyFirstPositionKnowledge(legacyMaxFret, legacyComplete)
         val settings = Settings(
-            selectedStrings = properties.getProperty("settings.selectedStrings", "1")
+            selectedStrings = properties.getProperty("settings.selectedStrings", "1,2,3,4,5,6")
                 .split(",")
                 .mapNotNull { it.toIntOrNull() }
                 .toSet(),
             fretStart = properties.getProperty("settings.fretStart", "0").toInt(),
-            fretEnd = properties.getProperty("settings.fretEnd", "12").toInt(),
+            fretEnd = properties.getProperty("settings.fretEnd", "4").toInt(),
             noteTrainingRangeId = properties.getProperty("settings.noteTrainingRangeId")
                 ?.takeIf { it.isNotEmpty() },
             intervalLevelId = properties.getProperty("settings.intervalLevelId")
@@ -212,19 +228,18 @@ class PersistentTrainingStore(
                 .toIntOrNull()
                 ?.coerceIn(1, 6)
                 ?: 1,
-            firstPositionMaxFret = properties
-                .getProperty("settings.firstPositionMaxFret", "0")
-                .toIntOrNull()
-                ?.coerceIn(0, 4)
-                ?: 0,
-            firstPositionStageAttempts = properties
-                .getProperty("settings.firstPositionStageAttempts", "0")
-                .toIntOrNull()
-                ?.coerceAtLeast(0)
-                ?: 0,
-            firstPositionComplete = properties
-                .getProperty("settings.firstPositionComplete", "false")
-                .toBoolean(),
+            firstPositionActiveKnowledgeIds = activeKnowledgeIds,
+            firstPositionBaselineComplete = properties
+                .getProperty("settings.firstPositionBaselineComplete")
+                ?.toBoolean()
+                ?: (legacyComplete || (legacyMaxFret ?: 0) > 0),
+            firstPositionComplete = legacyComplete,
+            seenIntroductionIds = properties
+                .getProperty("settings.seenIntroductionIds")
+                .orEmpty()
+                .split(",")
+                .filter { it.isNotEmpty() }
+                .toSet(),
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,
@@ -239,6 +254,18 @@ class PersistentTrainingStore(
             levelProgress = decodeLevelProgress(properties),
             sessions = decodeSessions(properties),
         )
+    }
+
+    private fun legacyFirstPositionKnowledge(
+        legacyMaxFret: Int?,
+        legacyComplete: Boolean,
+    ): Set<String> {
+        val maxFret = if (legacyComplete) 4 else legacyMaxFret ?: 0
+        if (maxFret == 0) return emptySet()
+        return LEGACY_FIRST_POSITION_COORDINATES
+            .filter { (_, fret) -> fret <= maxFret }
+            .map { (string, fret) -> "s${string}f$fret" }
+            .toSet()
     }
 
     private fun decodeLevelProgress(properties: Properties): Map<Int, LevelProgress> {
@@ -363,5 +390,19 @@ class PersistentTrainingStore(
 
     private companion object {
         const val STORAGE_KEY = "v01.storage"
+        val LEGACY_FIRST_POSITION_COORDINATES = listOf(
+            6 to 1,
+            2 to 1,
+            1 to 1,
+            5 to 2,
+            4 to 2,
+            3 to 2,
+            6 to 3,
+            5 to 3,
+            4 to 3,
+            2 to 3,
+            1 to 3,
+            3 to 4,
+        )
     }
 }

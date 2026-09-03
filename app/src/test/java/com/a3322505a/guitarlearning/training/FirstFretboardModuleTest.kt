@@ -28,7 +28,9 @@ class FirstFretboardModuleTest {
                 range.applyTo(
                     Settings(
                         unlockedFretboardLevel = 5,
-                        firstPositionMaxFret = 4,
+                        firstPositionBaselineComplete = true,
+                        firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                            .map(FirstPositionCurriculum::id).toSet(),
                         firstPositionComplete = true,
                     ),
                 ),
@@ -47,7 +49,7 @@ class FirstFretboardModuleTest {
 
     @Test
     fun octaveQuestionsCarryAnAnchorAndAnExactHigherOctaveTarget() {
-        val questions = module.buildQuestionBank(Settings(unlockedFretboardLevel = 2))
+        val questions = module.buildQuestionBank(completedSettings(2))
             .filter { it.curriculumLevel == 2 }
 
         assertTrue(questions.isNotEmpty())
@@ -61,7 +63,7 @@ class FirstFretboardModuleTest {
 
     @Test
     fun wholeHalfAndIntervalQuestionsUseTheRequestedPitchDistance() {
-        val questions = module.buildQuestionBank(Settings(unlockedFretboardLevel = 4))
+        val questions = module.buildQuestionBank(completedSettings(4))
             .filter { it.curriculumLevel in 3..4 }
 
         assertTrue(questions.isNotEmpty())
@@ -83,7 +85,7 @@ class FirstFretboardModuleTest {
 
     @Test
     fun cMajorDegreeQuestionsPointToTheDisplayedDegree() {
-        val questions = module.buildQuestionBank(Settings(unlockedFretboardLevel = 5))
+        val questions = module.buildQuestionBank(completedSettings(5))
             .filter { it.curriculumLevel == 5 && it.kind == "c_major_degree" }
 
         questions.forEach { question ->
@@ -140,6 +142,14 @@ class FirstFretboardModuleTest {
             ),
         )
     }
+
+    private fun completedSettings(level: Int): Settings = Settings(
+        unlockedFretboardLevel = level,
+        firstPositionBaselineComplete = true,
+        firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+            .map(FirstPositionCurriculum::id).toSet(),
+        firstPositionComplete = true,
+    )
 
     private fun pitch(position: com.a3322505a.guitarlearning.core.FretPosition): Int =
         mapOf(6 to 40, 5 to 45, 4 to 50, 3 to 55, 2 to 59, 1 to 64)

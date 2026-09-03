@@ -104,10 +104,18 @@ class QuestionFactory {
         note: String,
         targets: List<FretPosition>,
         rangeId: String,
+        correctUniverse: List<FretPosition> = targets,
     ): Question {
         require(targets.isNotEmpty()) { "A fretboard note set needs at least one target" }
         require(targets.all { it.note == note }) { "Every fret target must match the prompt note" }
+        require(correctUniverse.all { it.note == note }) {
+            "Every correct-universe position must match the prompt note"
+        }
+        require(correctUniverse.containsAll(targets)) {
+            "The correct universe must contain every required target"
+        }
         val sortedTargets = targets.sortedWith(compareBy({ it.string }, { it.fret }))
+        val sortedUniverse = correctUniverse.sortedWith(compareBy({ it.string }, { it.fret }))
         val signature = sortedTargets.joinToString("-") { "s${it.string}f${it.fret}" }
         val answer = AnswerValue.FretSet(
             sortedTargets.map { AnswerValue.FretPosition(it.string, it.fret) }.toSet(),
@@ -119,7 +127,12 @@ class QuestionFactory {
             answerChoices = emptyList(),
             correctChoiceId = signature,
             knowledgeItemId = "FretToNoteSet:$rangeId:$note:$signature",
-            payload = FretboardNoteSetPayload(note, sortedTargets, rangeId),
+            payload = FretboardNoteSetPayload(
+                note = note,
+                targets = sortedTargets,
+                rangeId = rangeId,
+                correctUniverse = sortedUniverse,
+            ),
             weightPolicy = QuestionWeightPolicy.BOUNDED_PER_ITEM,
             answerMode = AnswerMode.FRETBOARD_SET,
             correctAnswerValue = answer,

@@ -76,8 +76,11 @@ data class FretboardCurriculumPayload(
 
 data class FretboardNoteSetPayload(
     val note: String,
+    /** Active Knowledge: the positions the learner must confirm for this question. */
     val targets: List<FretPosition>,
     val rangeId: String,
+    /** Correct Universe: every real occurrence of the note inside the Training Range. */
+    val correctUniverse: List<FretPosition> = targets,
 ) : QuestionPayload
 
 data class FretboardSequencePayload(
@@ -198,6 +201,12 @@ data class TrainingQuestion(
             is FretboardNoteSetPayload -> value.targets
             is FretboardSequencePayload -> value.targets
             else -> emptyList()
+        }
+
+    val correctUniversePositions: List<FretPosition>
+        get() = when (val value = payload) {
+            is FretboardNoteSetPayload -> value.correctUniverse
+            else -> targetPositions
         }
 
     val anchorPosition: FretPosition?
