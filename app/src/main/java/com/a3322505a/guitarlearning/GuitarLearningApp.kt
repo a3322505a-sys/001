@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
@@ -53,6 +54,7 @@ fun previousDestination(destination: AppDestination): AppDestination = when (des
 @Composable
 fun GuitarLearningApp(
     noteTrainingSession: TrainingSession,
+    pitchPlayer: PitchPlayer,
     onDestinationChanged: (AppDestination) -> Unit,
 ) {
     var destinationName by rememberSaveable { mutableStateOf(AppDestination.Home.name) }
@@ -67,6 +69,7 @@ fun GuitarLearningApp(
     }
 
     fun navigateTo(next: AppDestination) {
+        pitchPlayer.stop()
         destinationName = next.name
         onDestinationChanged(next)
     }
@@ -96,9 +99,11 @@ fun GuitarLearningApp(
         AppDestination.NoteName -> NoteNameTrainingScreen(
             trainingSession = noteTrainingSession,
             stateMachine = noteStateMachine,
+            pitchPlayer = pitchPlayer,
             onBack = { navigateTo(AppDestination.NoteNameRange) },
         )
         AppDestination.CombinedMapping -> CombinedMappingTrainingScreen(
+            pitchPlayer = pitchPlayer,
             onBack = { navigateTo(AppDestination.Home) },
         )
     }
