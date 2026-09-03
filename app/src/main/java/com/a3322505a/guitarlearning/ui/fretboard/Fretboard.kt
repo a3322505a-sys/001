@@ -46,6 +46,10 @@ private const val STRING_LABEL_WIDTH_DP = 42
 private const val FRET_HEADER_HEIGHT_DP = 22
 private const val OPEN_STRING_WIDTH_UNITS = 0.55f
 private const val FRETBOARD_WIDTH_UNITS = OPEN_STRING_WIDTH_UNITS + 12f
+internal const val FEEDBACK_MARKER_SIZE_FRACTION = 0.88f
+internal const val FEEDBACK_MARKER_RING_FRACTION = 0.78f
+internal const val FEEDBACK_MARKER_STROKE_DP = 4f
+internal const val FEEDBACK_MARKER_CORE_DP = 8f
 
 data class FretboardCell(
     val string: Int,
@@ -169,6 +173,7 @@ fun Fretboard(
     }.orEmpty(),
     interactionMode: FretboardInteractionMode = FretboardInteractionMode.Disabled,
     onPositionClick: ((FretPosition) -> Unit)? = null,
+    markerScale: Float = 1f,
     showLabels: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
@@ -195,6 +200,7 @@ fun Fretboard(
                 markers = markers,
                 interactionMode = interactionMode,
                 onPositionClick = onPositionClick,
+                markerScale = markerScale,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -255,6 +261,7 @@ private fun FretboardCanvas(
     markers: List<FretboardMarker>,
     interactionMode: FretboardInteractionMode,
     onPositionClick: ((FretPosition) -> Unit)?,
+    markerScale: Float,
     modifier: Modifier,
 ) {
     Canvas(
@@ -287,7 +294,7 @@ private fun FretboardCanvas(
         drawRect(color = FretboardWood)
         drawPixelWoodGrain()
         drawOpenStringArea()
-        drawMarkers(markers)
+        drawMarkers(markers, markerScale)
         drawFretLines()
         drawInlayMarkers()
         drawStrings()
@@ -336,7 +343,7 @@ private fun DrawScope.drawOpenStringArea() {
     )
 }
 
-private fun DrawScope.drawMarkers(markers: List<FretboardMarker>) {
+private fun DrawScope.drawMarkers(markers: List<FretboardMarker>, markerScale: Float) {
     markers.forEach { marker ->
         val cell = FretboardCell(marker.position.string, marker.position.fret)
         val left = size.width * fretLeftFraction(cell.fret)
@@ -346,7 +353,8 @@ private fun DrawScope.drawMarkers(markers: List<FretboardMarker>) {
             x = size.width * fretCenterFraction(cell.fret),
             y = cellHeight * (rowIndexForString(cell.string) + 0.5f),
         )
-        val outerSize = minOf(right - left, cellHeight) * 0.72f
+        val outerSize = minOf(right - left, cellHeight) *
+            FEEDBACK_MARKER_SIZE_FRACTION * markerScale
         val outerTopLeft = androidx.compose.ui.geometry.Offset(
             center.x - outerSize / 2f,
             center.y - outerSize / 2f,
@@ -361,7 +369,7 @@ private fun DrawScope.drawMarkers(markers: List<FretboardMarker>) {
             topLeft = outerTopLeft,
             size = androidx.compose.ui.geometry.Size(outerSize, outerSize),
         )
-        val ringSize = outerSize * 0.68f
+        val ringSize = outerSize * FEEDBACK_MARKER_RING_FRACTION
         drawRect(
             color = markerColor,
             topLeft = androidx.compose.ui.geometry.Offset(
@@ -369,9 +377,9 @@ private fun DrawScope.drawMarkers(markers: List<FretboardMarker>) {
                 center.y - ringSize / 2f,
             ),
             size = androidx.compose.ui.geometry.Size(ringSize, ringSize),
-            style = Stroke(width = 2.dp.toPx()),
+            style = Stroke(width = FEEDBACK_MARKER_STROKE_DP.dp.toPx()),
         )
-        val coreSize = 5.dp.toPx()
+        val coreSize = FEEDBACK_MARKER_CORE_DP.dp.toPx() * markerScale
         drawRect(
             color = NutIvory,
             topLeft = androidx.compose.ui.geometry.Offset(
