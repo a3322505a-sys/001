@@ -1,4 +1,4 @@
 # 001
 
-Android electric-guitar learning assistant. V0.3.0 is intentionally local-only and
-adds basic and combined note/solfege/degree mapping training.
+Android electric-guitar learning assistant. V0.7.0 adds a six-level first-fretboard
+curriculum with ordered scale and chord position exercises, while remaining local-only.

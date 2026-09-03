@@ -28,7 +28,12 @@ class FirstFretboardModuleTest {
             )
 
             assertEquals((1..5).toSet(), questions.map { it.curriculumLevel }.toSet(), range.name)
-            assertTrue(questions.all { it.answerMode == AnswerMode.FRETBOARD })
+            assertTrue(
+                questions.all {
+                    it.answerMode == AnswerMode.FRETBOARD ||
+                        it.answerMode == AnswerMode.FRETBOARD_SEQUENCE
+                },
+            )
         }
     }
 
@@ -71,7 +76,7 @@ class FirstFretboardModuleTest {
     @Test
     fun cMajorDegreeQuestionsPointToTheDisplayedDegree() {
         val questions = module.buildQuestionBank(Settings(unlockedFretboardLevel = 5))
-            .filter { it.curriculumLevel == 5 }
+            .filter { it.curriculumLevel == 5 && it.kind == "c_major_degree" }
 
         questions.forEach { question ->
             val payload = assertIs<FretboardCurriculumPayload>(question.payload)

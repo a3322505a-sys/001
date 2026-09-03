@@ -8,7 +8,7 @@ import com.a3322505a.guitarlearning.storage.Settings
 object FretboardLevelRules {
     const val MINIMUM_ATTEMPTS = 20
     const val REQUIRED_CORRECT = 18
-    const val MAXIMUM_LEVEL = 5
+    const val MAXIMUM_LEVEL = 6
 
     fun record(progress: LevelProgress, isCorrect: Boolean): LevelProgress =
         progress.copy(recentResults = (progress.recentResults + isCorrect).takeLast(20))
@@ -17,7 +17,7 @@ object FretboardLevelRules {
         progress.attempts == MINIMUM_ATTEMPTS && progress.correct >= REQUIRED_CORRECT
 }
 
-/** Lv.1–Lv.5 single-target curriculum for turning theory into fretboard locations. */
+/** Lv.1–Lv.6 curriculum for turning theory into single and ordered fretboard locations. */
 class FirstFretboardModule : TrainingModule {
     override val id: String = TrainingModuleIds.FRET_NOTE
     override val title: String = "第一指板"
@@ -35,6 +35,7 @@ class FirstFretboardModule : TrainingModule {
             if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(positions))
             if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(positions))
             if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(positions))
+            if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(positions))
         }.also { require(it.isNotEmpty()) { "First fretboard question bank must not be empty" } }
     }
 
@@ -89,8 +90,8 @@ class FirstFretboardModule : TrainingModule {
             },
         )
 
-    private fun levelFive(positions: List<FretPosition>): List<TrainingQuestion> =
-        positions.mapNotNull { target ->
+    private fun levelFive(positions: List<FretPosition>): List<TrainingQuestion> = buildList {
+        addAll(positions.mapNotNull { target ->
             val degree = GuitarCore.degreeFor(target.note) ?: return@mapNotNull null
             factory.createCurriculumQuestion(
                 level = 5,
@@ -100,7 +101,62 @@ class FirstFretboardModule : TrainingModule {
                 target = target,
                 relationId = "degree:$degree",
             )
+        })
+        addAll(
+            namedSequenceQuestions(
+                positions = positions,
+                level = 5,
+                kind = "c_major_ascending_fragment",
+                noteNames = listOf("C", "D", "E"),
+                prompt = "Lv.5 · 按顺序点 C→D→E（1→2→3）",
+            ),
+        )
+    }
+
+    private fun levelSix(positions: List<FretPosition>): List<TrainingQuestion> =
+        namedSequenceQuestions(
+            positions = positions,
+            level = 6,
+            kind = "c_major_triad",
+            noteNames = listOf("C", "E", "G"),
+            prompt = "Lv.6 · C 大三和弦 · 按顺序点 C→E→G",
+        )
+
+    private fun namedSequenceQuestions(
+        positions: List<FretPosition>,
+        level: Int,
+        kind: String,
+        noteNames: List<String>,
+        prompt: String,
+    ): List<TrainingQuestion> {
+        val roots = positions.filter { it.note == noteNames.first() }
+        return roots.mapNotNull { root ->
+            val targets = mutableListOf(root)
+            noteNames.drop(1).forEach { note ->
+                val target = positions
+                    .asSequence()
+                    .filter { it.note == note && it !in targets }
+                    .minWithOrNull(
+                        compareBy<FretPosition>(
+                            { kotlin.math.abs(it.string - root.string) +
+                                kotlin.math.abs(it.fret - root.fret) },
+                            { kotlin.math.abs(pitch(it) - pitch(root)) },
+                            { it.string },
+                            { it.fret },
+                        ),
+                    ) ?: return@mapNotNull null
+                targets += target
+            }
+            val relationId = kind + ":root:s${root.string}:f${root.fret}"
+            factory.createSequenceCurriculumQuestion(
+                level = level,
+                kind = kind,
+                prompt = prompt,
+                targets = targets,
+                relationId = relationId,
+            )
         }
+    }
 
     private fun relationQuestions(
         positions: List<FretPosition>,

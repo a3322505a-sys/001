@@ -58,6 +58,9 @@ fun SolfeggioNoteMappingScreen(
         is QuestionState.AwaitingAnswer -> null
         is QuestionState.Correct -> current.result
         is QuestionState.Incorrect -> current.result
+        is QuestionState.AwaitingSequenceAnswer,
+        is QuestionState.SequenceProgress,
+        is QuestionState.SequenceCompleted,
         is QuestionState.CorrectionRequired,
         is QuestionState.CorrectionConfirmed -> null
     }
@@ -137,6 +140,9 @@ fun SolfeggioNoteMappingScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
+                            is QuestionState.AwaitingSequenceAnswer,
+                            is QuestionState.SequenceProgress,
+                            is QuestionState.SequenceCompleted,
                             is QuestionState.CorrectionRequired,
                             is QuestionState.CorrectionConfirmed -> Unit
                         }

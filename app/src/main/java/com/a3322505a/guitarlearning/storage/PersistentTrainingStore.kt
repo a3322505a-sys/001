@@ -198,7 +198,7 @@ class PersistentTrainingStore(
             unlockedFretboardLevel = properties
                 .getProperty("settings.unlockedFretboardLevel", "1")
                 .toIntOrNull()
-                ?.coerceIn(1, 5)
+                ?.coerceIn(1, 6)
                 ?: 1,
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
@@ -222,7 +222,7 @@ class PersistentTrainingStore(
             val prefix = "levelProgress.$index."
             val level = properties.getProperty(prefix + "level")
                 ?.toIntOrNull()
-                ?.takeIf { it in 1..5 }
+                ?.takeIf { it in 1..6 }
                 ?: return@mapNotNull null
             LevelProgress(
                 level = level,

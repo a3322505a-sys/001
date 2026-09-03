@@ -53,7 +53,7 @@ data class LevelProgress(
     val recentResults: List<Boolean> = emptyList(),
 ) {
     init {
-        require(level in 1..5) { "level must be between 1 and 5" }
+        require(level in 1..6) { "level must be between 1 and 6" }
     }
 
     val attempts: Int get() = recentResults.size
@@ -89,8 +89,8 @@ data class Settings(
         require(fretStart in 0..12) { "fretStart must be between 0 and 12" }
         require(fretEnd in 0..12) { "fretEnd must be between 0 and 12" }
         require(fretStart <= fretEnd) { "fretStart must not exceed fretEnd" }
-        require(unlockedFretboardLevel in 1..5) {
-            "unlockedFretboardLevel must be between 1 and 5"
+        require(unlockedFretboardLevel in 1..6) {
+            "unlockedFretboardLevel must be between 1 and 6"
         }
     }
 }

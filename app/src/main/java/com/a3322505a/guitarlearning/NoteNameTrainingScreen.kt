@@ -70,30 +70,54 @@ fun NoteNameTrainingScreen(
     }
     fun withAnchor(vararg markers: FretboardMarker): List<FretboardMarker> =
         listOfNotNull(anchorMarker) + markers
+    fun sequenceMarkers(
+        positions: List<AnswerValue.FretPosition>,
+        role: FretboardMarkerRole,
+    ): List<FretboardMarker> = positions.map { markerFor(it, role) }
     val markers = when (val current = state) {
         is QuestionState.AwaitingAnswer -> withAnchor()
+        is QuestionState.AwaitingSequenceAnswer -> emptyList()
+        is QuestionState.SequenceProgress ->
+            sequenceMarkers(current.selectedPositions, FretboardMarkerRole.CONFIRMED)
+        is QuestionState.SequenceCompleted ->
+            sequenceMarkers(current.selectedPositions, FretboardMarkerRole.CORRECT)
         is QuestionState.Correct -> withAnchor(
             FretboardMarker(requireNotNull(question.fretPosition), FretboardMarkerRole.CORRECT),
         )
-        is QuestionState.CorrectionRequired -> withAnchor(
-            markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
-            markerFor(current.correctPosition, FretboardMarkerRole.CORRECT),
-        )
-        is QuestionState.CorrectionConfirmed -> withAnchor(
-            markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
-            markerFor(current.correctPosition, FretboardMarkerRole.CONFIRMED),
-        )
+        is QuestionState.CorrectionRequired ->
+            withAnchor(
+                *(
+                    sequenceMarkers(
+                        current.confirmedPositions,
+                        FretboardMarkerRole.CONFIRMED,
+                    ) + markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT) +
+                        markerFor(current.correctPosition, FretboardMarkerRole.CORRECT)
+                    ).toTypedArray(),
+            )
+        is QuestionState.CorrectionConfirmed ->
+            withAnchor(
+                *(
+                    sequenceMarkers(
+                        current.confirmedPositions + current.correctPosition,
+                        FretboardMarkerRole.CONFIRMED,
+                    ) + markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT)
+                    ).toTypedArray(),
+            )
         is QuestionState.Incorrect -> emptyList()
     }
     val interactionMode = when (state) {
-        is QuestionState.AwaitingAnswer -> FretboardInteractionMode.Enabled
+        is QuestionState.AwaitingAnswer,
+        is QuestionState.AwaitingSequenceAnswer,
+        is QuestionState.SequenceProgress -> FretboardInteractionMode.Enabled
         is QuestionState.CorrectionRequired -> FretboardInteractionMode.CorrectionOnly
         else -> FretboardInteractionMode.Disabled
     }
 
     LaunchedEffect(state) {
-        val correctState = state as? QuestionState.Correct
-        if (correctState == null) {
+        val completedState = state.takeIf {
+            it is QuestionState.Correct || it is QuestionState.SequenceCompleted
+        }
+        if (completedState == null) {
             markerScale.snapTo(1f)
             return@LaunchedEffect
         }
@@ -110,7 +134,7 @@ fun NoteNameTrainingScreen(
             FRETBOARD_CORRECT_FEEDBACK_DURATION_MS -
                 CORRECT_PULSE_HALF_DURATION_MS * 2L,
         )
-        if (state === correctState) {
+        if (state === completedState) {
             state = stateMachine.nextQuestion()
         }
     }
@@ -168,6 +192,13 @@ fun NoteNameTrainingScreen(
             ) {
                 val feedback = when (state) {
                     is QuestionState.Correct -> "✓ 正确" to PixelSuccess
+                    is QuestionState.SequenceCompleted -> "✓ 正确" to PixelSuccess
+                    is QuestionState.AwaitingSequenceAnswer ->
+                        "按顺序点选 · 0/${question.targetPositions.size}" to PixelInkMuted
+                    is QuestionState.SequenceProgress -> {
+                        val progress = (state as QuestionState.SequenceProgress).selectedPositions.size
+                        "已完成 $progress/${question.targetPositions.size} · 继续" to PixelSuccess
+                    }
                     is QuestionState.CorrectionRequired ->
                         "错了，点一下正确位置" to PixelError
                     is QuestionState.CorrectionConfirmed -> "已纠正" to PixelSuccess

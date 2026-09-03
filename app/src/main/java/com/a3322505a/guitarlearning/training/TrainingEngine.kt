@@ -23,15 +23,26 @@ class TrainingEngine(
         val candidates = if (type == null) questionBank else questionBank.filter { it.type == type }
         require(candidates.isNotEmpty()) { "Question bank does not contain the requested type" }
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
-        val levelCounts = candidates.groupingBy { it.curriculumLevel }.eachCount()
-        val question = weightedSample(candidates) { candidate ->
+        val itemWeights = candidates.associateWith { candidate ->
             val progress = progressById[candidate.knowledgeItemId]
-            val itemWeight = when (candidate.weightPolicy) {
+            when (candidate.weightPolicy) {
                 QuestionWeightPolicy.MASTERY -> QuestionWeights.forProgress(progress)
                 QuestionWeightPolicy.BOUNDED_PER_ITEM ->
                     PositionQuestionWeights.forProgress(progress)
             }
-            itemWeight / levelCounts.getValue(candidate.curriculumLevel)
+        }
+        val itemWeightTotals = candidates
+            .groupBy { it.curriculumLevel }
+            .mapValues { (_, questions) -> questions.sumOf { itemWeights.getValue(it) } }
+        val mixWeights = if (trainingModule.id == TrainingModuleIds.FRET_NOTE) {
+            FretboardMixingWeights.forUnlockedLevel(currentSettings.unlockedFretboardLevel)
+        } else {
+            candidates.map { it.curriculumLevel }.distinct().associateWith { 1.0 }
+        }
+        val question = weightedSample(candidates) { candidate ->
+            val level = candidate.curriculumLevel
+            mixWeights.getOrDefault(level, 0.0) *
+                itemWeights.getValue(candidate) / itemWeightTotals.getValue(level)
         }
         currentQuestion = question
         submitted = false
@@ -52,10 +63,14 @@ class TrainingEngine(
         val submittedLabel = when (answer) {
             is AnswerValue.Choice -> question.answerChoices.singleOrNull { it.id == answer.id }?.label
             is AnswerValue.FretPosition -> answer.string.toString() + "弦" + answer.fret + "品"
+            is AnswerValue.FretSequence -> answer.positions.joinToString(" → ") {
+                it.string.toString() + "弦" + it.fret + "品"
+            }
         } ?: return invalidResult(question, answer.toString())
         val modeMatches = when (question.answerMode) {
             AnswerMode.CHOICE -> answer is AnswerValue.Choice
             AnswerMode.FRETBOARD -> answer is AnswerValue.FretPosition
+            AnswerMode.FRETBOARD_SEQUENCE -> answer is AnswerValue.FretSequence
         }
         if (!modeMatches) return invalidResult(question, submittedLabel)
         return submitAnswerInternal(question, answer, submittedLabel)
@@ -127,5 +142,18 @@ class TrainingEngine(
             if (cursor < 0.0) return item
         }
         return items.last()
+    }
+}
+
+/** Final curriculum mix. Item-level weights are normalized inside each level. */
+object FretboardMixingWeights {
+    fun forUnlockedLevel(level: Int): Map<Int, Double> = when (level) {
+        1 -> mapOf(1 to 1.00)
+        2 -> mapOf(1 to 0.70, 2 to 0.30)
+        3 -> mapOf(1 to 0.50, 2 to 0.30, 3 to 0.20)
+        4 -> mapOf(1 to 0.35, 2 to 0.25, 3 to 0.20, 4 to 0.20)
+        5 -> mapOf(1 to 0.25, 2 to 0.20, 3 to 0.15, 4 to 0.20, 5 to 0.20)
+        6 -> mapOf(1 to 0.20, 2 to 0.15, 3 to 0.15, 4 to 0.15, 5 to 0.15, 6 to 0.20)
+        else -> error("Unlocked fretboard level must be between 1 and 6")
     }
 }
