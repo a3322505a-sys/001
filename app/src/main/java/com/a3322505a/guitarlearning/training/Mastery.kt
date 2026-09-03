@@ -37,7 +37,7 @@ object QuestionWeights {
     }
 }
 
-/** Bounded, deliberately asymmetric weight updates for physical note-name positions. */
+/** Bounded, deliberately asymmetric weight updates for concrete questions. */
 object PositionQuestionWeights {
     const val INITIAL = 1.0
     const val MINIMUM = 0.4

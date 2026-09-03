@@ -85,6 +85,7 @@ class TrainingSession(
         store.upsertKnowledgeItem(item.copy(status = newProgress.mastery))
         store.saveProgress(newProgress)
         recordCurriculumLevel(question, result)
+        recordFirstPositionGrowth(question)
 
         activeSession = activeSession.copy(
             endedAt = null,
@@ -110,8 +111,44 @@ class TrainingSession(
         ) {
             val unlocked = settings.copy(unlockedFretboardLevel = level + 1)
             store.saveSettings(unlocked)
-            engine.updateSettings(unlocked)
+            engine.updateSettingsAfterAnswer(unlocked)
         }
+    }
+
+    private fun recordFirstPositionGrowth(question: Question) {
+        val settings = engine.settings()
+        if (
+            question.answerMode != AnswerMode.FRETBOARD_SET ||
+            settings.noteTrainingRangeId != NoteTrainingRange.LOW_POSITION.name ||
+            settings.firstPositionComplete
+        ) {
+            return
+        }
+
+        val stageSettings = settings.copy(
+            firstPositionStageAttempts = settings.firstPositionStageAttempts + 1,
+        )
+        val stageQuestions = FirstFretboardModule()
+            .buildQuestionBank(stageSettings)
+            .filter { it.curriculumLevel == 1 }
+        val qualifies = FirstPositionGrowthRules.qualifies(
+            stageAttempts = stageSettings.firstPositionStageAttempts,
+            questions = stageQuestions,
+            progressById = store.loadProgress().associateBy { it.knowledgeItemId },
+        )
+        val updated = when {
+            !qualifies -> stageSettings
+            stageSettings.firstPositionMaxFret < 4 -> stageSettings.copy(
+                firstPositionMaxFret = stageSettings.firstPositionMaxFret + 1,
+                firstPositionStageAttempts = 0,
+            )
+            else -> stageSettings.copy(
+                firstPositionStageAttempts = 0,
+                firstPositionComplete = true,
+            )
+        }
+        store.saveSettings(updated)
+        engine.updateSettingsAfterAnswer(updated)
     }
 
     fun nextQuestion(): Question = engine.nextQuestion()

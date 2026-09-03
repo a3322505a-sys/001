@@ -116,6 +116,18 @@ class PersistentTrainingStore(
             "settings.unlockedFretboardLevel",
             snapshot.settings.unlockedFretboardLevel.toString(),
         )
+        properties.setProperty(
+            "settings.firstPositionMaxFret",
+            snapshot.settings.firstPositionMaxFret.toString(),
+        )
+        properties.setProperty(
+            "settings.firstPositionStageAttempts",
+            snapshot.settings.firstPositionStageAttempts.toString(),
+        )
+        properties.setProperty(
+            "settings.firstPositionComplete",
+            snapshot.settings.firstPositionComplete.toString(),
+        )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
 
@@ -172,7 +184,7 @@ class PersistentTrainingStore(
         }
 
         val writer = StringWriter()
-        properties.store(writer, "GuitarLearning V0.2.3")
+        properties.store(writer, "GuitarLearning V0.8.0")
         backend.putString(STORAGE_KEY, writer.toString())
     }
 
@@ -200,6 +212,19 @@ class PersistentTrainingStore(
                 .toIntOrNull()
                 ?.coerceIn(1, 6)
                 ?: 1,
+            firstPositionMaxFret = properties
+                .getProperty("settings.firstPositionMaxFret", "0")
+                .toIntOrNull()
+                ?.coerceIn(0, 4)
+                ?: 0,
+            firstPositionStageAttempts = properties
+                .getProperty("settings.firstPositionStageAttempts", "0")
+                .toIntOrNull()
+                ?.coerceAtLeast(0)
+                ?: 0,
+            firstPositionComplete = properties
+                .getProperty("settings.firstPositionComplete", "false")
+                .toBoolean(),
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,

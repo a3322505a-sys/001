@@ -32,7 +32,7 @@ class NoteTrainingRangeTest {
         val expected = listOf(
             RangeExpectation("单弦｜1 弦", setOf(1), 0..12),
             RangeExpectation("跨弦｜1–3 弦", (1..3).toSet(), 0..12),
-            RangeExpectation("低把位｜0–4 品", (1..6).toSet(), 0..4),
+            RangeExpectation("第一把位｜0–4 品", (1..6).toSet(), 0..4),
             RangeExpectation("中把位｜5–8 品", (1..6).toSet(), 5..8),
             RangeExpectation("全指板｜0–12 品", (1..6).toSet(), 0..12),
         )

@@ -16,6 +16,42 @@ sealed interface QuestionState {
         override val question: Question,
     ) : QuestionState
 
+    data class AwaitingSetAnswer(
+        override val question: Question,
+    ) : QuestionState
+
+    data class SetProgress(
+        override val question: Question,
+        val selectedPositions: Set<AnswerValue.FretPosition>,
+    ) : QuestionState
+
+    data class SetCompleted(
+        override val question: Question,
+        val result: AnswerResult,
+        val selectedPositions: Set<AnswerValue.FretPosition>,
+    ) : QuestionState
+
+    data class SetCorrectionRequired(
+        override val question: Question,
+        val result: AnswerResult,
+        val wrongPosition: AnswerValue.FretPosition,
+        val confirmedPositions: Set<AnswerValue.FretPosition>,
+    ) : QuestionState
+
+    data class SetCorrectionProgress(
+        override val question: Question,
+        val result: AnswerResult,
+        val wrongPosition: AnswerValue.FretPosition,
+        val confirmedPositions: Set<AnswerValue.FretPosition>,
+    ) : QuestionState
+
+    data class SetCorrectionConfirmed(
+        override val question: Question,
+        val result: AnswerResult,
+        val wrongPosition: AnswerValue.FretPosition,
+        val confirmedPositions: Set<AnswerValue.FretPosition>,
+    ) : QuestionState
+
     data class SequenceProgress(
         override val question: Question,
         val selectedPositions: List<AnswerValue.FretPosition>,
@@ -68,6 +104,9 @@ class TrainingStateMachine(
     }
 
     fun submitAnswer(answer: AnswerValue): QuestionState {
+        if (answer is AnswerValue.FretPosition && isSetCorrectionInProgress()) {
+            return submitSetCorrectionPosition(answer)
+        }
         val correction = current as? QuestionState.CorrectionRequired
         if (correction != null) {
             if (answer == correction.correctPosition) {
@@ -83,6 +122,31 @@ class TrainingStateMachine(
         }
         if (answer is AnswerValue.FretPosition && isSequenceInProgress()) {
             return submitSequencePosition(answer)
+        }
+        if (answer is AnswerValue.FretPosition && isSetInProgress()) {
+            return submitSetPosition(answer)
+        }
+        if (answer is AnswerValue.FretSet && current is QuestionState.AwaitingSetAnswer) {
+            val question = current.question
+            val expected = (question.correctAnswerValue as AnswerValue.FretSet).positions
+            if (answer.positions != expected && answer.positions.all { it in expected }) {
+                current = QuestionState.SetProgress(question, answer.positions)
+                return current
+            }
+            val result = session.submitAnswer(answer)
+            current = if (result.accepted && result.isCorrect) {
+                QuestionState.SetCompleted(question, result, answer.positions)
+            } else if (result.accepted) {
+                QuestionState.SetCorrectionRequired(
+                    question = question,
+                    result = result,
+                    wrongPosition = answer.positions.first { it !in expected },
+                    confirmedPositions = answer.positions.intersect(expected),
+                )
+            } else {
+                current
+            }
+            return current
         }
         if (answer is AnswerValue.FretSequence && current is QuestionState.AwaitingSequenceAnswer) {
             val question = current.question
@@ -102,6 +166,76 @@ class TrainingStateMachine(
     private fun isSequenceInProgress(): Boolean =
         current is QuestionState.AwaitingSequenceAnswer ||
             current is QuestionState.SequenceProgress
+
+    private fun isSetInProgress(): Boolean =
+        current is QuestionState.AwaitingSetAnswer || current is QuestionState.SetProgress
+
+    private fun isSetCorrectionInProgress(): Boolean =
+        current is QuestionState.SetCorrectionRequired ||
+            current is QuestionState.SetCorrectionProgress
+
+    private fun submitSetPosition(answer: AnswerValue.FretPosition): QuestionState {
+        val question = current.question
+        val selected = (current as? QuestionState.SetProgress)?.selectedPositions.orEmpty()
+        val expected = (question.correctAnswerValue as AnswerValue.FretSet).positions
+        if (answer in selected) return current
+
+        if (answer !in expected) {
+            val result = session.submitAnswer(AnswerValue.FretSet(selected + answer))
+            if (result.accepted) {
+                current = QuestionState.SetCorrectionRequired(
+                    question = question,
+                    result = result,
+                    wrongPosition = answer,
+                    confirmedPositions = selected,
+                )
+            }
+            return current
+        }
+
+        val updated = selected + answer
+        current = if (updated == expected) {
+            val result = session.submitAnswer(AnswerValue.FretSet(updated))
+            check(result.accepted && result.isCorrect) {
+                "A completed fret set must be accepted as correct"
+            }
+            QuestionState.SetCompleted(question, result, updated)
+        } else {
+            QuestionState.SetProgress(question, updated)
+        }
+        return current
+    }
+
+    private fun submitSetCorrectionPosition(answer: AnswerValue.FretPosition): QuestionState {
+        val correctionRequired = current as? QuestionState.SetCorrectionRequired
+        val correctionProgress = current as? QuestionState.SetCorrectionProgress
+        val question = current.question
+        val result = correctionRequired?.result ?: requireNotNull(correctionProgress).result
+        val wrongPosition = correctionRequired?.wrongPosition
+            ?: requireNotNull(correctionProgress).wrongPosition
+        val confirmed = correctionRequired?.confirmedPositions
+            ?: requireNotNull(correctionProgress).confirmedPositions
+        val expected = (question.correctAnswerValue as AnswerValue.FretSet).positions
+        if (answer !in expected || answer in confirmed) return current
+
+        val updated = confirmed + answer
+        current = if (updated == expected) {
+            QuestionState.SetCorrectionConfirmed(
+                question = question,
+                result = result,
+                wrongPosition = wrongPosition,
+                confirmedPositions = updated,
+            )
+        } else {
+            QuestionState.SetCorrectionProgress(
+                question = question,
+                result = result,
+                wrongPosition = wrongPosition,
+                confirmedPositions = updated,
+            )
+        }
+        return current
+    }
 
     private fun submitSequencePosition(answer: AnswerValue.FretPosition): QuestionState {
         val question = current.question
@@ -163,7 +297,9 @@ class TrainingStateMachine(
             current is QuestionState.Correct ||
                 current is QuestionState.Incorrect ||
                 current is QuestionState.CorrectionConfirmed ||
-                current is QuestionState.SequenceCompleted,
+                current is QuestionState.SequenceCompleted ||
+                current is QuestionState.SetCompleted ||
+                current is QuestionState.SetCorrectionConfirmed,
         ) {
             "The current question must be completed before advancing"
         }
@@ -181,9 +317,9 @@ class TrainingStateMachine(
         resetRound(range.applyTo(session.currentSettings()))
 
     private fun awaitingState(question: Question): QuestionState =
-        if (question.answerMode == AnswerMode.FRETBOARD_SEQUENCE) {
-            QuestionState.AwaitingSequenceAnswer(question)
-        } else {
-            QuestionState.AwaitingAnswer(question)
+        when (question.answerMode) {
+            AnswerMode.FRETBOARD_SEQUENCE -> QuestionState.AwaitingSequenceAnswer(question)
+            AnswerMode.FRETBOARD_SET -> QuestionState.AwaitingSetAnswer(question)
+            else -> QuestionState.AwaitingAnswer(question)
         }
 }

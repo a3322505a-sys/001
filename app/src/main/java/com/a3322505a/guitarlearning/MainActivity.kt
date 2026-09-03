@@ -4,6 +4,9 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
 import com.a3322505a.guitarlearning.training.IntervalModule
 import com.a3322505a.guitarlearning.training.FirstFretboardModule
@@ -47,6 +50,7 @@ class MainActivity : ComponentActivity() {
                     noteTrainingSession = noteTrainingSession,
                     intervalTrainingSession = intervalTrainingSession,
                     onDestinationChanged = { destination ->
+                        setNoteNameImmersive(usesImmersiveSystemBars(destination))
                         requestedOrientation = if (usesLandscapeLayout(destination)) {
                             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                         } else {
@@ -54,6 +58,19 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 )
+            }
+        }
+    }
+
+    private fun setNoteNameImmersive(enabled: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, !enabled)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            if (enabled) {
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                show(WindowInsetsCompat.Type.systemBars())
             }
         }
     }

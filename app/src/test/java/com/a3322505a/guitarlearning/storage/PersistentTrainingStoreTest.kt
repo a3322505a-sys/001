@@ -43,6 +43,9 @@ class PersistentTrainingStoreTest {
             fretEnd = 8,
             noteTrainingRangeId = "MID_POSITION",
             unlockedFretboardLevel = 4,
+            firstPositionMaxFret = 4,
+            firstPositionStageAttempts = 7,
+            firstPositionComplete = true,
             naturalOnly = true,
         )
 
@@ -106,6 +109,9 @@ class PersistentTrainingStoreTest {
         assertEquals(2, progress.attempts)
         assertEquals(1.0, progress.weight)
         assertEquals(1, PersistentTrainingStore(backend).loadSettings().unlockedFretboardLevel)
+        assertEquals(0, PersistentTrainingStore(backend).loadSettings().firstPositionMaxFret)
+        assertEquals(0, PersistentTrainingStore(backend).loadSettings().firstPositionStageAttempts)
+        assertEquals(false, PersistentTrainingStore(backend).loadSettings().firstPositionComplete)
     }
 
     @Test

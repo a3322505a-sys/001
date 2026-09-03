@@ -19,7 +19,13 @@ class FretboardSequenceTest {
         val module = FirstFretboardModule()
 
         NoteTrainingRange.entries.forEach { range ->
-            val settings = range.applyTo(Settings(unlockedFretboardLevel = 6))
+            val settings = range.applyTo(
+                Settings(
+                    unlockedFretboardLevel = 6,
+                    firstPositionMaxFret = 4,
+                    firstPositionComplete = true,
+                ),
+            )
             val questions = module.buildQuestionBank(settings)
             assertEquals((1..6).toSet(), questions.map { it.curriculumLevel }.toSet(), range.name)
 

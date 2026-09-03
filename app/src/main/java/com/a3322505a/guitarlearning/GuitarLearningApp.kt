@@ -44,6 +44,9 @@ enum class AppDestination {
 fun usesLandscapeLayout(destination: AppDestination): Boolean =
     destination == AppDestination.NoteName
 
+fun usesImmersiveSystemBars(destination: AppDestination): Boolean =
+    destination == AppDestination.NoteName
+
 fun previousDestination(destination: AppDestination): AppDestination = when (destination) {
     AppDestination.NoteName -> AppDestination.NoteNameRange
     AppDestination.NoteNameRange,
@@ -204,4 +207,3 @@ private fun HomeScreen(
         }
     }
 }
-
