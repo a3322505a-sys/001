@@ -8,7 +8,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
-import com.a3322505a.guitarlearning.training.IntervalModule
 import com.a3322505a.guitarlearning.training.FirstFretboardModule
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingEngine
@@ -17,7 +16,6 @@ import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var noteTrainingSession: TrainingSession
-    private lateinit var intervalTrainingSession: TrainingSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,20 +33,10 @@ class MainActivity : ComponentActivity() {
             ),
             store = store,
         )
-        intervalTrainingSession = TrainingSession(
-            engine = TrainingEngine(
-                settings = settings,
-                progressProvider = { store.loadProgress() },
-                module = IntervalModule(),
-            ),
-            store = store,
-        )
-
         setContent {
             GuitarLearningTheme {
                 GuitarLearningApp(
                     noteTrainingSession = noteTrainingSession,
-                    intervalTrainingSession = intervalTrainingSession,
                     onDestinationChanged = { destination ->
                         setNoteNameImmersive(usesImmersiveSystemBars(destination))
                         requestedOrientation = if (usesLandscapeLayout(destination)) {
@@ -77,7 +65,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         if (::noteTrainingSession.isInitialized) noteTrainingSession.finish()
-        if (::intervalTrainingSession.isInitialized) intervalTrainingSession.finish()
         super.onStop()
     }
 }

@@ -85,7 +85,7 @@ class TrainingSession(
         store.upsertKnowledgeItem(item.copy(status = newProgress.mastery))
         store.saveProgress(newProgress)
         recordCurriculumLevel(question, result)
-        recordFirstPositionGrowth(question)
+        recordFirstPositionGrowth(question, result)
 
         activeSession = activeSession.copy(
             endedAt = null,
@@ -115,7 +115,7 @@ class TrainingSession(
         }
     }
 
-    private fun recordFirstPositionGrowth(question: Question) {
+    private fun recordFirstPositionGrowth(question: Question, result: AnswerResult) {
         val settings = engine.settings()
         if (
             question.answerMode != AnswerMode.FRETBOARD_SET ||
@@ -125,30 +125,52 @@ class TrainingSession(
             return
         }
 
-        val stageSettings = settings.copy(
-            firstPositionStageAttempts = settings.firstPositionStageAttempts + 1,
-        )
-        val stageQuestions = FirstFretboardModule()
-            .buildQuestionBank(stageSettings)
-            .filter { it.curriculumLevel == 1 }
-        val qualifies = FirstPositionGrowthRules.qualifies(
-            stageAttempts = stageSettings.firstPositionStageAttempts,
-            questions = stageQuestions,
-            progressById = store.loadProgress().associateBy { it.knowledgeItemId },
-        )
-        val updated = when {
-            !qualifies -> stageSettings
-            stageSettings.firstPositionMaxFret < 4 -> stageSettings.copy(
-                firstPositionMaxFret = stageSettings.firstPositionMaxFret + 1,
-                firstPositionStageAttempts = 0,
+        val updated = if (!settings.firstPositionBaselineComplete) {
+            val baselineCovered = FirstFretboardModule()
+                .buildQuestionBank(settings)
+                .filter { it.curriculumLevel == 1 }
+                .all { baselineQuestion ->
+                    (store.loadProgress(baselineQuestion.knowledgeItemId)?.correct ?: 0) >= 1
+                }
+            if (!baselineCovered) return
+            val first = requireNotNull(FirstPositionCurriculum.nextInactive(settings))
+            settings.copy(
+                firstPositionBaselineComplete = true,
+                firstPositionActiveKnowledgeIds = setOf(FirstPositionCurriculum.id(first)),
             )
-            else -> stageSettings.copy(
-                firstPositionStageAttempts = 0,
-                firstPositionComplete = true,
-            )
+        } else {
+            if (!result.isCorrect) return
+            val payload = question.payload as? FretboardNoteSetPayload ?: return
+            val focus = FirstPositionCurriculum.expansionPositions
+                .lastOrNull {
+                    FirstPositionCurriculum.id(it) in settings.firstPositionActiveKnowledgeIds
+                }
+                ?: return
+            if (focus !in payload.targets) return
+            val next = FirstPositionCurriculum.nextInactive(settings)
+            if (next == null) {
+                settings.copy(firstPositionComplete = true)
+            } else {
+                settings.copy(
+                    firstPositionActiveKnowledgeIds =
+                        settings.firstPositionActiveKnowledgeIds + FirstPositionCurriculum.id(next),
+                )
+            }
         }
         store.saveSettings(updated)
         engine.updateSettingsAfterAnswer(updated)
+    }
+
+    fun consumeIntroduction(question: Question): String? {
+        val introduction = CurriculumIntroductions.forQuestion(question) ?: return null
+        val settings = engine.settings()
+        if (introduction.id in settings.seenIntroductionIds) return null
+        val updated = settings.copy(
+            seenIntroductionIds = settings.seenIntroductionIds + introduction.id,
+        )
+        store.saveSettings(updated)
+        engine.updateSettingsAfterAnswer(updated)
+        return introduction.text
     }
 
     fun nextQuestion(): Question = engine.nextQuestion()

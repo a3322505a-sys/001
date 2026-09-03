@@ -14,9 +14,6 @@ class NavigationTest {
         assertFalse(usesLandscapeLayout(AppDestination.NoteNameRange))
         assertFalse(usesImmersiveSystemBars(AppDestination.NoteNameRange))
         assertFalse(usesLandscapeLayout(AppDestination.CombinedMapping))
-        assertFalse(usesLandscapeLayout(AppDestination.BasicTheory))
-        assertFalse(usesLandscapeLayout(AppDestination.IntervalLevels))
-        assertFalse(usesLandscapeLayout(AppDestination.IntervalTraining))
     }
 
     @Test
@@ -24,8 +21,5 @@ class NavigationTest {
         assertEquals(AppDestination.NoteNameRange, previousDestination(AppDestination.NoteName))
         assertEquals(AppDestination.Home, previousDestination(AppDestination.NoteNameRange))
         assertEquals(AppDestination.Home, previousDestination(AppDestination.CombinedMapping))
-        assertEquals(AppDestination.Home, previousDestination(AppDestination.BasicTheory))
-        assertEquals(AppDestination.BasicTheory, previousDestination(AppDestination.IntervalLevels))
-        assertEquals(AppDestination.IntervalLevels, previousDestination(AppDestination.IntervalTraining))
     }
 }

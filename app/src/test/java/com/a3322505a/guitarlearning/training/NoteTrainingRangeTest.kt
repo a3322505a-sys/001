@@ -8,30 +8,20 @@ import kotlin.test.assertTrue
 
 class NoteTrainingRangeTest {
     @Test
-    fun onlyTheFiveSpecifiedTrainingRangesAreExposed() {
+    fun onlyTheThreePhysicalTrainingRegionsAreExposed() {
         assertEquals(
             listOf(
-                NoteTrainingRange.SINGLE_STRING_1,
-                NoteTrainingRange.CROSS_STRING_1_TO_3,
                 NoteTrainingRange.LOW_POSITION,
                 NoteTrainingRange.MID_POSITION,
                 NoteTrainingRange.FULL_FRETBOARD,
             ),
             NoteTrainingRange.entries,
         )
-        assertEquals(2, NoteTrainingRange.entries.count {
-            it.group == NoteTrainingRangeGroup.BEGINNER
-        })
-        assertEquals(3, NoteTrainingRange.entries.count {
-            it.group == NoteTrainingRangeGroup.POSITION
-        })
     }
 
     @Test
     fun labelsAndCoordinatesMatchTheConstructionSpecification() {
         val expected = listOf(
-            RangeExpectation("单弦｜1 弦", setOf(1), 0..12),
-            RangeExpectation("跨弦｜1–3 弦", (1..3).toSet(), 0..12),
             RangeExpectation("第一把位｜0–4 品", (1..6).toSet(), 0..4),
             RangeExpectation("中把位｜5–8 品", (1..6).toSet(), 5..8),
             RangeExpectation("全指板｜0–12 品", (1..6).toSet(), 0..12),
@@ -59,39 +49,31 @@ class NoteTrainingRangeTest {
     }
 
     @Test
-    fun legacyStringStagesMigrateWithoutLeakingRemovedRanges() {
-        val legacyMappings = mapOf(
-            setOf(1) to NoteTrainingRange.SINGLE_STRING_1,
-            (1..2).toSet() to NoteTrainingRange.CROSS_STRING_1_TO_3,
-            (1..3).toSet() to NoteTrainingRange.CROSS_STRING_1_TO_3,
-            (1..4).toSet() to NoteTrainingRange.LOW_POSITION,
-            (1..5).toSet() to NoteTrainingRange.LOW_POSITION,
-            (1..6).toSet() to NoteTrainingRange.LOW_POSITION,
-        )
-
-        legacyMappings.forEach { (legacyStrings, expectedRange) ->
-            val migrated = NoteTrainingRange.normalize(
-                Settings(selectedStrings = legacyStrings, fretStart = 0, fretEnd = 12),
-            )
-            assertEquals(expectedRange.name, migrated.noteTrainingRangeId)
-            assertEquals(expectedRange.selectedStrings, migrated.selectedStrings)
-            assertEquals(expectedRange.fretRange.first, migrated.fretStart)
-            assertEquals(expectedRange.fretRange.last, migrated.fretEnd)
-        }
+    fun removedBeginnerRangeIdsMigrateToFirstPosition() {
+        listOf("BASIC", "SINGLE_STRING_1", "CROSS_STRING", "CROSS_STRING_1_TO_3")
+            .forEach { legacyId ->
+                val legacy = Settings(
+                    selectedStrings = setOf(1),
+                    fretStart = 0,
+                    fretEnd = 12,
+                    noteTrainingRangeId = legacyId,
+                )
+                assertEquals(
+                    NoteTrainingRange.LOW_POSITION.applyTo(legacy),
+                    NoteTrainingRange.normalize(legacy),
+                )
+            }
     }
 
     @Test
-    fun explicitNewRangeSurvivesAndInvalidIdFallsBackSafely() {
+    fun explicitRegionSurvivesAndInvalidIdFallsBackSafely() {
         val full = NoteTrainingRange.FULL_FRETBOARD.applyTo(Settings())
         assertEquals(NoteTrainingRange.FULL_FRETBOARD, NoteTrainingRange.fromSettings(full))
         assertEquals(full, NoteTrainingRange.normalize(full))
 
-        val invalid = Settings(
-            selectedStrings = (1..6).toSet(),
-            noteTrainingRangeId = "REMOVED_OR_CORRUPT",
-        )
+        val invalid = Settings(noteTrainingRangeId = "REMOVED_OR_CORRUPT")
         assertEquals(
-            NoteTrainingRange.SINGLE_STRING_1.applyTo(invalid),
+            NoteTrainingRange.LOW_POSITION.applyTo(invalid),
             NoteTrainingRange.normalize(invalid),
         )
     }

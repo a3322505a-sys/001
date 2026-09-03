@@ -4,6 +4,8 @@ import com.a3322505a.guitarlearning.training.QuestionType
 import com.a3322505a.guitarlearning.training.TrainingModuleIds
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class PersistentTrainingStoreTest {
     @Test
@@ -43,9 +45,10 @@ class PersistentTrainingStoreTest {
             fretEnd = 8,
             noteTrainingRangeId = "MID_POSITION",
             unlockedFretboardLevel = 4,
-            firstPositionMaxFret = 4,
-            firstPositionStageAttempts = 7,
+            firstPositionActiveKnowledgeIds = setOf("s6f1", "s2f1"),
+            firstPositionBaselineComplete = true,
             firstPositionComplete = true,
+            seenIntroductionIds = setOf("half_step"),
             naturalOnly = true,
         )
 
@@ -109,9 +112,44 @@ class PersistentTrainingStoreTest {
         assertEquals(2, progress.attempts)
         assertEquals(1.0, progress.weight)
         assertEquals(1, PersistentTrainingStore(backend).loadSettings().unlockedFretboardLevel)
-        assertEquals(0, PersistentTrainingStore(backend).loadSettings().firstPositionMaxFret)
-        assertEquals(0, PersistentTrainingStore(backend).loadSettings().firstPositionStageAttempts)
-        assertEquals(false, PersistentTrainingStore(backend).loadSettings().firstPositionComplete)
+        assertEquals(emptySet(), PersistentTrainingStore(backend)
+            .loadSettings().firstPositionActiveKnowledgeIds)
+        assertFalse(PersistentTrainingStore(backend).loadSettings().firstPositionBaselineComplete)
+        assertFalse(PersistentTrainingStore(backend).loadSettings().firstPositionComplete)
+    }
+
+    @Test
+    fun legacyFretStageMigratesToActiveCoordinatesWithoutLosingProgress() {
+        val backend = FakePreferenceBackend()
+        backend.putString(
+            "v01.storage",
+            """
+            version=1
+            settings.selectedStrings=1,2,3,4,5,6
+            settings.fretStart=0
+            settings.fretEnd=4
+            settings.noteTrainingRangeId=LOW_POSITION
+            settings.firstPositionMaxFret=2
+            settings.firstPositionStageAttempts=7
+            settings.firstPositionComplete=false
+            progress.count=1
+            progress.0.knowledgeItemId=FretToNoteSet\:LOW_POSITION\:E\:s1f0-s4f2-s6f0
+            progress.0.attempts=9
+            progress.0.correct=8
+            progress.0.weight=0.7
+            """.trimIndent(),
+        )
+
+        val store = PersistentTrainingStore(backend)
+        val settings = store.loadSettings()
+
+        assertTrue(settings.firstPositionBaselineComplete)
+        assertEquals(
+            setOf("s6f1", "s2f1", "s1f1", "s5f2", "s4f2", "s3f2"),
+            settings.firstPositionActiveKnowledgeIds,
+        )
+        assertEquals(9, store.loadProgress().single().attempts)
+        assertEquals(0.7, store.loadProgress().single().weight)
     }
 
     @Test

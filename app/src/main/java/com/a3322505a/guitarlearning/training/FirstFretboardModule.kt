@@ -3,7 +3,6 @@ package com.a3322505a.guitarlearning.training
 import com.a3322505a.guitarlearning.core.FretPosition
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.storage.LevelProgress
-import com.a3322505a.guitarlearning.storage.Progress
 import com.a3322505a.guitarlearning.storage.Settings
 
 object FretboardLevelRules {
@@ -18,20 +17,48 @@ object FretboardLevelRules {
         progress.attempts == MINIMUM_ATTEMPTS && progress.correct >= REQUIRED_CORRECT
 }
 
-object FirstPositionGrowthRules {
-    const val MINIMUM_STAGE_ATTEMPTS = 10
-    const val REQUIRED_CORRECT_PER_ITEM = 2
-    const val MAXIMUM_MASTERED_WEIGHT = 1.0
+data class FretboardKnowledgeScope(
+    val trainingRange: List<FretPosition>,
+    val activeKnowledge: List<FretPosition>,
+) {
+    fun requiredSet(note: String): List<FretPosition> = activeKnowledge.filter { it.note == note }
+    fun correctUniverse(note: String): List<FretPosition> = trainingRange.filter { it.note == note }
+}
 
-    fun qualifies(
-        stageAttempts: Int,
-        questions: List<Question>,
-        progressById: Map<String, Progress>,
-    ): Boolean = stageAttempts >= MINIMUM_STAGE_ATTEMPTS && questions.all { question ->
-        val progress = progressById[question.knowledgeItemId] ?: return@all false
-        progress.correct >= REQUIRED_CORRECT_PER_ITEM &&
-            progress.weight <= MAXIMUM_MASTERED_WEIGHT
-    }
+object FirstPositionCurriculum {
+    val baselineNotes = listOf("E", "A", "D", "G", "B")
+    val baselinePositions: List<FretPosition> = listOf(
+        6 to 0,
+        5 to 0,
+        4 to 0,
+        3 to 0,
+        2 to 0,
+        1 to 0,
+    ).map { (string, fret) -> GuitarCore.getFretPosition(string, fret) }
+
+    /** Stable one-coordinate-at-a-time order; it never unlocks a complete fret in one step. */
+    val expansionPositions: List<FretPosition> = listOf(
+        6 to 1,
+        2 to 1,
+        1 to 1,
+        5 to 2,
+        4 to 2,
+        3 to 2,
+        6 to 3,
+        5 to 3,
+        4 to 3,
+        2 to 3,
+        1 to 3,
+        3 to 4,
+    ).map { (string, fret) -> GuitarCore.getFretPosition(string, fret) }
+
+    fun id(position: FretPosition): String = "s${position.string}f${position.fret}"
+
+    fun activePositions(settings: Settings): List<FretPosition> =
+        baselinePositions + expansionPositions.filter { id(it) in settings.firstPositionActiveKnowledgeIds }
+
+    fun nextInactive(settings: Settings): FretPosition? =
+        expansionPositions.firstOrNull { id(it) !in settings.firstPositionActiveKnowledgeIds }
 }
 
 /** Lv.1 note sets plus the existing Lv.2–Lv.6 fretboard curriculum. */
@@ -41,42 +68,47 @@ class FirstFretboardModule : TrainingModule {
     private val factory = QuestionFactory()
 
     override fun buildQuestionBank(settings: Settings): List<TrainingQuestion> {
-        val effectiveFretEnd = if (
-            settings.noteTrainingRangeId == NoteTrainingRange.LOW_POSITION.name &&
-            !settings.firstPositionComplete
-        ) {
-            settings.firstPositionMaxFret
-        } else {
-            settings.fretEnd
-        }
-        val positions = GuitarCore.allPositions(
+        val trainingRange = GuitarCore.allPositions(
             strings = settings.selectedStrings.sorted(),
-            frets = settings.fretStart..effectiveFretEnd,
+            frets = settings.fretStart..settings.fretEnd,
             naturalOnly = true,
         )
+        val activeKnowledge = if (isGrowingFirstPosition(settings)) {
+            FirstPositionCurriculum.activePositions(settings)
+        } else {
+            trainingRange
+        }
+        val scope = FretboardKnowledgeScope(trainingRange, activeKnowledge)
         return buildList {
-            addAll(levelOne(positions, settings))
+            addAll(levelOne(scope, settings))
             if (!isGrowingFirstPosition(settings)) {
-                if (settings.unlockedFretboardLevel >= 2) addAll(levelTwo(positions))
-                if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(positions))
-                if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(positions))
-                if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(positions))
-                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(positions))
+                if (settings.unlockedFretboardLevel >= 2) addAll(levelTwo(trainingRange))
+                if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(trainingRange))
+                if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(trainingRange))
+                if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(trainingRange))
+                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(trainingRange))
             }
         }.also { require(it.isNotEmpty()) { "First fretboard question bank must not be empty" } }
     }
 
     private fun levelOne(
-        positions: List<FretPosition>,
+        scope: FretboardKnowledgeScope,
         settings: Settings,
-    ): List<TrainingQuestion> = positions
+    ): List<TrainingQuestion> = scope.activeKnowledge
         .groupBy { it.note }
-        .toSortedMap(compareBy { NATURAL_NOTE_ORDER.indexOf(it) })
+        .toSortedMap(compareBy { note ->
+            if (!settings.firstPositionBaselineComplete) {
+                FirstPositionCurriculum.baselineNotes.indexOf(note)
+            } else {
+                NATURAL_NOTE_ORDER.indexOf(note)
+            }
+        })
         .map { (note, targets) ->
             factory.createFretboardNoteSetQuestion(
                 note = note,
                 targets = targets,
                 rangeId = settings.noteTrainingRangeId ?: "CUSTOM",
+                correctUniverse = scope.correctUniverse(note),
             )
         }
 

@@ -23,12 +23,14 @@ sealed interface QuestionState {
     data class SetProgress(
         override val question: Question,
         val selectedPositions: Set<AnswerValue.FretPosition>,
+        val extraCorrectPositions: Set<AnswerValue.FretPosition> = emptySet(),
     ) : QuestionState
 
     data class SetCompleted(
         override val question: Question,
         val result: AnswerResult,
         val selectedPositions: Set<AnswerValue.FretPosition>,
+        val extraCorrectPositions: Set<AnswerValue.FretPosition> = emptySet(),
     ) : QuestionState
 
     data class SetCorrectionRequired(
@@ -129,19 +131,26 @@ class TrainingStateMachine(
         if (answer is AnswerValue.FretSet && current is QuestionState.AwaitingSetAnswer) {
             val question = current.question
             val expected = (question.correctAnswerValue as AnswerValue.FretSet).positions
-            if (answer.positions != expected && answer.positions.all { it in expected }) {
-                current = QuestionState.SetProgress(question, answer.positions)
+            val correctUniverse = question.correctUniversePositions.map {
+                AnswerValue.FretPosition(it.string, it.fret)
+            }.toSet()
+            val wrongPosition = answer.positions.firstOrNull { it !in correctUniverse }
+            val confirmed = answer.positions.intersect(expected)
+            val extraCorrect = answer.positions.intersect(correctUniverse) - expected
+            if (wrongPosition == null && confirmed != expected) {
+                current = QuestionState.SetProgress(question, confirmed, extraCorrect)
                 return current
             }
-            val result = session.submitAnswer(answer)
-            current = if (result.accepted && result.isCorrect) {
-                QuestionState.SetCompleted(question, result, answer.positions)
+            val submitted = if (wrongPosition == null) AnswerValue.FretSet(expected) else answer
+            val result = session.submitAnswer(submitted)
+            current = if (wrongPosition == null && result.accepted && result.isCorrect) {
+                QuestionState.SetCompleted(question, result, expected, extraCorrect)
             } else if (result.accepted) {
                 QuestionState.SetCorrectionRequired(
                     question = question,
                     result = result,
-                    wrongPosition = answer.positions.first { it !in expected },
-                    confirmedPositions = answer.positions.intersect(expected),
+                    wrongPosition = requireNotNull(wrongPosition),
+                    confirmedPositions = confirmed,
                 )
             } else {
                 current
@@ -177,10 +186,14 @@ class TrainingStateMachine(
     private fun submitSetPosition(answer: AnswerValue.FretPosition): QuestionState {
         val question = current.question
         val selected = (current as? QuestionState.SetProgress)?.selectedPositions.orEmpty()
+        val extraCorrect = (current as? QuestionState.SetProgress)?.extraCorrectPositions.orEmpty()
         val expected = (question.correctAnswerValue as AnswerValue.FretSet).positions
-        if (answer in selected) return current
+        val correctUniverse = question.correctUniversePositions.map {
+            AnswerValue.FretPosition(it.string, it.fret)
+        }.toSet()
+        if (answer in selected || answer in extraCorrect) return current
 
-        if (answer !in expected) {
+        if (answer !in correctUniverse) {
             val result = session.submitAnswer(AnswerValue.FretSet(selected + answer))
             if (result.accepted) {
                 current = QuestionState.SetCorrectionRequired(
@@ -193,15 +206,24 @@ class TrainingStateMachine(
             return current
         }
 
+        if (answer !in expected) {
+            current = QuestionState.SetProgress(
+                question = question,
+                selectedPositions = selected,
+                extraCorrectPositions = extraCorrect + answer,
+            )
+            return current
+        }
+
         val updated = selected + answer
         current = if (updated == expected) {
             val result = session.submitAnswer(AnswerValue.FretSet(updated))
             check(result.accepted && result.isCorrect) {
                 "A completed fret set must be accepted as correct"
             }
-            QuestionState.SetCompleted(question, result, updated)
+            QuestionState.SetCompleted(question, result, updated, extraCorrect)
         } else {
-            QuestionState.SetProgress(question, updated)
+            QuestionState.SetProgress(question, updated, extraCorrect)
         }
         return current
     }

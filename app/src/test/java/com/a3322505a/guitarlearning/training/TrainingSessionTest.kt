@@ -99,7 +99,7 @@ class TrainingSessionTest {
         store.saveProgress(history)
         val session = TrainingSession(
             engine = TrainingEngine(
-                settings = NoteTrainingRange.SINGLE_STRING_1.applyTo(Settings()),
+                settings = NoteTrainingRange.LOW_POSITION.applyTo(Settings()),
                 progressProvider = { store.loadProgress() },
                 enabledQuestionTypes = listOf(QuestionType.FretToNote),
             ),
@@ -108,7 +108,7 @@ class TrainingSessionTest {
             sessionId = "range-session",
         )
 
-        session.resetForSettings(NoteTrainingRange.CROSS_STRING_1_TO_3.applyTo(Settings()))
+        session.resetForSettings(NoteTrainingRange.MID_POSITION.applyTo(Settings()))
 
         assertEquals(history, store.loadProgress(history.knowledgeItemId))
     }

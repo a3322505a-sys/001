@@ -74,15 +74,19 @@ enum class NotationMode {
 
 /** Settings needed to construct the local question banks. */
 data class Settings(
-    val selectedStrings: Set<Int> = setOf(1),
+    val selectedStrings: Set<Int> = (1..6).toSet(),
     val fretStart: Int = 0,
-    val fretEnd: Int = 12,
-    val noteTrainingRangeId: String? = null,
+    val fretEnd: Int = 4,
+    val noteTrainingRangeId: String? = "LOW_POSITION",
     val intervalLevelId: String? = null,
     val unlockedFretboardLevel: Int = 1,
-    val firstPositionMaxFret: Int = 0,
-    val firstPositionStageAttempts: Int = 0,
+    /** Non-open natural-note coordinates currently active in the first-position curriculum. */
+    val firstPositionActiveKnowledgeIds: Set<String> = emptySet(),
+    /** True after E/A/D/G/B have each been answered correctly at least once. */
+    val firstPositionBaselineComplete: Boolean = false,
     val firstPositionComplete: Boolean = false,
+    /** One-shot, persisted introductions already shown by the integrated curriculum. */
+    val seenIntroductionIds: Set<String> = emptySet(),
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {
@@ -95,11 +99,12 @@ data class Settings(
         require(unlockedFretboardLevel in 1..6) {
             "unlockedFretboardLevel must be between 1 and 6"
         }
-        require(firstPositionMaxFret in 0..4) {
-            "firstPositionMaxFret must be between 0 and 4"
+        require(firstPositionActiveKnowledgeIds.all { FIRST_POSITION_ID.matches(it) }) {
+            "First-position knowledge IDs must use the s<STRING>f<FRET> form"
         }
-        require(firstPositionStageAttempts >= 0) {
-            "firstPositionStageAttempts must not be negative"
-        }
+    }
+
+    private companion object {
+        val FIRST_POSITION_ID = Regex("s[1-6]f[0-4]")
     }
 }

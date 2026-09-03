@@ -25,7 +25,7 @@ class TrainingEngine(
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
         val coverageCandidates = if (isFirstPositionCoverageActive(candidates)) {
             val underCovered = candidates.filter {
-                (progressById[it.knowledgeItemId]?.attempts ?: 0) < COVERAGE_ATTEMPTS
+                (progressById[it.knowledgeItemId]?.attempts ?: 0) < BASELINE_COVERAGE_ATTEMPTS
             }
             if (underCovered.isEmpty()) candidates else {
                 val minimumAttempts = underCovered.minOf {
@@ -174,7 +174,7 @@ class TrainingEngine(
             candidates.all { it.answerMode == AnswerMode.FRETBOARD_SET }
 
     private companion object {
-        const val COVERAGE_ATTEMPTS = 2
+        const val BASELINE_COVERAGE_ATTEMPTS = 1
     }
 }
 

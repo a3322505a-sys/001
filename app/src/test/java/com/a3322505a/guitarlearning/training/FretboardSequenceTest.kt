@@ -22,7 +22,9 @@ class FretboardSequenceTest {
             val settings = range.applyTo(
                 Settings(
                     unlockedFretboardLevel = 6,
-                    firstPositionMaxFret = 4,
+                    firstPositionBaselineComplete = true,
+                    firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                        .map(FirstPositionCurriculum::id).toSet(),
                     firstPositionComplete = true,
                 ),
             )
@@ -106,7 +108,13 @@ class FretboardSequenceTest {
         )
 
         val engine = TrainingEngine(
-            settings = Settings(unlockedFretboardLevel = 6),
+            settings = Settings(
+                unlockedFretboardLevel = 6,
+                firstPositionBaselineComplete = true,
+                firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                    .map(FirstPositionCurriculum::id).toSet(),
+                firstPositionComplete = true,
+            ),
             random = Random(73),
             module = FirstFretboardModule(),
         )

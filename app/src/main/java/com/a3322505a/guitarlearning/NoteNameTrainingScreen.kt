@@ -38,7 +38,6 @@ import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.training.AnswerValue
 import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
-import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.components.PixelButton
@@ -51,6 +50,7 @@ import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
 import com.a3322505a.guitarlearning.ui.theme.PixelError
+import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import kotlinx.coroutines.delay
 
@@ -68,6 +68,9 @@ fun NoteNameTrainingScreen(
     var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
     val markerScale = remember { Animatable(1f) }
     val question = state.question
+    val introductionText = remember(question.knowledgeItemId) {
+        trainingSession.consumeIntroduction(question)
+    }
     val session = trainingSession.currentSession
     val unlockedLevel = trainingSession.currentSettings().unlockedFretboardLevel
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
@@ -93,9 +96,15 @@ fun NoteNameTrainingScreen(
         is QuestionState.AwaitingSequenceAnswer -> emptyList()
         is QuestionState.AwaitingSetAnswer -> emptyList()
         is QuestionState.SetProgress ->
-            setMarkers(current.selectedPositions, FretboardMarkerRole.CONFIRMED)
+            setMarkers(
+                current.selectedPositions + current.extraCorrectPositions,
+                FretboardMarkerRole.CONFIRMED,
+            )
         is QuestionState.SetCompleted ->
-            setMarkers(current.selectedPositions, FretboardMarkerRole.CORRECT)
+            setMarkers(
+                current.selectedPositions + current.extraCorrectPositions,
+                FretboardMarkerRole.CORRECT,
+            )
         is QuestionState.SetCorrectionRequired ->
             setMarkers(current.confirmedPositions, FretboardMarkerRole.CONFIRMED) +
                 markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT) +
@@ -128,7 +137,7 @@ fun NoteNameTrainingScreen(
                         FretboardMarkerRole.CONFIRMED,
                     ) + markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT) +
                         markerFor(current.correctPosition, FretboardMarkerRole.CORRECT)
-                    ).toTypedArray(),
+                ).toTypedArray(),
             )
         is QuestionState.CorrectionConfirmed ->
             withAnchor(
@@ -137,7 +146,7 @@ fun NoteNameTrainingScreen(
                         current.confirmedPositions + current.correctPosition,
                         FretboardMarkerRole.CONFIRMED,
                     ) + markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT)
-                    ).toTypedArray(),
+                ).toTypedArray(),
             )
         is QuestionState.Incorrect -> emptyList()
     }
@@ -231,11 +240,20 @@ fun NoteNameTrainingScreen(
                                 .align(Alignment.CenterStart),
                         )
                     }
-                    Text(
-                        text = question.prompt,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = question.prompt,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        introductionText?.let { introduction ->
+                            Text(
+                                text = introduction,
+                                color = PixelInkMuted,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                    }
                     Row(
                         modifier = Modifier.align(Alignment.CenterEnd),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -347,28 +365,20 @@ fun NoteNameRangeScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    NoteTrainingRangeGroup.entries.forEach { group ->
-                        PixelPanel(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = group.label,
-                                    style = MaterialTheme.typography.titleMedium,
+                    PixelPanel(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            NoteTrainingRange.entries.forEach { option ->
+                                PixelOutlinedButton(
+                                    text = option.label,
+                                    onClick = { onSelect(option) },
+                                    selected = option == selectedRange,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 52.dp),
                                 )
-                                NoteTrainingRange.entries
-                                    .filter { it.group == group }
-                                    .forEach { option ->
-                                        PixelOutlinedButton(
-                                            text = option.label,
-                                            onClick = { onSelect(option) },
-                                            selected = option == selectedRange,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .heightIn(min = 52.dp),
-                                        )
-                                    }
                             }
                         }
                     }
