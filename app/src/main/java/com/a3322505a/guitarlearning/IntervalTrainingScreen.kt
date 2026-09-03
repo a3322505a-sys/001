@@ -122,7 +122,13 @@ fun IntervalTrainingScreen(
         is QuestionState.SequenceProgress,
         is QuestionState.SequenceCompleted,
         is QuestionState.CorrectionRequired,
-        is QuestionState.CorrectionConfirmed -> null
+        is QuestionState.CorrectionConfirmed,
+        is QuestionState.AwaitingSetAnswer,
+        is QuestionState.SetProgress,
+        is QuestionState.SetCompleted,
+        is QuestionState.SetCorrectionRequired,
+        is QuestionState.SetCorrectionProgress,
+        is QuestionState.SetCorrectionConfirmed -> null
     }
     val session = trainingSession.currentSession
 
