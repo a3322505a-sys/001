@@ -1,5 +1,6 @@
 package com.a3322505a.guitarlearning.training
 
+import com.a3322505a.guitarlearning.core.GuitarCore
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -87,5 +88,68 @@ class CombinedMappingTrainingTest {
         assertIs<CombinedMappingState.Incorrect>(machine.submitAnswer(secondWrong))
         assertEquals(2, machine.errorCount)
         assertEquals(0, machine.correctCount)
+    }
+
+    @Test
+    fun levelsTwoThroughSixExposeEveryPlannedStructure() {
+        val factory = CombinedQuestionFactory(Random(20260904))
+
+        (2..6).forEach { level ->
+            repeat(20) {
+                val question = factory.create(level)
+
+                assertEquals(level, question.level)
+                assertEquals(MappingForm.forLevel(level), question.form)
+                assertTrue(question.sourceType != question.firstTargetType)
+                assertTrue(question.correctAnswerFor(CombinedStep.FIRST) in question.structuralChoices)
+                assertTrue(question.mappings.all { mapping ->
+                    GuitarCore.mappingForDegree(mapping.degree) == mapping
+                })
+            }
+        }
+    }
+
+    @Test
+    fun orderedAndSetStructuresReuseSemanticAnswerValues() {
+        val factory = CombinedQuestionFactory(Random(41))
+
+        assertIs<AnswerValue.SymbolSequence>(factory.create(2).semanticAnswer)
+        assertIs<AnswerValue.SymbolSequence>(factory.create(3).semanticAnswer)
+        assertIs<AnswerValue.Choice>(factory.create(4).semanticAnswer)
+        assertIs<AnswerValue.SymbolSequence>(factory.create(5).semanticAnswer)
+        assertIs<AnswerValue.SymbolSet>(factory.create(6).semanticAnswer)
+    }
+
+    @Test
+    fun missingQuestionsBlankOneItemAndAskForThatRepresentation() {
+        val question = CombinedQuestionFactory(Random(92)).create(4)
+        val correct = question.correctAnswerFor(CombinedStep.FIRST)
+
+        assertEquals(1, question.promptFor(CombinedStep.FIRST).count { it == '?' })
+        assertTrue(correct in AnswerOptions.forKind(question.sourceType))
+        assertTrue(correct in question.structuralChoices)
+        assertEquals(
+            AnswerValue.Choice(correct),
+            question.semanticAnswer,
+        )
+    }
+
+    @Test
+    fun aStructuralLevelCompletesInOneAnswerAndLevelSelectionIsExplicit() {
+        val machine = CombinedMappingStateMachine(Random(73), initialLevel = 2)
+        val pair = assertIs<CombinedMappingState.AwaitingAnswer>(machine.state)
+
+        assertEquals(2, pair.question.level)
+        val completed = assertIs<CombinedMappingState.Correct>(
+            machine.submitAnswer(pair.correctAnswer),
+        )
+        assertTrue(completed.completesQuestion)
+        assertEquals(1, machine.correctCount)
+
+        val chord = assertIs<CombinedMappingState.AwaitingAnswer>(machine.selectLevel(6))
+        assertEquals(6, machine.selectedLevel)
+        assertEquals(MappingForm.CHORD_SET, chord.question.form)
+        assertIs<CombinedMappingState.Correct>(machine.submitAnswer(chord.correctAnswer))
+        assertEquals(2, machine.correctCount)
     }
 }

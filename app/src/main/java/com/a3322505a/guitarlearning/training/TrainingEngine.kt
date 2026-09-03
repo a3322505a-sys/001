@@ -77,6 +77,8 @@ class TrainingEngine(
         if (submitted) return requireNotNull(lastResult).copy(accepted = false)
         val submittedLabel = when (answer) {
             is AnswerValue.Choice -> question.answerChoices.singleOrNull { it.id == answer.id }?.label
+            is AnswerValue.SymbolSequence -> answer.values.joinToString(" → ")
+            is AnswerValue.SymbolSet -> answer.values.sorted().joinToString(" ")
             is AnswerValue.FretPosition -> answer.string.toString() + "弦" + answer.fret + "品"
             is AnswerValue.FretSet -> answer.positions
                 .sortedWith(compareBy({ it.string }, { it.fret }))

@@ -3,9 +3,11 @@ package com.a3322505a.guitarlearning
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -21,11 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.CombinedMappingState
 import com.a3322505a.guitarlearning.training.CombinedMappingStateMachine
-import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
+import com.a3322505a.guitarlearning.training.MappingForm
 import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.components.PixelButton
+import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
 import com.a3322505a.guitarlearning.ui.components.PixelFeedbackPanel
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
@@ -67,6 +71,11 @@ fun CombinedMappingTrainingScreen(
         ) {
             PixelHeader(title = "音名 / 唱名 / 级数", onBack = onBack)
 
+            MappingLevelSelector(
+                selectedLevel = stateMachine.selectedLevel,
+                onSelect = { level -> state = stateMachine.selectLevel(level) },
+            )
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -79,6 +88,10 @@ fun CombinedMappingTrainingScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Text(
+                            text = "Lv.${state.question.level} · ${state.question.form.label}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         Text(
                             text = state.prompt,
                             style = MaterialTheme.typography.headlineMedium,
@@ -95,6 +108,7 @@ fun CombinedMappingTrainingScreen(
                             submittedAnswer = submittedAnswer,
                             correctAnswer = shownCorrectAnswer,
                             onAnswer = { answer -> state = stateMachine.submitAnswer(answer) },
+                            columns = if (state.question.level in setOf(1, 4)) 4 else 2,
                         )
 
                         when (state) {
@@ -118,6 +132,39 @@ fun CombinedMappingTrainingScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MappingLevelSelector(
+    selectedLevel: Int,
+    onSelect: (Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MappingForm.entries.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { form ->
+                    PixelButton(
+                        text = "Lv.${form.level}",
+                        onClick = { onSelect(form.level) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        style = if (form.level == selectedLevel) {
+                            PixelButtonStyle.Primary
+                        } else {
+                            PixelButtonStyle.Secondary
+                        },
+                    )
                 }
             }
         }

@@ -35,6 +35,24 @@ enum class AnswerMode {
 sealed interface AnswerValue {
     data class Choice(val id: String) : AnswerValue
 
+    /** An ordered symbolic answer such as C-D-E, do-re-mi, or 1-2-3. */
+    data class SymbolSequence(
+        val values: List<String>,
+    ) : AnswerValue {
+        init {
+            require(values.size >= 2) { "A symbolic sequence needs at least two values" }
+        }
+    }
+
+    /** An order-independent symbolic answer such as the chord tones 1-3-5. */
+    data class SymbolSet(
+        val values: Set<String>,
+    ) : AnswerValue {
+        init {
+            require(values.size >= 2) { "A symbolic set needs at least two values" }
+        }
+    }
+
     data class FretPosition(
         val string: Int,
         val fret: Int,
@@ -168,6 +186,8 @@ data class TrainingQuestion(
     val correctAnswer: String
         get() = when (val value = correctAnswerValue) {
             is AnswerValue.Choice -> answerChoices.first { it.id == value.id }.label
+            is AnswerValue.SymbolSequence -> value.values.joinToString(" → ")
+            is AnswerValue.SymbolSet -> value.values.sorted().joinToString(" ")
             is AnswerValue.FretPosition -> value.string.toString() + "弦" + value.fret + "品"
             is AnswerValue.FretSet -> value.positions
                 .sortedWith(compareBy({ it.string }, { it.fret }))
