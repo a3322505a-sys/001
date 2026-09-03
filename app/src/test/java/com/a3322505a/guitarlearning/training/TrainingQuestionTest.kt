@@ -3,6 +3,7 @@ package com.a3322505a.guitarlearning.training
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class TrainingQuestionTest {
     private val payload = IntervalPayload("C", "D", 2, null, null)
@@ -50,5 +51,18 @@ class TrainingQuestionTest {
                 payload,
             )
         }
+    }
+
+    @Test
+    fun fretboardQuestionCarriesASemanticPositionWithoutChoiceButtons() {
+        val question = QuestionFactory().create(
+            QuestionType.FretToNote,
+            com.a3322505a.guitarlearning.core.GuitarCore.getFretPosition(2, 1),
+        )
+
+        assertEquals(AnswerMode.FRETBOARD, question.answerMode)
+        assertEquals(AnswerValue.FretPosition(2, 1), question.correctAnswerValue)
+        assertTrue(question.answerChoices.isEmpty())
+        assertEquals("FretToNote:s2:f1", question.knowledgeItemId)
     }
 }

@@ -28,8 +28,8 @@ class TrainingSessionTest {
         val question = session.currentQuestion()
         now = 1_250L
 
-        val first = session.submitAnswer(question.correctAnswer)
-        val duplicate = session.submitAnswer(question.correctAnswer)
+        val first = session.submitAnswer(question.correctAnswerValue)
+        val duplicate = session.submitAnswer(question.correctAnswerValue)
         val progress = store.loadProgress(question.knowledgeItemId)
         val item = store.findKnowledgeItem(question.knowledgeItemId)
 
@@ -69,7 +69,12 @@ class TrainingSessionTest {
         )
         val question = session.currentQuestion()
 
-        session.submitAnswer(question.choices.first { it != question.correctAnswer })
+        val correct = question.correctAnswerValue as AnswerValue.FretPosition
+        val wrong = AnswerValue.FretPosition(
+            string = correct.string,
+            fret = if (correct.fret == 12) 11 else correct.fret + 1,
+        )
+        session.submitAnswer(wrong)
 
         val updated = assertNotNull(store.loadProgress(question.knowledgeItemId))
         assertEquals(1, updated.attempts)

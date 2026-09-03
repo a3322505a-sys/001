@@ -71,7 +71,8 @@ class WeightedSamplingTest {
         }
 
         assertTrue(firstStringC.knowledgeItemId != secondStringC.knowledgeItemId)
-        assertTrue(firstStringC.correctAnswer == "C" && secondStringC.correctAnswer == "C")
+        assertTrue(firstStringC.note == "C" && secondStringC.note == "C")
+        assertTrue(firstStringC.correctAnswerValue != secondStringC.correctAnswerValue)
         assertTrue(
             counts.getValue(secondStringC.knowledgeItemId) >
                 counts.getValue(firstStringC.knowledgeItemId) * 3,

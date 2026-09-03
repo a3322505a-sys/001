@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -21,27 +19,33 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.width
+import com.a3322505a.guitarlearning.core.GuitarCore
+import com.a3322505a.guitarlearning.training.AnswerValue
 import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
-import com.a3322505a.guitarlearning.ui.choices.AnswerChoices
 import com.a3322505a.guitarlearning.ui.components.PixelButton
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
 import com.a3322505a.guitarlearning.ui.components.PixelStats
-import com.a3322505a.guitarlearning.ui.feedback.AnswerReview
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
+import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
+import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
+import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
+import com.a3322505a.guitarlearning.ui.theme.PixelError
+import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import kotlinx.coroutines.delay
 
 /** The landscape-only trainer for identifying physical fret locations by note name. */
@@ -49,25 +53,37 @@ import kotlinx.coroutines.delay
 fun NoteNameTrainingScreen(
     trainingSession: TrainingSession,
     stateMachine: TrainingStateMachine,
-    selectedRange: NoteTrainingRange,
     onBack: (() -> Unit)? = null,
 ) {
     var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
-    var questionSequence by remember(stateMachine) { mutableIntStateOf(0) }
     val question = state.question
-    val submittedAnswer = when (val current = state) {
-        is QuestionState.AwaitingAnswer -> null
-        is QuestionState.Correct -> current.result
-        is QuestionState.Incorrect -> current.result
-    }
     val session = trainingSession.currentSession
+    val markers = when (val current = state) {
+        is QuestionState.AwaitingAnswer -> emptyList()
+        is QuestionState.Correct -> listOf(
+            FretboardMarker(requireNotNull(question.fretPosition), FretboardMarkerRole.CORRECT),
+        )
+        is QuestionState.CorrectionRequired -> listOf(
+            markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
+            markerFor(current.correctPosition, FretboardMarkerRole.CORRECT),
+        )
+        is QuestionState.CorrectionConfirmed -> listOf(
+            markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
+            markerFor(current.correctPosition, FretboardMarkerRole.CONFIRMED),
+        )
+        is QuestionState.Incorrect -> emptyList()
+    }
+    val interactionMode = when (state) {
+        is QuestionState.AwaitingAnswer -> FretboardInteractionMode.Enabled
+        is QuestionState.CorrectionRequired -> FretboardInteractionMode.CorrectionOnly
+        else -> FretboardInteractionMode.Disabled
+    }
 
     LaunchedEffect(state) {
         val correctState = state as? QuestionState.Correct ?: return@LaunchedEffect
         delay(CORRECT_FEEDBACK_DURATION_MS)
         if (state === correctState) {
             state = stateMachine.nextQuestion()
-            questionSequence += 1
         }
     }
 
@@ -77,81 +93,94 @@ fun NoteNameTrainingScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(
+            Box(
                 modifier = Modifier
-                    .weight(0.70f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                PixelHeader(
-                    title = "训练范围",
-                    subtitle = selectedRange.label,
-                    onBack = onBack,
-                )
-
-                PixelPanel(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    Fretboard(
-                        selectedPosition = question.fretPosition,
-                        modifier = Modifier.fillMaxSize(),
+                if (onBack != null) {
+                    PixelOutlinedButton(
+                        text = "返回",
+                        onClick = onBack,
+                        modifier = Modifier
+                            .width(84.dp)
+                            .align(Alignment.CenterStart),
                     )
                 }
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(0.30f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-            ) {
+                Text(
+                    text = question.prompt,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
                 PixelStats(
                     correctCount = session.correctCount,
                     errorCount = session.questionCount - session.correctCount,
+                    modifier = Modifier
+                        .width(132.dp)
+                        .align(Alignment.CenterEnd),
                 )
+            }
 
-                AnswerChoices(
-                    questionId = questionSequence.toString() + ":" + question.knowledgeItemId,
-                    choices = question.choices,
-                    submittedAnswer = submittedAnswer?.submittedAnswer,
-                    correctAnswer = submittedAnswer?.correctAnswer,
-                    onAnswer = { answer -> state = stateMachine.submitAnswer(answer) },
+            when (state) {
+                is QuestionState.CorrectionRequired -> Text(
+                    text = "错了，点一下正确位置",
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    color = PixelError,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
+                is QuestionState.CorrectionConfirmed -> Text(
+                    text = "已纠正",
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    color = PixelSuccess,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                else -> Unit
+            }
 
-                when (val current = state) {
-                    is QuestionState.AwaitingAnswer -> Unit
-                    is QuestionState.Correct -> {
-                        AnswerReview(
-                            question = question,
-                            result = current.result,
+            PixelPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                Fretboard(
+                    markers = markers,
+                    interactionMode = interactionMode,
+                    onPositionClick = { position ->
+                        state = stateMachine.submitAnswer(
+                            AnswerValue.FretPosition(position.string, position.fret),
                         )
-                    }
-                    is QuestionState.Incorrect -> {
-                        AnswerReview(
-                            question = question,
-                            result = current.result,
-                        )
-                        NextQuestionButton {
-                            state = stateMachine.nextQuestion()
-                            questionSequence += 1
-                        }
-                    }
+                    },
+                    showLabels = false,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
+            if (state is QuestionState.CorrectionConfirmed) {
+                NextQuestionButton {
+                    state = stateMachine.nextQuestion()
                 }
             }
         }
     }
 }
+
+private fun markerFor(
+    value: AnswerValue.FretPosition,
+    role: FretboardMarkerRole,
+): FretboardMarker = FretboardMarker(
+    position = GuitarCore.getFretPosition(value.string, value.fret),
+    role = role,
+)
 
 @Composable
 private fun NextQuestionButton(onClick: () -> Unit) {

@@ -58,6 +58,8 @@ fun SolfeggioNoteMappingScreen(
         is QuestionState.AwaitingAnswer -> null
         is QuestionState.Correct -> current.result
         is QuestionState.Incorrect -> current.result
+        is QuestionState.CorrectionRequired,
+        is QuestionState.CorrectionConfirmed -> null
     }
     val session = trainingSession.currentSession
 
@@ -135,6 +137,8 @@ fun SolfeggioNoteMappingScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
+                            is QuestionState.CorrectionRequired,
+                            is QuestionState.CorrectionConfirmed -> Unit
                         }
                     }
                 }

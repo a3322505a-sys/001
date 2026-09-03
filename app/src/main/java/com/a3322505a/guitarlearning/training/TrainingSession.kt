@@ -51,9 +51,16 @@ class TrainingSession(
     fun currentQuestion(): Question = engine.currentQuestion() ?: engine.generateQuestion()
 
     fun submitAnswer(answer: String): AnswerResult {
+        return recordAnswer(engine.submitAnswer(answer))
+    }
+
+    fun submitAnswer(answer: AnswerValue): AnswerResult {
+        return recordAnswer(engine.submitAnswer(answer))
+    }
+
+    private fun recordAnswer(result: AnswerResult): AnswerResult {
         val question = engine.currentQuestion()
             ?: error("Generate a question before submitting an answer")
-        val result = engine.submitAnswer(answer)
         if (!result.accepted) return result
 
         val oldProgress = store.loadProgress(result.knowledgeItemId)

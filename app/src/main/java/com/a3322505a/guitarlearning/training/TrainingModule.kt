@@ -33,7 +33,13 @@ class LegacyTrainingModule(
         return enabledQuestionTypes.distinct().flatMap { type ->
             when (type) {
                 QuestionType.FretToNote, QuestionType.FretToSolfege ->
-                    positions.map { factory.create(type, it) }
+                    positions.map {
+                        factory.create(
+                            type = type,
+                            position = it,
+                            disambiguateOctave = settings.fretStart == 0 && settings.fretEnd == 12,
+                        )
+                    }
                 QuestionType.NoteToSolfege,
                 QuestionType.SolfegeToNote,
                 QuestionType.NoteToDegree,

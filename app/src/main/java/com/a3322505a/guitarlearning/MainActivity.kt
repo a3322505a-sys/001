@@ -14,7 +14,6 @@ import com.a3322505a.guitarlearning.ui.theme.GuitarLearningTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var noteTrainingSession: TrainingSession
-    private lateinit var mappingTrainingSession: TrainingSession
     private lateinit var intervalTrainingSession: TrainingSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,21 +32,6 @@ class MainActivity : ComponentActivity() {
             ),
             store = store,
         )
-        mappingTrainingSession = TrainingSession(
-            engine = TrainingEngine(
-                settings = settings,
-                progressProvider = { store.loadProgress() },
-                enabledQuestionTypes = listOf(
-                    QuestionType.NoteToSolfege,
-                    QuestionType.SolfegeToNote,
-                    QuestionType.NoteToDegree,
-                    QuestionType.DegreeToNote,
-                    QuestionType.SolfegeToDegree,
-                    QuestionType.DegreeToSolfege,
-                ),
-            ),
-            store = store,
-        )
         intervalTrainingSession = TrainingSession(
             engine = TrainingEngine(
                 settings = settings,
@@ -61,7 +45,6 @@ class MainActivity : ComponentActivity() {
             GuitarLearningTheme {
                 GuitarLearningApp(
                     noteTrainingSession = noteTrainingSession,
-                    mappingTrainingSession = mappingTrainingSession,
                     intervalTrainingSession = intervalTrainingSession,
                     onDestinationChanged = { destination ->
                         requestedOrientation = if (usesLandscapeLayout(destination)) {
@@ -77,7 +60,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         if (::noteTrainingSession.isInitialized) noteTrainingSession.finish()
-        if (::mappingTrainingSession.isInitialized) mappingTrainingSession.finish()
         if (::intervalTrainingSession.isInitialized) intervalTrainingSession.finish()
         super.onStop()
     }

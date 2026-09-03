@@ -25,6 +25,20 @@ data class AnswerChoice(
     val label: String,
 )
 
+enum class AnswerMode {
+    CHOICE,
+    FRETBOARD,
+}
+
+sealed interface AnswerValue {
+    data class Choice(val id: String) : AnswerValue
+
+    data class FretPosition(
+        val string: Int,
+        val fret: Int,
+    ) : AnswerValue
+}
+
 sealed interface QuestionPayload
 
 data class FretNotePayload(
@@ -66,14 +80,26 @@ data class TrainingQuestion(
     val knowledgeItemId: String,
     val payload: QuestionPayload,
     val weightPolicy: QuestionWeightPolicy = QuestionWeightPolicy.MASTERY,
+    val answerMode: AnswerMode = AnswerMode.CHOICE,
+    val correctAnswerValue: AnswerValue = AnswerValue.Choice(correctChoiceId),
 ) {
     init {
-        require(answerChoices.isNotEmpty()) { "A question must have answer choices" }
         require(answerChoices.map { it.id }.distinct().size == answerChoices.size) {
             "Answer choice IDs must be unique"
         }
-        require(answerChoices.any { it.id == correctChoiceId }) {
-            "correctChoiceId must exist in answerChoices"
+        when (answerMode) {
+            AnswerMode.CHOICE -> {
+                require(answerChoices.isNotEmpty()) { "A choice question must have answer choices" }
+                require(answerChoices.any { it.id == correctChoiceId }) {
+                    "correctChoiceId must exist in answerChoices"
+                }
+                require(correctAnswerValue == AnswerValue.Choice(correctChoiceId)) {
+                    "Choice questions must use the correct choice ID as their semantic answer"
+                }
+            }
+            AnswerMode.FRETBOARD -> require(correctAnswerValue is AnswerValue.FretPosition) {
+                "Fretboard questions must use a fret position as their semantic answer"
+            }
         }
     }
 
@@ -82,7 +108,10 @@ data class TrainingQuestion(
         get() = answerChoices.map { it.label }
 
     val correctAnswer: String
-        get() = answerChoices.first { it.id == correctChoiceId }.label
+        get() = when (val value = correctAnswerValue) {
+            is AnswerValue.Choice -> answerChoices.first { it.id == value.id }.label
+            is AnswerValue.FretPosition -> value.string.toString() + "弦" + value.fret + "品"
+        }
 
     val type: QuestionType?
         get() = when (val value = payload) {
@@ -130,4 +159,6 @@ data class AnswerResult(
     val knowledgeItemId: String,
     val submittedChoiceId: String? = null,
     val correctChoiceId: String? = null,
+    val submittedValue: AnswerValue? = null,
+    val correctValue: AnswerValue? = null,
 )

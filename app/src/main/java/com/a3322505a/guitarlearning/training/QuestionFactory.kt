@@ -7,17 +7,19 @@ import com.a3322505a.guitarlearning.storage.KnowledgeItem
 
 /** Creates physical-note questions and all six directions of the shared mapping. */
 class QuestionFactory {
-    fun create(type: QuestionType, position: FretPosition): Question {
+    fun create(
+        type: QuestionType,
+        position: FretPosition,
+        disambiguateOctave: Boolean = false,
+    ): Question {
         require(GuitarCore.isNaturalNote(position.note)) { "Questions only support natural notes" }
         val mapping = requireNotNull(GuitarCore.mappingForNote(position.note)) {
             "Natural notes must have a fixed mapping"
         }
         return when (type) {
-            QuestionType.FretToNote -> legacyQuestion(
+            QuestionType.FretToNote -> fretboardQuestion(
                 type = type,
-                prompt = position.string.toString() + "弦 " + position.fret + "品 → ?",
-                choices = AnswerOptions.notes,
-                correctAnswer = position.note,
+                prompt = positionPrompt(position, disambiguateOctave),
                 knowledgeItemId = fretItemId(type, position),
                 payload = FretNotePayload(
                     type,
@@ -127,6 +129,38 @@ class QuestionFactory {
         payload = payload,
         weightPolicy = weightPolicy,
     )
+
+    private fun fretboardQuestion(
+        type: QuestionType,
+        prompt: String,
+        knowledgeItemId: String,
+        payload: FretNotePayload,
+        weightPolicy: QuestionWeightPolicy,
+    ): Question {
+        val position = payload.position
+        val answerId = "s" + position.string + ":f" + position.fret
+        return TrainingQuestion(
+            moduleId = TrainingModuleIds.FRET_NOTE,
+            kind = type.name,
+            prompt = prompt,
+            answerChoices = emptyList(),
+            correctChoiceId = answerId,
+            knowledgeItemId = knowledgeItemId,
+            payload = payload,
+            weightPolicy = weightPolicy,
+            answerMode = AnswerMode.FRETBOARD,
+            correctAnswerValue = AnswerValue.FretPosition(position.string, position.fret),
+        )
+    }
+
+    private fun positionPrompt(position: FretPosition, disambiguateOctave: Boolean): String {
+        val base = position.string.toString() + "弦 · " + position.note
+        return if (disambiguateOctave && position.fret in setOf(0, 12)) {
+            base + " · " + position.fret + "品区域"
+        } else {
+            base
+        }
+    }
 
     private fun fretItemId(type: QuestionType, position: FretPosition): String =
         type.name + ":s" + position.string + ":f" + position.fret

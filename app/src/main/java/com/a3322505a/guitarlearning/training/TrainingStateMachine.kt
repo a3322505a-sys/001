@@ -21,6 +21,20 @@ sealed interface QuestionState {
         override val question: Question,
         val result: AnswerResult,
     ) : QuestionState
+
+    data class CorrectionRequired(
+        override val question: Question,
+        val result: AnswerResult,
+        val wrongPosition: AnswerValue.FretPosition,
+        val correctPosition: AnswerValue.FretPosition,
+    ) : QuestionState
+
+    data class CorrectionConfirmed(
+        override val question: Question,
+        val result: AnswerResult,
+        val wrongPosition: AnswerValue.FretPosition,
+        val correctPosition: AnswerValue.FretPosition,
+    ) : QuestionState
 }
 
 /** Coordinates accepted answers, stable review feedback, and next-question actions. */
@@ -33,12 +47,41 @@ class TrainingStateMachine(
         get() = current
 
     fun submitAnswer(answer: String): QuestionState {
+        return submitAwaitingAnswer { session.submitAnswer(answer) }
+    }
+
+    fun submitAnswer(answer: AnswerValue): QuestionState {
+        val correction = current as? QuestionState.CorrectionRequired
+        if (correction != null) {
+            if (answer == correction.correctPosition) {
+                current = QuestionState.CorrectionConfirmed(
+                    question = correction.question,
+                    result = correction.result,
+                    wrongPosition = correction.wrongPosition,
+                    correctPosition = correction.correctPosition,
+                )
+            }
+            return current
+        }
+        return submitAwaitingAnswer { session.submitAnswer(answer) }
+    }
+
+    private fun submitAwaitingAnswer(submit: () -> AnswerResult): QuestionState {
         val awaiting = current as? QuestionState.AwaitingAnswer ?: return current
-        val result = session.submitAnswer(answer)
+        val result = submit()
         if (!result.accepted) return current
+        val submittedPosition = result.submittedValue as? AnswerValue.FretPosition
+        val correctPosition = result.correctValue as? AnswerValue.FretPosition
 
         current = if (result.isCorrect) {
             QuestionState.Correct(awaiting.question, result)
+        } else if (submittedPosition != null && correctPosition != null) {
+            QuestionState.CorrectionRequired(
+                question = awaiting.question,
+                result = result,
+                wrongPosition = submittedPosition,
+                correctPosition = correctPosition,
+            )
         } else {
             QuestionState.Incorrect(awaiting.question, result)
         }
@@ -46,8 +89,12 @@ class TrainingStateMachine(
     }
 
     fun nextQuestion(): QuestionState {
-        check(current !is QuestionState.AwaitingAnswer) {
-            "The current question must be answered before advancing"
+        check(
+            current is QuestionState.Correct ||
+                current is QuestionState.Incorrect ||
+                current is QuestionState.CorrectionConfirmed,
+        ) {
+            "The current question must be completed before advancing"
         }
         current = QuestionState.AwaitingAnswer(session.nextQuestion())
         return current
