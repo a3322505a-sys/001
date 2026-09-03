@@ -2,6 +2,9 @@ package com.a3322505a.guitarlearning
 
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.storage.InMemoryTrainingStore
+import com.a3322505a.guitarlearning.training.AnswerMode
+import com.a3322505a.guitarlearning.training.AnswerValue
+import com.a3322505a.guitarlearning.training.Question
 import com.a3322505a.guitarlearning.training.TrainingEngine
 import com.a3322505a.guitarlearning.training.TrainingSession
 import kotlin.random.Random
@@ -48,12 +51,12 @@ class V02ReleaseCandidateTest {
         repeat(100) { index ->
             now += 50L + index
             val answer = if (index % 3 == 0) {
-                question.choices.first { it != question.correctAnswer }
+                wrongAnswerFor(question)
             } else {
-                question.correctAnswer
+                question.correctAnswerValue
             }
             val result = session.submitAnswer(answer)
-            val duplicate = session.submitAnswer(question.correctAnswer)
+            val duplicate = session.submitAnswer(question.correctAnswerValue)
 
             assertTrue(result.accepted)
             assertFalse(duplicate.accepted)
@@ -67,5 +70,18 @@ class V02ReleaseCandidateTest {
         assertEquals(66, completed.correctCount)
         assertEquals(100, store.loadProgress().sumOf { it.attempts })
         assertEquals(completed, store.loadSessions().single())
+    }
+
+    private fun wrongAnswerFor(question: Question): AnswerValue = when (question.answerMode) {
+        AnswerMode.CHOICE -> AnswerValue.Choice(
+            question.answerChoices.first { it.id != question.correctChoiceId }.id,
+        )
+        AnswerMode.FRETBOARD -> {
+            val correct = question.correctAnswerValue as AnswerValue.FretPosition
+            AnswerValue.FretPosition(
+                correct.string,
+                if (correct.fret == 12) 11 else correct.fret + 1,
+            )
+        }
     }
 }

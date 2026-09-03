@@ -7,34 +7,54 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class TrainingStateMachineTest {
     @Test
-    fun wrongAnswerStaysInStableReviewUntilNextQuestionIsClicked() {
+    fun fretboardErrorRequiresOneCorrectionWithoutRecordingExtraAttempts() {
+        val store = InMemoryTrainingStore()
         val session = TrainingSession(
             engine = TrainingEngine(
                 random = Random(3),
                 enabledQuestionTypes = listOf(QuestionType.FretToNote),
             ),
-            store = InMemoryTrainingStore(),
+            store = store,
         )
         val machine = TrainingStateMachine(session)
         val question = machine.state.question
-        val wrongAnswer = question.choices.first { it != question.correctAnswer }
+        val correctAnswer = assertIs<AnswerValue.FretPosition>(question.correctAnswerValue)
+        val wrongAnswer = AnswerValue.FretPosition(
+            correctAnswer.string,
+            if (correctAnswer.fret == 12) 11 else correctAnswer.fret + 1,
+        )
 
-        val incorrect = assertIs<QuestionState.Incorrect>(machine.submitAnswer(wrongAnswer))
-        assertEquals(wrongAnswer, incorrect.result.submittedAnswer)
+        val incorrect = assertIs<QuestionState.CorrectionRequired>(
+            machine.submitAnswer(wrongAnswer),
+        )
+        assertEquals(wrongAnswer, incorrect.wrongPosition)
         assertFalse(incorrect.result.isCorrect)
         assertEquals(1, session.currentSession.questionCount)
+        val recorded = assertNotNull(store.loadProgress(question.knowledgeItemId))
+        assertEquals(1, recorded.attempts)
+        assertEquals(1.6, recorded.weight, absoluteTolerance = 0.000_001)
 
-        val unchanged = machine.submitAnswer(question.correctAnswer)
+        val unchanged = machine.submitAnswer(wrongAnswer)
         assertSame(incorrect, unchanged)
         assertEquals(1, session.currentSession.questionCount)
+        assertEquals(recorded, store.loadProgress(question.knowledgeItemId))
+
+        val confirmed = assertIs<QuestionState.CorrectionConfirmed>(
+            machine.submitAnswer(correctAnswer),
+        )
+        assertEquals(correctAnswer, confirmed.correctPosition)
+        assertEquals(1, session.currentSession.questionCount)
+        assertEquals(0, session.currentSession.correctCount)
+        assertEquals(recorded, store.loadProgress(question.knowledgeItemId))
 
         val next = assertIs<QuestionState.AwaitingAnswer>(machine.nextQuestion())
-        assertTrue(next.question.choices.isNotEmpty())
+        assertEquals(AnswerMode.FRETBOARD, next.question.answerMode)
     }
 
     @Test
@@ -85,7 +105,7 @@ class TrainingStateMachineTest {
         )
         val machine = TrainingStateMachine(session)
 
-        machine.submitAnswer(machine.state.question.correctAnswer)
+        machine.submitAnswer(machine.state.question.correctAnswerValue)
         assertEquals(1, session.currentSession.questionCount)
 
         val range = NoteTrainingRange.LOW_POSITION
@@ -137,7 +157,7 @@ class TrainingStateMachineTest {
                     awaiting.question.fretPosition?.fret?.let { it in range.fretRange } == true,
                 )
                 assertIs<QuestionState.Correct>(
-                    machine.submitAnswer(awaiting.question.correctAnswer),
+                    machine.submitAnswer(awaiting.question.correctAnswerValue),
                 )
                 current = machine.nextQuestion()
             }

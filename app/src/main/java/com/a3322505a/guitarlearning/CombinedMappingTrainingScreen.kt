@@ -65,7 +65,7 @@ fun CombinedMappingTrainingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PixelHeader(title = "综合训练", onBack = onBack)
+            PixelHeader(title = "音名 / 唱名 / 级数", onBack = onBack)
 
             Box(
                 modifier = Modifier

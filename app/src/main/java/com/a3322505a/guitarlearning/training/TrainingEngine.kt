@@ -41,7 +41,22 @@ class TrainingEngine(
         val question = currentQuestion ?: error("Generate a question before submitting an answer")
         if (submitted) return requireNotNull(lastResult).copy(accepted = false)
         val choice = question.choiceForLabel(answer) ?: return invalidResult(question, answer)
-        return submitChoiceInternal(question, choice)
+        return submitAnswerInternal(question, AnswerValue.Choice(choice.id), choice.label)
+    }
+
+    fun submitAnswer(answer: AnswerValue): AnswerResult {
+        val question = currentQuestion ?: error("Generate a question before submitting an answer")
+        if (submitted) return requireNotNull(lastResult).copy(accepted = false)
+        val submittedLabel = when (answer) {
+            is AnswerValue.Choice -> question.answerChoices.singleOrNull { it.id == answer.id }?.label
+            is AnswerValue.FretPosition -> answer.string.toString() + "弦" + answer.fret + "品"
+        } ?: return invalidResult(question, answer.toString())
+        val modeMatches = when (question.answerMode) {
+            AnswerMode.CHOICE -> answer is AnswerValue.Choice
+            AnswerMode.FRETBOARD -> answer is AnswerValue.FretPosition
+        }
+        if (!modeMatches) return invalidResult(question, submittedLabel)
+        return submitAnswerInternal(question, answer, submittedLabel)
     }
 
     fun submitChoice(choiceId: String): AnswerResult {
@@ -49,7 +64,7 @@ class TrainingEngine(
         if (submitted) return requireNotNull(lastResult).copy(accepted = false)
         val choice = question.answerChoices.singleOrNull { it.id == choiceId }
             ?: return invalidResult(question, choiceId)
-        return submitChoiceInternal(question, choice)
+        return submitAnswerInternal(question, AnswerValue.Choice(choice.id), choice.label)
     }
 
     fun nextQuestion(): Question = generateQuestion()
@@ -68,15 +83,21 @@ class TrainingEngine(
         lastResult = null
     }
 
-    private fun submitChoiceInternal(question: Question, choice: AnswerChoice): AnswerResult {
+    private fun submitAnswerInternal(
+        question: Question,
+        answer: AnswerValue,
+        submittedLabel: String,
+    ): AnswerResult {
         val result = AnswerResult(
             accepted = true,
-            isCorrect = choice.id == question.correctChoiceId,
-            submittedAnswer = choice.label,
+            isCorrect = answer == question.correctAnswerValue,
+            submittedAnswer = submittedLabel,
             correctAnswer = question.correctAnswer,
             knowledgeItemId = question.knowledgeItemId,
-            submittedChoiceId = choice.id,
-            correctChoiceId = question.correctChoiceId,
+            submittedChoiceId = (answer as? AnswerValue.Choice)?.id,
+            correctChoiceId = (question.correctAnswerValue as? AnswerValue.Choice)?.id,
+            submittedValue = answer,
+            correctValue = question.correctAnswerValue,
         )
         submitted = true
         lastResult = result
@@ -91,6 +112,8 @@ class TrainingEngine(
         knowledgeItemId = question.knowledgeItemId,
         submittedChoiceId = null,
         correctChoiceId = question.correctChoiceId,
+        submittedValue = null,
+        correctValue = question.correctAnswerValue,
     )
 
     private fun <T> weightedSample(items: List<T>, weight: (T) -> Double): T {

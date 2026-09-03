@@ -2,7 +2,6 @@ package com.a3322505a.guitarlearning
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,7 +27,6 @@ import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.components.PixelButton
 import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
-import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
 import com.a3322505a.guitarlearning.ui.theme.PixelGold
 import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
@@ -37,8 +35,6 @@ enum class AppDestination {
     Home,
     NoteNameRange,
     NoteName,
-    MappingMode,
-    SolfeggioNoteMapping,
     CombinedMapping,
     BasicTheory,
     IntervalLevels,
@@ -51,9 +47,7 @@ fun usesLandscapeLayout(destination: AppDestination): Boolean =
 fun previousDestination(destination: AppDestination): AppDestination = when (destination) {
     AppDestination.NoteName -> AppDestination.NoteNameRange
     AppDestination.NoteNameRange,
-    AppDestination.MappingMode -> AppDestination.Home
-    AppDestination.SolfeggioNoteMapping,
-    AppDestination.CombinedMapping -> AppDestination.MappingMode
+    AppDestination.CombinedMapping -> AppDestination.Home
     AppDestination.BasicTheory -> AppDestination.Home
     AppDestination.IntervalLevels -> AppDestination.BasicTheory
     AppDestination.IntervalTraining -> AppDestination.IntervalLevels
@@ -63,7 +57,6 @@ fun previousDestination(destination: AppDestination): AppDestination = when (des
 @Composable
 fun GuitarLearningApp(
     noteTrainingSession: TrainingSession,
-    mappingTrainingSession: TrainingSession,
     intervalTrainingSession: TrainingSession,
     onDestinationChanged: (AppDestination) -> Unit,
 ) {
@@ -103,7 +96,7 @@ fun GuitarLearningApp(
     when (destination) {
         AppDestination.Home -> HomeScreen(
             onOpenNoteName = { navigateTo(AppDestination.NoteNameRange) },
-            onOpenMapping = { navigateTo(AppDestination.MappingMode) },
+            onOpenMapping = { navigateTo(AppDestination.CombinedMapping) },
             onOpenTheory = { navigateTo(AppDestination.BasicTheory) },
         )
         AppDestination.NoteNameRange -> NoteNameRangeScreen(
@@ -118,20 +111,10 @@ fun GuitarLearningApp(
         AppDestination.NoteName -> NoteNameTrainingScreen(
             trainingSession = noteTrainingSession,
             stateMachine = noteStateMachine,
-            selectedRange = noteRange,
             onBack = { navigateTo(AppDestination.NoteNameRange) },
         )
-        AppDestination.MappingMode -> MappingModeScreen(
-            onBack = { navigateTo(AppDestination.Home) },
-            onOpenBasic = { navigateTo(AppDestination.SolfeggioNoteMapping) },
-            onOpenCombined = { navigateTo(AppDestination.CombinedMapping) },
-        )
-        AppDestination.SolfeggioNoteMapping -> SolfeggioNoteMappingScreen(
-            trainingSession = mappingTrainingSession,
-            onBack = { navigateTo(AppDestination.MappingMode) },
-        )
         AppDestination.CombinedMapping -> CombinedMappingTrainingScreen(
-            onBack = { navigateTo(AppDestination.MappingMode) },
+            onBack = { navigateTo(AppDestination.Home) },
         )
         AppDestination.BasicTheory -> BasicTheoryScreen(
             onBack = { navigateTo(AppDestination.Home) },
@@ -222,54 +205,3 @@ private fun HomeScreen(
     }
 }
 
-@Composable
-private fun MappingModeScreen(
-    onBack: () -> Unit,
-    onOpenBasic: () -> Unit,
-    onOpenCombined: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            PixelHeader(title = "训练模式", onBack = onBack)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                PixelPanel(modifier = Modifier.fillMaxWidth(0.78f)) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = "SELECT MODE",
-                            color = PixelInkMuted,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        PixelButton(
-                            text = "基础训练",
-                            onClick = onOpenBasic,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        PixelButton(
-                            text = "综合训练",
-                            onClick = onOpenCombined,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = PixelButtonStyle.Secondary,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}

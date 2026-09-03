@@ -18,15 +18,26 @@ class TrainingEngineTest {
                 val question = engine.generateQuestion(type)
 
                 assertEquals(type, question.type)
-                assertTrue(question.correctAnswer in question.choices)
-                assertFalse(question.correctAnswer.contains("#"))
                 assertTrue(question.knowledgeItemId.startsWith(type.name))
                 if (type == QuestionType.FretToNote || type == QuestionType.FretToSolfege) {
                     val position = assertNotNull(question.fretPosition)
                     assertTrue(GuitarCore.isNaturalNote(position.note))
                     assertEquals(position.note, GuitarCore.getNote(position.string, position.fret))
+                    if (type == QuestionType.FretToNote) {
+                        assertEquals(AnswerMode.FRETBOARD, question.answerMode)
+                        assertTrue(question.choices.isEmpty())
+                        assertEquals(
+                            AnswerValue.FretPosition(position.string, position.fret),
+                            question.correctAnswerValue,
+                        )
+                    } else {
+                        assertTrue(question.correctAnswer in question.choices)
+                        assertFalse(question.correctAnswer.contains("#"))
+                    }
                 } else {
                     assertEquals(null, question.fretPosition)
+                    assertTrue(question.correctAnswer in question.choices)
+                    assertFalse(question.correctAnswer.contains("#"))
                 }
             }
         }
@@ -42,7 +53,9 @@ class TrainingEngineTest {
         val noteToSolfege = factory.create(QuestionType.NoteToSolfege, position)
         val solfegeToNote = factory.create(QuestionType.SolfegeToNote, position)
 
-        assertEquals("A", fretToNote.correctAnswer)
+        assertEquals("6弦5品", fretToNote.correctAnswer)
+        assertEquals("6弦 · A", fretToNote.prompt)
+        assertEquals(AnswerValue.FretPosition(6, 5), fretToNote.correctAnswerValue)
         assertEquals("La", fretToSolfege.correctAnswer)
         assertEquals("La", noteToSolfege.correctAnswer)
         assertEquals("A", solfegeToNote.correctAnswer)
@@ -67,8 +80,8 @@ class TrainingEngineTest {
         val engine = TrainingEngine(random = Random(1))
         val question = engine.generateQuestion(QuestionType.FretToNote)
 
-        val first = engine.submitAnswer(question.correctAnswer)
-        val duplicate = engine.submitAnswer(question.choices.first { it != question.correctAnswer })
+        val first = engine.submitAnswer(question.correctAnswerValue)
+        val duplicate = engine.submitAnswer(wrongAnswerFor(question))
 
         assertTrue(first.accepted)
         assertTrue(first.isCorrect)
@@ -97,12 +110,12 @@ class TrainingEngineTest {
 
         repeat(100) { index ->
             val answer = if (index % 2 == 0) {
-                question.correctAnswer
+                question.correctAnswerValue
             } else {
-                question.choices.first { it != question.correctAnswer }
+                wrongAnswerFor(question)
             }
             val result = engine.submitAnswer(answer)
-            val duplicate = engine.submitAnswer(question.correctAnswer)
+            val duplicate = engine.submitAnswer(question.correctAnswerValue)
 
             assertTrue(result.accepted)
             assertEquals(question.knowledgeItemId, result.knowledgeItemId)
@@ -187,6 +200,40 @@ class TrainingEngineTest {
                 } == true,
             )
             assertTrue(question.fretPosition?.fret?.let { it in range.fretRange } == true)
+        }
+    }
+
+    @Test
+    fun fullFretboardDuplicateNotesKeepExactTargetsAndShowARegionHint() {
+        val factory = QuestionFactory()
+        val open = factory.create(
+            QuestionType.FretToNote,
+            GuitarCore.getFretPosition(1, 0),
+            disambiguateOctave = true,
+        )
+        val octave = factory.create(
+            QuestionType.FretToNote,
+            GuitarCore.getFretPosition(1, 12),
+            disambiguateOctave = true,
+        )
+
+        assertEquals(open.note, octave.note)
+        assertEquals("1弦 · E · 0品区域", open.prompt)
+        assertEquals("1弦 · E · 12品区域", octave.prompt)
+        assertTrue(open.correctAnswerValue != octave.correctAnswerValue)
+        assertTrue(open.knowledgeItemId != octave.knowledgeItemId)
+    }
+
+    private fun wrongAnswerFor(question: Question): AnswerValue = when (question.answerMode) {
+        AnswerMode.CHOICE -> AnswerValue.Choice(
+            question.answerChoices.first { it.id != question.correctChoiceId }.id,
+        )
+        AnswerMode.FRETBOARD -> {
+            val correct = question.correctAnswerValue as AnswerValue.FretPosition
+            AnswerValue.FretPosition(
+                correct.string,
+                if (correct.fret == 12) 11 else correct.fret + 1,
+            )
         }
     }
 }
