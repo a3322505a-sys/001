@@ -36,6 +36,7 @@ import com.a3322505a.guitarlearning.ui.theme.FretboardWoodLight
 import com.a3322505a.guitarlearning.ui.theme.Inlay
 import com.a3322505a.guitarlearning.ui.theme.NutIvory
 import com.a3322505a.guitarlearning.ui.theme.PixelGlow
+import com.a3322505a.guitarlearning.ui.theme.PixelGold
 import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import com.a3322505a.guitarlearning.ui.theme.StringMetal
