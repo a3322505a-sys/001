@@ -42,6 +42,7 @@ class PersistentTrainingStoreTest {
             fretStart = 2,
             fretEnd = 8,
             noteTrainingRangeId = "MID_POSITION",
+            unlockedFretboardLevel = 4,
             naturalOnly = true,
         )
 
@@ -49,6 +50,9 @@ class PersistentTrainingStoreTest {
         store.saveSettings(settings)
         store.upsertKnowledgeItem(item)
         store.saveProgress(progress)
+        store.saveLevelProgress(
+            LevelProgress(3, List(18) { true } + listOf(false, false)),
+        )
         store.saveSession(session)
 
         val restored = PersistentTrainingStore(backend)
@@ -58,6 +62,7 @@ class PersistentTrainingStoreTest {
         assertEquals(listOf(item), restored.loadKnowledgeItems())
         assertEquals(progress, restored.loadProgress(item.id))
         assertEquals(listOf(progress), restored.loadProgress())
+        assertEquals(18, restored.loadLevelProgress(3)?.correct)
         assertEquals(listOf(session), restored.loadSessions())
     }
 
@@ -100,6 +105,7 @@ class PersistentTrainingStoreTest {
         assertEquals("FretToNote:s1:f3", progress.knowledgeItemId)
         assertEquals(2, progress.attempts)
         assertEquals(1.0, progress.weight)
+        assertEquals(1, PersistentTrainingStore(backend).loadSettings().unlockedFretboardLevel)
     }
 
     @Test

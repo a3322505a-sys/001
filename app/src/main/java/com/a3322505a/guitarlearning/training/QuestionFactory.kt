@@ -71,10 +71,34 @@ class QuestionFactory {
             questionType = question.type,
             string = question.fretPosition?.string,
             fret = question.fretPosition?.fret,
-            note = question.note.takeIf { question.type != null },
-            solfege = question.solfege.takeIf { question.type != null },
-            degree = question.degree.takeIf { question.type != null },
+            note = question.fretPosition?.note,
+            solfege = question.fretPosition?.solfege,
+            degree = question.fretPosition?.note?.let(GuitarCore::degreeFor),
         )
+
+    fun createCurriculumQuestion(
+        level: Int,
+        kind: String,
+        prompt: String,
+        anchor: FretPosition?,
+        target: FretPosition,
+        relationId: String,
+    ): Question {
+        val answerId = "s${target.string}:f${target.fret}"
+        return TrainingQuestion(
+            moduleId = TrainingModuleIds.FRET_NOTE,
+            kind = kind,
+            prompt = prompt,
+            answerChoices = emptyList(),
+            correctChoiceId = answerId,
+            knowledgeItemId = "fretboard:lv$level:$relationId:$answerId",
+            payload = FretboardCurriculumPayload(level, anchor, target, relationId),
+            weightPolicy = QuestionWeightPolicy.BOUNDED_PER_ITEM,
+            answerMode = AnswerMode.FRETBOARD,
+            correctAnswerValue = AnswerValue.FretPosition(target.string, target.fret),
+            curriculumLevel = level,
+        )
+    }
 
     private fun createMapping(type: QuestionType, mapping: NoteMapping): Question {
         val answer = when (type) {

@@ -58,6 +58,7 @@ data class FretboardCell(
 
 enum class FretboardMarkerRole {
     TARGET,
+    ANCHOR,
     CORRECT,
     INCORRECT,
     CONFIRMED,
@@ -361,6 +362,7 @@ private fun DrawScope.drawMarkers(markers: List<FretboardMarker>, markerScale: F
         )
         val markerColor = when (marker.role) {
             FretboardMarkerRole.TARGET -> PixelGlow
+            FretboardMarkerRole.ANCHOR -> PixelGold
             FretboardMarkerRole.CORRECT, FretboardMarkerRole.CONFIRMED -> PixelSuccess
             FretboardMarkerRole.INCORRECT -> PixelError
         }

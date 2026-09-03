@@ -1,6 +1,7 @@
 package com.a3322505a.guitarlearning.training
 
 import com.a3322505a.guitarlearning.storage.Progress
+import com.a3322505a.guitarlearning.storage.LevelProgress
 import com.a3322505a.guitarlearning.storage.Settings
 import com.a3322505a.guitarlearning.storage.Session
 import com.a3322505a.guitarlearning.storage.TrainingStore
@@ -48,6 +49,8 @@ class TrainingSession(
 
     fun currentSettings(): Settings = engine.settings()
 
+    fun levelProgress(level: Int): LevelProgress? = store.loadLevelProgress(level)
+
     fun currentQuestion(): Question = engine.currentQuestion() ?: engine.generateQuestion()
 
     fun submitAnswer(answer: String): AnswerResult {
@@ -81,6 +84,7 @@ class TrainingSession(
             ?: factory.knowledgeItemFor(question)
         store.upsertKnowledgeItem(item.copy(status = newProgress.mastery))
         store.saveProgress(newProgress)
+        recordCurriculumLevel(question, result)
 
         activeSession = activeSession.copy(
             endedAt = null,
@@ -89,6 +93,25 @@ class TrainingSession(
         )
         store.saveSession(activeSession)
         return result
+    }
+
+    private fun recordCurriculumLevel(question: Question, result: AnswerResult) {
+        if (question.moduleId != TrainingModuleIds.FRET_NOTE) return
+        val level = question.curriculumLevel
+        val previous = store.loadLevelProgress(level) ?: LevelProgress(level)
+        val updated = FretboardLevelRules.record(previous, result.isCorrect)
+        store.saveLevelProgress(updated)
+
+        val settings = engine.settings()
+        if (
+            level == settings.unlockedFretboardLevel &&
+            level < FretboardLevelRules.MAXIMUM_LEVEL &&
+            FretboardLevelRules.qualifies(updated)
+        ) {
+            val unlocked = settings.copy(unlockedFretboardLevel = level + 1)
+            store.saveSettings(unlocked)
+            engine.updateSettings(unlocked)
+        }
     }
 
     fun nextQuestion(): Question = engine.nextQuestion()

@@ -121,5 +121,6 @@ class FretboardTest {
         assertTrue(FEEDBACK_MARKER_RING_FRACTION > 0.68f)
         assertEquals(4f, FEEDBACK_MARKER_STROKE_DP)
         assertEquals(8f, FEEDBACK_MARKER_CORE_DP)
+        assertTrue(FretboardMarkerRole.ANCHOR != FretboardMarkerRole.CORRECT)
     }
 }

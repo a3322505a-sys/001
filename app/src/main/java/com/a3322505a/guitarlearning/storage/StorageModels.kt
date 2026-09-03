@@ -47,6 +47,19 @@ data class Progress(
     val seenDays: Set<String> = emptySet(),
 )
 
+/** Rolling results for one first-fretboard curriculum level. */
+data class LevelProgress(
+    val level: Int,
+    val recentResults: List<Boolean> = emptyList(),
+) {
+    init {
+        require(level in 1..5) { "level must be between 1 and 5" }
+    }
+
+    val attempts: Int get() = recentResults.size
+    val correct: Int get() = recentResults.count { it }
+}
+
 data class Session(
     val id: String,
     val startedAt: Long,
@@ -66,6 +79,7 @@ data class Settings(
     val fretEnd: Int = 12,
     val noteTrainingRangeId: String? = null,
     val intervalLevelId: String? = null,
+    val unlockedFretboardLevel: Int = 1,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {
@@ -75,5 +89,8 @@ data class Settings(
         require(fretStart in 0..12) { "fretStart must be between 0 and 12" }
         require(fretEnd in 0..12) { "fretEnd must be between 0 and 12" }
         require(fretStart <= fretEnd) { "fretStart must not exceed fretEnd" }
+        require(unlockedFretboardLevel in 1..5) {
+            "unlockedFretboardLevel must be between 1 and 5"
+        }
     }
 }

@@ -46,6 +46,7 @@ import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
 import com.a3322505a.guitarlearning.ui.theme.PixelError
+import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import kotlinx.coroutines.delay
 
@@ -64,16 +65,21 @@ fun NoteNameTrainingScreen(
     val markerScale = remember { Animatable(1f) }
     val question = state.question
     val session = trainingSession.currentSession
+    val anchorMarker = question.anchorPosition?.let {
+        FretboardMarker(it, FretboardMarkerRole.ANCHOR)
+    }
+    fun withAnchor(vararg markers: FretboardMarker): List<FretboardMarker> =
+        listOfNotNull(anchorMarker) + markers
     val markers = when (val current = state) {
-        is QuestionState.AwaitingAnswer -> emptyList()
-        is QuestionState.Correct -> listOf(
+        is QuestionState.AwaitingAnswer -> withAnchor()
+        is QuestionState.Correct -> withAnchor(
             FretboardMarker(requireNotNull(question.fretPosition), FretboardMarkerRole.CORRECT),
         )
-        is QuestionState.CorrectionRequired -> listOf(
+        is QuestionState.CorrectionRequired -> withAnchor(
             markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
             markerFor(current.correctPosition, FretboardMarkerRole.CORRECT),
         )
-        is QuestionState.CorrectionConfirmed -> listOf(
+        is QuestionState.CorrectionConfirmed -> withAnchor(
             markerFor(current.wrongPosition, FretboardMarkerRole.INCORRECT),
             markerFor(current.correctPosition, FretboardMarkerRole.CONFIRMED),
         )
@@ -137,7 +143,11 @@ fun NoteNameTrainingScreen(
                     )
                 }
                 Text(
-                    text = question.prompt,
+                    text = if (question.curriculumLevel == 1) {
+                        "Lv.1 · ${question.prompt}"
+                    } else {
+                        question.prompt
+                    },
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -161,16 +171,15 @@ fun NoteNameTrainingScreen(
                     is QuestionState.CorrectionRequired ->
                         "错了，点一下正确位置" to PixelError
                     is QuestionState.CorrectionConfirmed -> "已纠正" to PixelSuccess
-                    else -> null
+                    else -> "已解锁 Lv.${trainingSession.currentSettings().unlockedFretboardLevel}" to
+                        PixelInkMuted
                 }
-                feedback?.let { (text, color) ->
-                    Text(
-                        text = text,
-                        color = color,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                Text(
+                    text = feedback.first,
+                    color = feedback.second,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
                 if (state is QuestionState.CorrectionConfirmed) {
                     NextQuestionButton(
                         onClick = { state = stateMachine.nextQuestion() },

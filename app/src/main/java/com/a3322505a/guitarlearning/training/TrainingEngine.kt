@@ -23,13 +23,15 @@ class TrainingEngine(
         val candidates = if (type == null) questionBank else questionBank.filter { it.type == type }
         require(candidates.isNotEmpty()) { "Question bank does not contain the requested type" }
         val progressById = progressProvider().associateBy { it.knowledgeItemId }
+        val levelCounts = candidates.groupingBy { it.curriculumLevel }.eachCount()
         val question = weightedSample(candidates) { candidate ->
             val progress = progressById[candidate.knowledgeItemId]
-            when (candidate.weightPolicy) {
+            val itemWeight = when (candidate.weightPolicy) {
                 QuestionWeightPolicy.MASTERY -> QuestionWeights.forProgress(progress)
                 QuestionWeightPolicy.BOUNDED_PER_ITEM ->
                     PositionQuestionWeights.forProgress(progress)
             }
+            itemWeight / levelCounts.getValue(candidate.curriculumLevel)
         }
         currentQuestion = question
         submitted = false

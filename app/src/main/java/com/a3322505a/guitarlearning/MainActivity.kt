@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.a3322505a.guitarlearning.storage.PersistentTrainingStore
 import com.a3322505a.guitarlearning.training.IntervalModule
-import com.a3322505a.guitarlearning.training.QuestionType
+import com.a3322505a.guitarlearning.training.FirstFretboardModule
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.TrainingEngine
 import com.a3322505a.guitarlearning.training.TrainingSession
@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
             engine = TrainingEngine(
                 settings = settings,
                 progressProvider = { store.loadProgress() },
-                enabledQuestionTypes = listOf(QuestionType.FretToNote),
+                module = FirstFretboardModule(),
             ),
             store = store,
         )
