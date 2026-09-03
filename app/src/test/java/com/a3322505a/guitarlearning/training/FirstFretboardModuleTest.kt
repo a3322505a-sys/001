@@ -76,7 +76,7 @@ class FirstFretboardModuleTest {
     @Test
     fun cMajorDegreeQuestionsPointToTheDisplayedDegree() {
         val questions = module.buildQuestionBank(Settings(unlockedFretboardLevel = 5))
-            .filter { it.curriculumLevel == 5 }
+            .filter { it.curriculumLevel == 5 && it.kind == "c_major_degree" }
 
         questions.forEach { question ->
             val payload = assertIs<FretboardCurriculumPayload>(question.payload)
