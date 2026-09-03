@@ -114,4 +114,12 @@ class FretboardTest {
         assertEquals(2, markerCountForFret(12))
         assertEquals(0, markerCountForFret(4))
     }
+
+    @Test
+    fun answerFeedbackMarkersUseTheEnlargedVisualSpec() {
+        assertTrue(FEEDBACK_MARKER_SIZE_FRACTION > 0.72f)
+        assertTrue(FEEDBACK_MARKER_RING_FRACTION > 0.68f)
+        assertEquals(4f, FEEDBACK_MARKER_STROKE_DP)
+        assertEquals(8f, FEEDBACK_MARKER_CORE_DP)
+    }
 }

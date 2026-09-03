@@ -27,9 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.training.AnswerValue
-import com.a3322505a.guitarlearning.training.CORRECT_FEEDBACK_DURATION_MS
 import com.a3322505a.guitarlearning.training.QuestionState
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.NoteTrainingRangeGroup
@@ -48,6 +49,10 @@ import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import kotlinx.coroutines.delay
 
+internal const val FRETBOARD_CORRECT_FEEDBACK_DURATION_MS = 1_000L
+private const val CORRECT_PULSE_HALF_DURATION_MS = 250
+private const val CORRECT_PULSE_SCALE = 1.14f
+
 /** The landscape-only trainer for identifying physical fret locations by note name. */
 @Composable
 fun NoteNameTrainingScreen(
@@ -56,6 +61,7 @@ fun NoteNameTrainingScreen(
     onBack: (() -> Unit)? = null,
 ) {
     var state by remember(stateMachine) { mutableStateOf<QuestionState>(stateMachine.state) }
+    val markerScale = remember { Animatable(1f) }
     val question = state.question
     val session = trainingSession.currentSession
     val markers = when (val current = state) {
@@ -80,8 +86,24 @@ fun NoteNameTrainingScreen(
     }
 
     LaunchedEffect(state) {
-        val correctState = state as? QuestionState.Correct ?: return@LaunchedEffect
-        delay(CORRECT_FEEDBACK_DURATION_MS)
+        val correctState = state as? QuestionState.Correct
+        if (correctState == null) {
+            markerScale.snapTo(1f)
+            return@LaunchedEffect
+        }
+        markerScale.snapTo(1f)
+        markerScale.animateTo(
+            targetValue = CORRECT_PULSE_SCALE,
+            animationSpec = tween(CORRECT_PULSE_HALF_DURATION_MS),
+        )
+        markerScale.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(CORRECT_PULSE_HALF_DURATION_MS),
+        )
+        delay(
+            FRETBOARD_CORRECT_FEEDBACK_DURATION_MS -
+                CORRECT_PULSE_HALF_DURATION_MS * 2L,
+        )
         if (state === correctState) {
             state = stateMachine.nextQuestion()
         }
@@ -128,22 +150,35 @@ fun NoteNameTrainingScreen(
                 )
             }
 
-            when (state) {
-                is QuestionState.CorrectionRequired -> Text(
-                    text = "错了，点一下正确位置",
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    color = PixelError,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                is QuestionState.CorrectionConfirmed -> Text(
-                    text = "已纠正",
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    color = PixelSuccess,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                else -> Unit
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val feedback = when (state) {
+                    is QuestionState.Correct -> "✓ 正确" to PixelSuccess
+                    is QuestionState.CorrectionRequired ->
+                        "错了，点一下正确位置" to PixelError
+                    is QuestionState.CorrectionConfirmed -> "已纠正" to PixelSuccess
+                    else -> null
+                }
+                feedback?.let { (text, color) ->
+                    Text(
+                        text = text,
+                        color = color,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                if (state is QuestionState.CorrectionConfirmed) {
+                    NextQuestionButton(
+                        onClick = { state = stateMachine.nextQuestion() },
+                        modifier = Modifier
+                            .width(112.dp)
+                            .align(Alignment.CenterEnd),
+                    )
+                }
             }
 
             PixelPanel(
@@ -155,6 +190,7 @@ fun NoteNameTrainingScreen(
                 Fretboard(
                     markers = markers,
                     interactionMode = interactionMode,
+                    markerScale = markerScale.value,
                     onPositionClick = { position ->
                         state = stateMachine.submitAnswer(
                             AnswerValue.FretPosition(position.string, position.fret),
@@ -165,11 +201,6 @@ fun NoteNameTrainingScreen(
                 )
             }
 
-            if (state is QuestionState.CorrectionConfirmed) {
-                NextQuestionButton {
-                    state = stateMachine.nextQuestion()
-                }
-            }
         }
     }
 }
@@ -183,13 +214,14 @@ private fun markerFor(
 )
 
 @Composable
-private fun NextQuestionButton(onClick: () -> Unit) {
+private fun NextQuestionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     PixelButton(
         text = "下一题",
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 44.dp),
+        modifier = modifier.heightIn(min = 44.dp),
     )
 }
 
