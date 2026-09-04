@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.audio.handleFretboardTap
 import com.a3322505a.guitarlearning.core.FretPosition
 import com.a3322505a.guitarlearning.training.TAB_GUIDE_QUESTION_COUNT
+import com.a3322505a.guitarlearning.training.TabExercise
 import com.a3322505a.guitarlearning.training.TabQuestion
 import com.a3322505a.guitarlearning.training.TabTrainingState
 import com.a3322505a.guitarlearning.training.TabTrainingStateMachine
@@ -34,6 +36,7 @@ import com.a3322505a.guitarlearning.ui.components.PixelButton
 import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
+import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
@@ -227,6 +230,21 @@ private fun TabReadingBody(
                     color = PixelInkMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
+                if (!state.question.isGuide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TabExercise.entries.forEach { exercise ->
+                            PixelOutlinedButton(
+                                text = exercise.label,
+                                onClick = { state = stateMachine.selectExercise(exercise) },
+                                selected = stateMachine.selectedExercise == exercise,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
                 TabNotation(
                     question = state.question,
                     modifier = Modifier
@@ -299,7 +317,7 @@ private fun TabNotation(
 ) {
     Column(modifier = modifier) {
         (1..6).forEach { string ->
-            androidx.compose.foundation.layout.Row(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
