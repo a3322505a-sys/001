@@ -242,6 +242,9 @@ class FretboardSetTest {
     fun chordShapesUnlockInCThenGThenAmThenEmThenFOrder() {
         val settings = Settings(
             unlockedFretboardLevel = 6,
+            firstPositionBaselineComplete = true,
+            firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                .map(FirstPositionCurriculum::id).toSet(),
             firstPositionComplete = true,
             unlockedChordShapeCount = 1,
         )
@@ -281,7 +284,10 @@ class FretboardSetTest {
     private fun sessionFor(question: Question, store: InMemoryTrainingStore): TrainingSession =
         TrainingSession(
             engine = TrainingEngine(
-                settings = Settings(),
+                settings = Settings(
+                    unlockedFretboardLevel = 6,
+                    firstPositionComplete = true,
+                ),
                 random = Random(1),
                 progressProvider = { store.loadProgress() },
                 module = object : TrainingModule {
