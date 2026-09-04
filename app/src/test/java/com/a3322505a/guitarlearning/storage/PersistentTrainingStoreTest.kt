@@ -50,6 +50,7 @@ class PersistentTrainingStoreTest {
             firstPositionComplete = true,
             seenIntroductionIds = setOf("half_step"),
             tabIntroductionCompleted = true,
+            unlockedChordShapeCount = 5,
             naturalOnly = true,
         )
 

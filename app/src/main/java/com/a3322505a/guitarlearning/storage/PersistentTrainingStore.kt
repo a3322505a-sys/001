@@ -136,6 +136,10 @@ class PersistentTrainingStore(
             "settings.tabIntroductionCompleted",
             snapshot.settings.tabIntroductionCompleted.toString(),
         )
+        properties.setProperty(
+            "settings.unlockedChordShapeCount",
+            snapshot.settings.unlockedChordShapeCount.toString(),
+        )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
 
@@ -247,6 +251,11 @@ class PersistentTrainingStore(
             tabIntroductionCompleted = properties
                 .getProperty("settings.tabIntroductionCompleted", "false")
                 .toBoolean(),
+            unlockedChordShapeCount = properties
+                .getProperty("settings.unlockedChordShapeCount", "1")
+                .toIntOrNull()
+                ?.coerceIn(1, 5)
+                ?: 1,
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,

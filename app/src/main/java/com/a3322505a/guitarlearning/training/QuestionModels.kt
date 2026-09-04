@@ -107,6 +107,13 @@ data class FretboardSequencePayload(
     val relationId: String,
 ) : QuestionPayload
 
+data class FretboardShapePayload(
+    val chordId: String,
+    val rootNote: String,
+    val order: Int,
+    val targets: List<FretPosition>,
+) : QuestionPayload
+
 data class MappingPayload(
     val questionType: QuestionType,
     val note: String,
@@ -205,6 +212,7 @@ data class TrainingQuestion(
             is FretboardCurriculumPayload -> null
             is FretboardNoteSetPayload -> QuestionType.FretToNote
             is FretboardSequencePayload -> null
+            is FretboardShapePayload -> null
         }
 
     val fretPosition: FretPosition?
@@ -220,6 +228,7 @@ data class TrainingQuestion(
             is FretboardCurriculumPayload -> listOf(value.target)
             is FretboardNoteSetPayload -> value.targets
             is FretboardSequencePayload -> value.targets
+            is FretboardShapePayload -> value.targets
             else -> emptyList()
         }
 
@@ -240,6 +249,7 @@ data class TrainingQuestion(
             is FretboardCurriculumPayload -> value.target.note
             is FretboardNoteSetPayload -> value.note
             is FretboardSequencePayload -> value.targets.first().note
+            is FretboardShapePayload -> value.rootNote
         }
 
     val solfege: String
@@ -251,6 +261,8 @@ data class TrainingQuestion(
             is FretboardNoteSetPayload ->
                 com.a3322505a.guitarlearning.core.GuitarCore.solfegeFor(value.note).orEmpty()
             is FretboardSequencePayload -> value.targets.first().solfege.orEmpty()
+            is FretboardShapePayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.solfegeFor(value.rootNote).orEmpty()
         }
 
     val degree: Int
@@ -265,6 +277,8 @@ data class TrainingQuestion(
             is FretboardSequencePayload ->
                 com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.targets.first().note)
                     ?: 0
+            is FretboardShapePayload ->
+                com.a3322505a.guitarlearning.core.GuitarCore.degreeFor(value.rootNote) ?: 0
         }
 
     fun choiceForLabel(label: String): AnswerChoice? =

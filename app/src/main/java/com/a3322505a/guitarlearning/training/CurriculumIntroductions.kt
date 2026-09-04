@@ -36,6 +36,10 @@ object CurriculumIntroductions {
             CurriculumIntroduction("g_major_triad", "G–B–D：G 大三和弦的根音、三音、五音")
         question.kind == "c_major_triad" ->
             CurriculumIntroduction("one_three_five", "1–3–5 = C–E–G")
+        question.kind == "c_chord_shape" ->
+            CurriculumIntroduction("open_chord_shape", "开放和弦：包含空弦音的固定指法")
+        question.kind == "f_chord_shape" ->
+            CurriculumIntroduction("f_barre_chord", "F 大和弦：这里使用第一把位横按形状")
         else -> null
     }
 }

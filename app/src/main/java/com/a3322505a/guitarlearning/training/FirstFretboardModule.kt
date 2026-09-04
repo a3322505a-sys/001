@@ -76,6 +76,38 @@ object FirstPositionScaleRoutes {
     val cMajorDescending: List<FretPosition> = cMajorAscending.reversed()
 }
 
+data class FirstPositionChordShape(
+    val id: String,
+    val label: String,
+    val rootNote: String,
+    val chordNotes: Set<String>,
+    val positions: List<FretPosition>,
+)
+
+object FirstPositionChordShapes {
+    val ordered: List<FirstPositionChordShape> = listOf(
+        shape("c", "C 和弦", "C", setOf("C", "E", "G"), 5 to 3, 4 to 2, 3 to 0, 2 to 1, 1 to 0),
+        shape("g", "G 和弦", "G", setOf("G", "B", "D"), 6 to 3, 5 to 2, 4 to 0, 3 to 0, 2 to 0, 1 to 3),
+        shape("am", "Am 和弦", "A", setOf("A", "C", "E"), 5 to 0, 4 to 2, 3 to 2, 2 to 1, 1 to 0),
+        shape("em", "Em 和弦", "E", setOf("E", "G", "B"), 6 to 0, 5 to 2, 4 to 2, 3 to 0, 2 to 0, 1 to 0),
+        shape("f", "F 和弦", "F", setOf("F", "A", "C"), 6 to 1, 5 to 3, 4 to 3, 3 to 2, 2 to 1, 1 to 1),
+    )
+
+    private fun shape(
+        id: String,
+        label: String,
+        rootNote: String,
+        chordNotes: Set<String>,
+        vararg coordinates: Pair<Int, Int>,
+    ) = FirstPositionChordShape(
+        id = id,
+        label = label,
+        rootNote = rootNote,
+        chordNotes = chordNotes,
+        positions = coordinates.map { (string, fret) -> GuitarCore.getFretPosition(string, fret) },
+    )
+}
+
 /** Lv.1 note sets plus the existing Lv.2–Lv.6 fretboard curriculum. */
 class FirstFretboardModule : TrainingModule {
     override val id: String = TrainingModuleIds.FRET_NOTE
@@ -101,7 +133,7 @@ class FirstFretboardModule : TrainingModule {
                 if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(trainingRange))
                 if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(trainingRange))
                 if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(trainingRange))
-                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix())
+                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(settings))
             }
         }.also { require(it.isNotEmpty()) { "First fretboard question bank must not be empty" } }
     }
@@ -212,9 +244,9 @@ class FirstFretboardModule : TrainingModule {
         )
     }
 
-    private fun levelSix(): List<TrainingQuestion> {
+    private fun levelSix(settings: Settings): List<TrainingQuestion> {
         val firstPosition = GuitarCore.allPositions(frets = 0..4, naturalOnly = true)
-        return listOf(
+        val toneSequences = listOf(
             ChordToneSequence("c_major_triad", "C 大三和弦", listOf("C", "E", "G")),
             ChordToneSequence("g_major_triad", "G 大三和弦", listOf("G", "B", "D")),
             ChordToneSequence("a_minor_triad", "Am 小三和弦", listOf("A", "C", "E")),
@@ -229,6 +261,18 @@ class FirstFretboardModule : TrainingModule {
                 prompt = "Lv.6 · ${chord.label} · 按顺序点 ${chord.notes.joinToString("→")}",
             )
         }
+        val shapes = FirstPositionChordShapes.ordered
+            .take(settings.unlockedChordShapeCount)
+            .mapIndexed { index, shape ->
+                factory.createFretboardShapeQuestion(
+                    chordId = shape.id,
+                    chordLabel = shape.label,
+                    rootNote = shape.rootNote,
+                    order = index + 1,
+                    targets = shape.positions,
+                )
+            }
+        return toneSequences + shapes
     }
 
     private fun namedSequenceQuestions(

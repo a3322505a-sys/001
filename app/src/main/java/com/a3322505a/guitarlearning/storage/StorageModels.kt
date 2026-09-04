@@ -89,6 +89,8 @@ data class Settings(
     val seenIntroductionIds: Set<String> = emptySet(),
     /** True after the one-time TAB single-note guide has been completed. */
     val tabIntroductionCompleted: Boolean = false,
+    /** Number of first-position chord shapes unlocked in C, G, Am, Em, F order. */
+    val unlockedChordShapeCount: Int = 1,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {
@@ -100,6 +102,9 @@ data class Settings(
         require(fretStart <= fretEnd) { "fretStart must not exceed fretEnd" }
         require(unlockedFretboardLevel in 1..6) {
             "unlockedFretboardLevel must be between 1 and 6"
+        }
+        require(unlockedChordShapeCount in 1..5) {
+            "unlockedChordShapeCount must be between 1 and 5"
         }
         require(firstPositionActiveKnowledgeIds.all { FIRST_POSITION_ID.matches(it) }) {
             "First-position knowledge IDs must use the s<STRING>f<FRET> form"

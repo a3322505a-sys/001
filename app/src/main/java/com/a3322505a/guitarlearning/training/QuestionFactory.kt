@@ -167,6 +167,35 @@ class QuestionFactory {
         )
     }
 
+    fun createFretboardShapeQuestion(
+        chordId: String,
+        chordLabel: String,
+        rootNote: String,
+        order: Int,
+        targets: List<FretPosition>,
+    ): Question {
+        require(order in 1..5) { "Chord shape order must be between 1 and 5" }
+        require(targets.isNotEmpty()) { "A chord shape needs at least one target" }
+        require(targets.all { it.fret in 0..4 }) { "Chord shapes must stay in first position" }
+        val sortedTargets = targets.sortedWith(compareBy({ it.string }, { it.fret }))
+        val targetId = sortedTargets.joinToString(":") { "s${it.string}f${it.fret}" }
+        return TrainingQuestion(
+            moduleId = TrainingModuleIds.FRET_NOTE,
+            kind = "${chordId}_chord_shape",
+            prompt = "Lv.6 · $chordLabel · 全选固定指法",
+            answerChoices = emptyList(),
+            correctChoiceId = targetId,
+            knowledgeItemId = "fretboard:lv6:chord_shape:$chordId:$targetId",
+            payload = FretboardShapePayload(chordId, rootNote, order, sortedTargets),
+            weightPolicy = QuestionWeightPolicy.BOUNDED_PER_ITEM,
+            answerMode = AnswerMode.FRETBOARD_SET,
+            correctAnswerValue = AnswerValue.FretSet(
+                sortedTargets.map { AnswerValue.FretPosition(it.string, it.fret) }.toSet(),
+            ),
+            curriculumLevel = 6,
+        )
+    }
+
     private fun createMapping(type: QuestionType, mapping: NoteMapping): Question {
         val answer = when (type) {
             QuestionType.NoteToSolfege -> mapping.solfege
