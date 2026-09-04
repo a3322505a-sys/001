@@ -15,7 +15,7 @@ class FretboardSequenceTest {
     private val factory = QuestionFactory()
 
     @Test
-    fun everyTrainingRangeProvidesScaleAndChordSequencesInsideItsCoordinates() {
+    fun everyTrainingRangeKeepsItsSequencesInsideItsCoordinates() {
         val module = FirstFretboardModule()
 
         NoteTrainingRange.entries.forEach { range ->
@@ -29,7 +29,12 @@ class FretboardSequenceTest {
                 ),
             )
             val questions = module.buildQuestionBank(settings)
-            assertEquals((1..6).toSet(), questions.map { it.curriculumLevel }.toSet(), range.name)
+            val expectedLevels = if (range == NoteTrainingRange.MID_POSITION) {
+                (1..5).toSet()
+            } else {
+                (1..6).toSet()
+            }
+            assertEquals(expectedLevels, questions.map { it.curriculumLevel }.toSet(), range.name)
 
             questions.filter { it.answerMode == AnswerMode.FRETBOARD_SEQUENCE }.forEach { question ->
                 val notes = question.targetPositions.map { it.note }
@@ -50,13 +55,8 @@ class FretboardSequenceTest {
                     "f_major_triad" to listOf("F", "A", "C"),
                 )[question.kind]
                 if (chordNotes != null) assertEquals(chordNotes, notes)
-                if (
-                    !question.kind.startsWith("c_major_scale_") &&
-                    !question.kind.endsWith("_triad")
-                ) {
-                    assertTrue(question.targetPositions.all { it.string in settings.selectedStrings })
-                    assertTrue(question.targetPositions.all { it.fret in settings.fretStart..settings.fretEnd })
-                }
+                assertTrue(question.targetPositions.all { it.string in settings.selectedStrings })
+                assertTrue(question.targetPositions.all { it.fret in settings.fretStart..settings.fretEnd })
             }
         }
     }
@@ -95,9 +95,9 @@ class FretboardSequenceTest {
     fun fullCMajorScaleUsesOneFixedFirstPositionRouteAndItsExactReverse() {
         val settings = Settings(
             unlockedFretboardLevel = 5,
-            noteTrainingRangeId = NoteTrainingRange.MID_POSITION.name,
-            fretStart = 5,
-            fretEnd = 8,
+            noteTrainingRangeId = NoteTrainingRange.FULL_FRETBOARD.name,
+            fretStart = 0,
+            fretEnd = 12,
             firstPositionBaselineComplete = true,
             firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
                 .map(FirstPositionCurriculum::id).toSet(),
