@@ -36,6 +36,9 @@ enum class AppDestination {
     NoteNameRange,
     NoteName,
     CombinedMapping,
+    ReadingMenu,
+    TabReading,
+    StaffReading,
 }
 
 fun usesLandscapeLayout(destination: AppDestination): Boolean =
@@ -46,8 +49,11 @@ fun usesImmersiveSystemBars(destination: AppDestination): Boolean =
 
 fun previousDestination(destination: AppDestination): AppDestination = when (destination) {
     AppDestination.NoteName -> AppDestination.NoteNameRange
+    AppDestination.TabReading,
+    AppDestination.StaffReading -> AppDestination.ReadingMenu
     AppDestination.NoteNameRange,
-    AppDestination.CombinedMapping -> AppDestination.Home
+    AppDestination.CombinedMapping,
+    AppDestination.ReadingMenu -> AppDestination.Home
     AppDestination.Home -> AppDestination.Home
 }
 
@@ -86,6 +92,7 @@ fun GuitarLearningApp(
         AppDestination.Home -> HomeScreen(
             onOpenNoteName = { navigateTo(AppDestination.NoteNameRange) },
             onOpenMapping = { navigateTo(AppDestination.CombinedMapping) },
+            onOpenReading = { navigateTo(AppDestination.ReadingMenu) },
         )
         AppDestination.NoteNameRange -> NoteNameRangeScreen(
             selectedRange = noteRange,
@@ -106,6 +113,19 @@ fun GuitarLearningApp(
             pitchPlayer = pitchPlayer,
             onBack = { navigateTo(AppDestination.Home) },
         )
+        AppDestination.ReadingMenu -> ReadingTrainingMenuScreen(
+            onOpenTab = { navigateTo(AppDestination.TabReading) },
+            onOpenStaff = { navigateTo(AppDestination.StaffReading) },
+            onBack = { navigateTo(AppDestination.Home) },
+        )
+        AppDestination.TabReading -> ReadingTrainingScreen(
+            notation = ReadingNotation.Tab,
+            onBack = { navigateTo(AppDestination.ReadingMenu) },
+        )
+        AppDestination.StaffReading -> ReadingTrainingScreen(
+            notation = ReadingNotation.Staff,
+            onBack = { navigateTo(AppDestination.ReadingMenu) },
+        )
     }
 }
 
@@ -113,6 +133,7 @@ fun GuitarLearningApp(
 private fun HomeScreen(
     onOpenNoteName: () -> Unit,
     onOpenMapping: () -> Unit,
+    onOpenReading: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -157,6 +178,13 @@ private fun HomeScreen(
             PixelButton(
                 text = "音名 / 唱名 / 级数",
                 onClick = onOpenMapping,
+                modifier = Modifier.fillMaxWidth(0.78f),
+                style = PixelButtonStyle.Secondary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PixelButton(
+                text = "读谱训练",
+                onClick = onOpenReading,
                 modifier = Modifier.fillMaxWidth(0.78f),
                 style = PixelButtonStyle.Secondary,
             )

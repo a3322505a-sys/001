@@ -71,4 +71,28 @@ class FretboardGeometryTest {
         assertNull(FretboardGeometry.positionAt(10f, 61f, 100f, 60f))
         assertNull(FretboardGeometry.positionAt(10f, 10f, 0f, 60f))
     }
+
+    @Test
+    fun firstPositionGeometryUsesTheWholeWidthForZeroThroughFour() {
+        val lastFret = 4
+        val width = 1_000f
+        val height = 600f
+
+        assertEquals(1f, fretRightFraction(lastFret, lastFret))
+        for (string in 1..6) {
+            for (fret in FIRST_FRET..lastFret) {
+                val position = assertNotNull(
+                    FretboardGeometry.positionAt(
+                        x = width * fretCenterFraction(fret, lastFret),
+                        y = height * stringCenterFraction(string),
+                        width = width,
+                        height = height,
+                        lastFret = lastFret,
+                    ),
+                )
+                assertEquals(string, position.string)
+                assertEquals(fret, position.fret)
+            }
+        }
+    }
 }

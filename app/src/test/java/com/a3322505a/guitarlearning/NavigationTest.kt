@@ -14,6 +14,9 @@ class NavigationTest {
         assertFalse(usesLandscapeLayout(AppDestination.NoteNameRange))
         assertFalse(usesImmersiveSystemBars(AppDestination.NoteNameRange))
         assertFalse(usesLandscapeLayout(AppDestination.CombinedMapping))
+        assertFalse(usesLandscapeLayout(AppDestination.ReadingMenu))
+        assertFalse(usesLandscapeLayout(AppDestination.TabReading))
+        assertFalse(usesLandscapeLayout(AppDestination.StaffReading))
     }
 
     @Test
@@ -21,5 +24,8 @@ class NavigationTest {
         assertEquals(AppDestination.NoteNameRange, previousDestination(AppDestination.NoteName))
         assertEquals(AppDestination.Home, previousDestination(AppDestination.NoteNameRange))
         assertEquals(AppDestination.Home, previousDestination(AppDestination.CombinedMapping))
+        assertEquals(AppDestination.Home, previousDestination(AppDestination.ReadingMenu))
+        assertEquals(AppDestination.ReadingMenu, previousDestination(AppDestination.TabReading))
+        assertEquals(AppDestination.ReadingMenu, previousDestination(AppDestination.StaffReading))
     }
 }
