@@ -61,6 +61,21 @@ object FirstPositionCurriculum {
         expansionPositions.firstOrNull { id(it) !in settings.firstPositionActiveKnowledgeIds }
 }
 
+object FirstPositionScaleRoutes {
+    val cMajorAscending: List<FretPosition> = listOf(
+        5 to 3,
+        4 to 0,
+        4 to 2,
+        4 to 3,
+        3 to 0,
+        3 to 2,
+        2 to 0,
+        2 to 1,
+    ).map { (string, fret) -> GuitarCore.getFretPosition(string, fret) }
+
+    val cMajorDescending: List<FretPosition> = cMajorAscending.reversed()
+}
+
 /** Lv.1 note sets plus the existing Lv.2–Lv.6 fretboard curriculum. */
 class FirstFretboardModule : TrainingModule {
     override val id: String = TrainingModuleIds.FRET_NOTE
@@ -175,6 +190,24 @@ class FirstFretboardModule : TrainingModule {
                 kind = "c_major_ascending_fragment",
                 noteNames = listOf("C", "D", "E"),
                 prompt = "Lv.5 · 按顺序点 C→D→E（1→2→3）",
+            ),
+        )
+        add(
+            factory.createSequenceCurriculumQuestion(
+                level = 5,
+                kind = "c_major_scale_ascending",
+                prompt = "Lv.5 · C 大调音阶上行 · C→D→E→F→G→A→B→C′",
+                targets = FirstPositionScaleRoutes.cMajorAscending,
+                relationId = "c_major_scale:ascending",
+            ),
+        )
+        add(
+            factory.createSequenceCurriculumQuestion(
+                level = 5,
+                kind = "c_major_scale_descending",
+                prompt = "Lv.5 · C 大调音阶下行 · C′→B→A→G→F→E→D→C",
+                targets = FirstPositionScaleRoutes.cMajorDescending,
+                relationId = "c_major_scale:descending",
             ),
         )
     }

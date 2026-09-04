@@ -28,6 +28,8 @@ object CurriculumIntroductions {
                 )
             }
         }
+        question.kind.startsWith("c_major_scale_") ->
+            CurriculumIntroduction("c_major_scale", "C 大调音阶：全全半全全全半")
         question.curriculumLevel == 5 ->
             CurriculumIntroduction("c_major_degrees", "C 大调：C=1 D=2 E=3 F=4 G=5 A=6 B=7")
         question.curriculumLevel == 6 ->
