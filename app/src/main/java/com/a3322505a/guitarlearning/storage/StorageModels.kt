@@ -87,6 +87,8 @@ data class Settings(
     val firstPositionComplete: Boolean = false,
     /** One-shot, persisted introductions already shown by the integrated curriculum. */
     val seenIntroductionIds: Set<String> = emptySet(),
+    /** True after the one-time TAB single-note guide has been completed. */
+    val tabIntroductionCompleted: Boolean = false,
     val notationMode: NotationMode = NotationMode.FIXED_SOLFEGE,
     val naturalOnly: Boolean = true,
 ) {
