@@ -40,6 +40,7 @@ import com.a3322505a.guitarlearning.ui.theme.PixelGold
 import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
 import com.a3322505a.guitarlearning.ui.theme.StringMetal
+import kotlin.math.pow
 
 const val FIRST_FRET = 0
 const val LAST_FRET = 12
@@ -83,7 +84,7 @@ object FretboardGeometry {
     ): Double {
         requireValidRange(firstFret, lastFret)
         return (firstFret..lastFret).sumOf {
-            fretWidthUnits(it, firstFret).toDouble()
+            fretWidthWeight(it).toDouble()
         }
     }
 
@@ -161,12 +162,9 @@ object FretboardGeometry {
         }
         val fretboardWidthUnits = visibleWidthUnits(firstFret, lastFret)
         val precedingWidthUnits = (firstFret until boundary)
-            .sumOf { fretWidthUnits(it, firstFret).toDouble() }
+            .sumOf { fretWidthWeight(it).toDouble() }
         return (precedingWidthUnits / fretboardWidthUnits).toFloat()
     }
-
-    private fun fretWidthUnits(fret: Int, firstFret: Int): Float =
-        if (firstFret == FIRST_FRET && fret == FIRST_FRET) OPEN_STRING_WIDTH_UNITS else 1f
 }
 
 fun rowIndexForString(string: Int): Int {
@@ -195,7 +193,11 @@ fun highlightedCells(selectedPosition: FretPosition?): List<FretboardCell> =
 /** Relative width used by both the header and the board renderer. */
 fun fretWidthWeight(fret: Int): Float {
     require(fret in FIRST_FRET..LAST_FRET) { "fret must be between 0 and 12" }
-    return if (fret == 0) OPEN_STRING_WIDTH_UNITS else 1f
+    if (fret == FIRST_FRET) return OPEN_STRING_WIDTH_UNITS
+    val previousBoundary = 2.0.pow(-(fret - 1) / 12.0)
+    val currentBoundary = 2.0.pow(-fret / 12.0)
+    val firstFretWidth = 1.0 - 2.0.pow(-1.0 / 12.0)
+    return ((previousBoundary - currentBoundary) / firstFretWidth).toFloat()
 }
 
 /** The horizontal start of an open-string region or fretted cell. */

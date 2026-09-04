@@ -1,5 +1,6 @@
 package com.a3322505a.guitarlearning.training
 
+import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.storage.Progress
 import com.a3322505a.guitarlearning.storage.LevelProgress
 import com.a3322505a.guitarlearning.storage.Settings
@@ -39,6 +40,7 @@ class TrainingSession(
 ) {
     private val factory = QuestionFactory()
     private var activeSession = Session(id = sessionId, startedAt = nowMs())
+    private val sessionMistakes = mutableListOf<SessionMistake>()
 
     init {
         store.saveSession(activeSession)
@@ -46,6 +48,9 @@ class TrainingSession(
 
     val currentSession: Session
         get() = activeSession
+
+    fun currentStats(): SessionTrainingStats =
+        SessionTrainingStats.from(activeSession, sessionMistakes)
 
     fun currentSettings(): Settings = engine.settings()
 
@@ -87,6 +92,7 @@ class TrainingSession(
         recordCurriculumLevel(question, result)
         recordFirstPositionGrowth(question, result)
         recordChordShapeGrowth(question, result)
+        recordSessionMistake(question, result)
 
         activeSession = activeSession.copy(
             endedAt = null,
@@ -95,6 +101,36 @@ class TrainingSession(
         )
         store.saveSession(activeSession)
         return result
+    }
+
+    private fun recordSessionMistake(question: Question, result: AnswerResult) {
+        if (result.isCorrect) return
+        val position = when (val submitted = result.submittedValue) {
+            is AnswerValue.FretPosition -> submitted
+            is AnswerValue.FretSequence -> submitted.positions.lastOrNull()
+            is AnswerValue.FretSet -> {
+                val correctUniverse = question.correctUniversePositions.map {
+                    AnswerValue.FretPosition(it.string, it.fret)
+                }.toSet()
+                submitted.positions.firstOrNull { it !in correctUniverse }
+            }
+            else -> question.fretPosition?.let { AnswerValue.FretPosition(it.string, it.fret) }
+        } ?: return
+        val targetNote = when (val correct = result.correctValue) {
+            is AnswerValue.FretPosition ->
+                GuitarCore.getFretPosition(correct.string, correct.fret).note
+            is AnswerValue.FretSequence -> {
+                val submitted = result.submittedValue as? AnswerValue.FretSequence
+                val target = submitted?.positions?.lastIndex?.let(correct.positions::getOrNull)
+                target?.let { GuitarCore.getFretPosition(it.string, it.fret).note }
+            }
+            else -> null
+        } ?: question.note
+        sessionMistakes += SessionMistake(
+            targetNote = targetNote,
+            string = position.string,
+            fret = position.fret,
+        )
     }
 
     private fun recordCurriculumLevel(question: Question, result: AnswerResult) {
@@ -205,6 +241,7 @@ class TrainingSession(
         engine.updateSettings(settings)
         store.saveSettings(settings)
         activeSession = Session(id = UUID.randomUUID().toString(), startedAt = nowMs())
+        sessionMistakes.clear()
         store.saveSession(activeSession)
         return engine.nextQuestion()
     }

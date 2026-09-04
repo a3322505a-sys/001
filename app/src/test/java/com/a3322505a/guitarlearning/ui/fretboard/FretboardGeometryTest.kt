@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class FretboardGeometryTest {
     @Test
@@ -50,6 +51,18 @@ class FretboardGeometryTest {
             FretboardGeometry.positionAt(width * fretRightFraction(11), y, width, height)?.fret,
         )
         assertEquals(12, FretboardGeometry.positionAt(width, y, width, height)?.fret)
+    }
+
+    @Test
+    fun physicalFretCellsBecomeProgressivelyNarrowerTowardTheTwelfthFret() {
+        val widths = (1..12).map { fret ->
+            fretRightFraction(fret) - fretLeftFraction(fret)
+        }
+
+        widths.zipWithNext().forEach { (lowerFret, higherFret) ->
+            assertTrue(lowerFret > higherFret)
+        }
+        assertTrue(widths.first() > widths.last() * 1.8f)
     }
 
     @Test
