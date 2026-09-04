@@ -200,10 +200,94 @@ class FretboardSetTest {
         )
     }
 
+    @Test
+    fun chordShapesMatchTheFiveSpecifiedFirstPositionFingeringsAndChordNotes() {
+        val expectedCoordinates = listOf(
+            setOf(5 to 3, 4 to 2, 3 to 0, 2 to 1, 1 to 0),
+            setOf(6 to 3, 5 to 2, 4 to 0, 3 to 0, 2 to 0, 1 to 3),
+            setOf(5 to 0, 4 to 2, 3 to 2, 2 to 1, 1 to 0),
+            setOf(6 to 0, 5 to 2, 4 to 2, 3 to 0, 2 to 0, 1 to 0),
+            setOf(6 to 1, 5 to 3, 4 to 3, 3 to 2, 2 to 1, 1 to 1),
+        )
+
+        assertEquals(listOf("c", "g", "am", "em", "f"), FirstPositionChordShapes.ordered.map { it.id })
+        FirstPositionChordShapes.ordered.forEachIndexed { index, shape ->
+            assertEquals(expectedCoordinates[index], shape.positions.map { it.string to it.fret }.toSet())
+            assertEquals(shape.chordNotes, shape.positions.map { it.note }.toSet())
+            assertTrue(shape.positions.all { it.fret in 0..4 })
+        }
+    }
+
+    @Test
+    fun fixedChordShapeUsesUnorderedAllTargetsJudgementIncludingOpenStrings() {
+        val shape = FirstPositionChordShapes.ordered.first()
+        val question = factory.createFretboardShapeQuestion(
+            chordId = shape.id,
+            chordLabel = shape.label,
+            rootNote = shape.rootNote,
+            order = 1,
+            targets = shape.positions,
+        )
+        val machine = TrainingStateMachine(sessionFor(question, InMemoryTrainingStore()))
+        val targets = assertIs<AnswerValue.FretSet>(question.correctAnswerValue).positions
+
+        targets.reversed().dropLast(1).forEach {
+            assertIs<QuestionState.SetProgress>(machine.submitAnswer(it))
+        }
+        assertIs<QuestionState.SetCompleted>(machine.submitAnswer(targets.reversed().last()))
+        assertTrue(targets.any { it.fret == 0 })
+    }
+
+    @Test
+    fun chordShapesUnlockInCThenGThenAmThenEmThenFOrder() {
+        val settings = Settings(
+            unlockedFretboardLevel = 6,
+            firstPositionBaselineComplete = true,
+            firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                .map(FirstPositionCurriculum::id).toSet(),
+            firstPositionComplete = true,
+            unlockedChordShapeCount = 1,
+        )
+        val firstShape = FirstPositionChordShapes.ordered.first()
+        val question = factory.createFretboardShapeQuestion(
+            chordId = firstShape.id,
+            chordLabel = firstShape.label,
+            rootNote = firstShape.rootNote,
+            order = 1,
+            targets = firstShape.positions,
+        )
+        val store = InMemoryTrainingStore().also { it.saveSettings(settings) }
+        val session = TrainingSession(
+            engine = TrainingEngine(
+                settings = settings,
+                random = Random(12),
+                progressProvider = { store.loadProgress() },
+                module = object : TrainingModule {
+                    override val id = TrainingModuleIds.FRET_NOTE
+                    override val title = "shape-unlock-test"
+                    override fun buildQuestionBank(settings: Settings): List<Question> = listOf(question)
+                },
+            ),
+            store = store,
+        )
+
+        session.currentQuestion()
+        session.submitAnswer(question.correctAnswerValue)
+
+        assertEquals(2, session.currentSettings().unlockedChordShapeCount)
+        val unlocked = FirstFretboardModule().buildQuestionBank(
+            settings.copy(unlockedChordShapeCount = 2),
+        ).filter { it.kind.endsWith("_chord_shape") }
+        assertEquals(listOf("c_chord_shape", "g_chord_shape"), unlocked.map { it.kind })
+    }
+
     private fun sessionFor(question: Question, store: InMemoryTrainingStore): TrainingSession =
         TrainingSession(
             engine = TrainingEngine(
-                settings = Settings(),
+                settings = Settings(
+                    unlockedFretboardLevel = 6,
+                    firstPositionComplete = true,
+                ),
                 random = Random(1),
                 progressProvider = { store.loadProgress() },
                 module = object : TrainingModule {

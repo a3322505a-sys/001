@@ -86,6 +86,7 @@ class TrainingSession(
         store.saveProgress(newProgress)
         recordCurriculumLevel(question, result)
         recordFirstPositionGrowth(question, result)
+        recordChordShapeGrowth(question, result)
 
         activeSession = activeSession.copy(
             endedAt = null,
@@ -157,6 +158,23 @@ class TrainingSession(
                 )
             }
         }
+        store.saveSettings(updated)
+        engine.updateSettingsAfterAnswer(updated)
+    }
+
+    private fun recordChordShapeGrowth(question: Question, result: AnswerResult) {
+        if (!result.isCorrect) return
+        val payload = question.payload as? FretboardShapePayload ?: return
+        val settings = engine.settings()
+        if (
+            payload.order != settings.unlockedChordShapeCount ||
+            settings.unlockedChordShapeCount >= FirstPositionChordShapes.ordered.size
+        ) {
+            return
+        }
+        val updated = settings.copy(
+            unlockedChordShapeCount = settings.unlockedChordShapeCount + 1,
+        )
         store.saveSettings(updated)
         engine.updateSettingsAfterAnswer(updated)
     }

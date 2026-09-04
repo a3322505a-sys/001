@@ -299,7 +299,8 @@ fun NoteNameTrainingScreen(
                         showLabels = false,
                         lastFret = if (
                             question.kind.startsWith("c_major_scale_") ||
-                            question.kind.endsWith("_triad")
+                            question.kind.endsWith("_triad") ||
+                            question.kind.endsWith("_chord_shape")
                         ) 4 else 12,
                         modifier = Modifier.fillMaxSize(),
                     )
