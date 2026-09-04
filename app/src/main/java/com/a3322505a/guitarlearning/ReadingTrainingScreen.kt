@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -346,12 +348,10 @@ private fun TabReadingBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PixelPanel(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -385,7 +385,7 @@ private fun TabReadingBody(
                     question = state.question,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .height(108.dp),
                 )
                 when (state) {
                     is TabTrainingState.CorrectionRequired -> Text(
@@ -410,12 +410,13 @@ private fun TabReadingBody(
         PixelPanel(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1.35f),
+                .weight(1f, fill = false)
+                .heightIn(max = 220.dp),
             contentPadding = PaddingValues(8.dp),
         ) {
             Fretboard(
                 lastFret = 4,
-                showLabels = true,
+                showLabels = false,
                 markers = markers,
                 interactionMode = interactionMode,
                 onPositionClick = { position ->
