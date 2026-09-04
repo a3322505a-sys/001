@@ -33,12 +33,47 @@ class FretboardSequenceTest {
 
             questions.filter { it.answerMode == AnswerMode.FRETBOARD_SEQUENCE }.forEach { question ->
                 val notes = question.targetPositions.map { it.note }
-                if (question.curriculumLevel == 5) assertEquals(listOf("C", "D", "E"), notes)
+                if (question.kind == "c_major_ascending_fragment") {
+                    assertEquals(listOf("C", "D", "E"), notes)
+                }
+                if (question.kind == "c_major_scale_ascending") {
+                    assertEquals(listOf("C", "D", "E", "F", "G", "A", "B", "C"), notes)
+                }
+                if (question.kind == "c_major_scale_descending") {
+                    assertEquals(listOf("C", "B", "A", "G", "F", "E", "D", "C"), notes)
+                }
                 if (question.curriculumLevel == 6) assertEquals(listOf("C", "E", "G"), notes)
-                assertTrue(question.targetPositions.all { it.string in settings.selectedStrings })
-                assertTrue(question.targetPositions.all { it.fret in settings.fretStart..settings.fretEnd })
+                if (!question.kind.startsWith("c_major_scale_")) {
+                    assertTrue(question.targetPositions.all { it.string in settings.selectedStrings })
+                    assertTrue(question.targetPositions.all { it.fret in settings.fretStart..settings.fretEnd })
+                }
             }
         }
+    }
+
+    @Test
+    fun fullCMajorScaleUsesOneFixedFirstPositionRouteAndItsExactReverse() {
+        val settings = Settings(
+            unlockedFretboardLevel = 5,
+            noteTrainingRangeId = NoteTrainingRange.MID_POSITION.name,
+            fretStart = 5,
+            fretEnd = 8,
+            firstPositionComplete = true,
+        )
+        val questions = FirstFretboardModule().buildQuestionBank(settings)
+        val ascending = questions.single { it.kind == "c_major_scale_ascending" }
+        val descending = questions.single { it.kind == "c_major_scale_descending" }
+
+        assertEquals(FirstPositionScaleRoutes.cMajorAscending, ascending.targetPositions)
+        assertEquals(ascending.targetPositions.reversed(), descending.targetPositions)
+        assertEquals(
+            listOf("C", "D", "E", "F", "G", "A", "B", "C"),
+            ascending.targetPositions.map { it.note },
+        )
+        assertTrue(ascending.targetPositions.all { it.fret in 0..4 })
+        assertTrue(ascending.targetPositions.all { GuitarCore.isNaturalNote(it.note) })
+        assertTrue(ascending.knowledgeItemId.contains("ascending"))
+        assertTrue(descending.knowledgeItemId.contains("descending"))
     }
 
     @Test
