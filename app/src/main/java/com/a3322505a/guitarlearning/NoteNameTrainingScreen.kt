@@ -335,7 +335,7 @@ internal fun noteTrainingFretboardWidthFraction(range: NoteTrainingRange): Float
         firstFret = range.fretRange.first,
         lastFret = range.fretRange.last,
     )
-    return (visibleWidth / referenceWidth).coerceAtMost(1f)
+    return (visibleWidth / referenceWidth).coerceAtMost(1.0).toFloat()
 }
 
 private fun markerFor(

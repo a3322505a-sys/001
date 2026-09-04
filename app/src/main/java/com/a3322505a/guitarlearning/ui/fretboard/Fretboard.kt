@@ -80,11 +80,11 @@ object FretboardGeometry {
     fun visibleWidthUnits(
         firstFret: Int = FIRST_FRET,
         lastFret: Int = LAST_FRET,
-    ): Float {
+    ): Double {
         requireValidRange(firstFret, lastFret)
         return (firstFret..lastFret).sumOf {
             fretWidthUnits(it, firstFret).toDouble()
-        }.toFloat()
+        }
     }
 
     fun fretLeftFraction(
