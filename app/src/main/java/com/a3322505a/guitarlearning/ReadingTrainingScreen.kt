@@ -27,11 +27,16 @@ import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.audio.handleFretboardTap
 import com.a3322505a.guitarlearning.core.FretPosition
+import com.a3322505a.guitarlearning.training.StaffExercise
+import com.a3322505a.guitarlearning.training.StaffQuestion
+import com.a3322505a.guitarlearning.training.StaffTrainingState
+import com.a3322505a.guitarlearning.training.StaffTrainingStateMachine
 import com.a3322505a.guitarlearning.training.TAB_GUIDE_QUESTION_COUNT
 import com.a3322505a.guitarlearning.training.TabExercise
 import com.a3322505a.guitarlearning.training.TabQuestion
 import com.a3322505a.guitarlearning.training.TabTrainingState
 import com.a3322505a.guitarlearning.training.TabTrainingStateMachine
+import com.a3322505a.guitarlearning.training.writtenStaffStepForSoundingMidi
 import com.a3322505a.guitarlearning.ui.components.PixelButton
 import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
@@ -51,10 +56,9 @@ private const val TAB_CORRECT_FEEDBACK_DURATION_MS = 1_000L
 
 enum class ReadingNotation(
     val title: String,
-    val lineCount: Int,
 ) {
-    Tab(title = "TAB 训练", lineCount = 6),
-    Staff(title = "五线谱训练", lineCount = 5),
+    Tab(title = "TAB 训练"),
+    Staff(title = "五线谱训练"),
 }
 
 @Composable
@@ -136,8 +140,8 @@ fun ReadingTrainingScreen(
                         .weight(1f),
                 )
             } else {
-                ReadingPageSkeleton(
-                    notation = notation,
+                StaffReadingBody(
+                    pitchPlayer = pitchPlayer,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -148,10 +152,27 @@ fun ReadingTrainingScreen(
 }
 
 @Composable
-private fun ReadingPageSkeleton(
-    notation: ReadingNotation,
+private fun StaffReadingBody(
+    pitchPlayer: PitchPlayer,
     modifier: Modifier,
 ) {
+    val stateMachine = remember { StaffTrainingStateMachine() }
+    var state by remember(stateMachine) { mutableStateOf(stateMachine.state) }
+
+    LaunchedEffect(state) {
+        val completed = state as? StaffTrainingState.Completed ?: return@LaunchedEffect
+        delay(TAB_CORRECT_FEEDBACK_DURATION_MS)
+        if (state === completed) state = stateMachine.nextQuestion()
+    }
+
+    val markers = staffMarkers(state)
+    val interactionMode = when (state) {
+        is StaffTrainingState.Awaiting -> FretboardInteractionMode.Enabled
+        is StaffTrainingState.CorrectionRequired -> FretboardInteractionMode.CorrectionOnly
+        is StaffTrainingState.CorrectionConfirmed,
+        is StaffTrainingState.Completed -> FretboardInteractionMode.Disabled
+    }
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -161,7 +182,51 @@ private fun ReadingPageSkeleton(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-            NotationPlaceholder(notation)
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    StaffExercise.entries.forEach { exercise ->
+                        PixelOutlinedButton(
+                            text = exercise.label,
+                            onClick = { state = stateMachine.selectExercise(exercise) },
+                            selected = stateMachine.selectedExercise == exercise,
+                            enabled = (state as? StaffTrainingState.Awaiting)
+                                ?.selected?.isEmpty() == true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                StaffNotation(
+                    question = state.question,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                )
+                when (state) {
+                    is StaffTrainingState.CorrectionRequired -> Text(
+                        text = "错了，请先点亮正确位置",
+                        color = PixelError,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    is StaffTrainingState.CorrectionConfirmed -> PixelButton(
+                        text = "下一题",
+                        onClick = { state = stateMachine.nextQuestion() },
+                        modifier = Modifier.width(160.dp),
+                    )
+                    is StaffTrainingState.Completed -> Text(
+                        text = "✓ 正确",
+                        color = PixelSuccess,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    is StaffTrainingState.Awaiting -> Unit
+                }
+            }
         }
         PixelPanel(
             modifier = Modifier
@@ -172,10 +237,79 @@ private fun ReadingPageSkeleton(
             Fretboard(
                 lastFret = 4,
                 showLabels = true,
+                markers = markers,
+                interactionMode = interactionMode,
+                onPositionClick = { position ->
+                    handleFretboardTap(position, pitchPlayer) { tapped ->
+                        state = stateMachine.submit(tapped)
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
     }
+}
+
+private fun staffMarkers(state: StaffTrainingState): List<FretboardMarker> = when (state) {
+    is StaffTrainingState.Awaiting -> state.selected.map {
+        FretboardMarker(it, FretboardMarkerRole.CONFIRMED)
+    }
+    is StaffTrainingState.CorrectionRequired ->
+        state.selected.map { FretboardMarker(it, FretboardMarkerRole.CONFIRMED) } +
+            FretboardMarker(state.wrong, FretboardMarkerRole.INCORRECT) +
+            FretboardMarker(state.expected, FretboardMarkerRole.CORRECT)
+    is StaffTrainingState.CorrectionConfirmed ->
+        state.selected.map { FretboardMarker(it, FretboardMarkerRole.CONFIRMED) } +
+            FretboardMarker(state.wrong, FretboardMarkerRole.INCORRECT) +
+            FretboardMarker(state.expected, FretboardMarkerRole.CONFIRMED)
+    is StaffTrainingState.Completed -> state.selected.map {
+        FretboardMarker(it, FretboardMarkerRole.CORRECT)
+    }
+}
+
+@Composable
+private fun StaffNotation(
+    question: StaffQuestion,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val lineSpacing = minOf(size.height / 8f, 18.dp.toPx())
+        val bottomLineY = size.height / 2f + lineSpacing * 2f
+        repeat(5) { line ->
+            val y = bottomLineY - line * lineSpacing
+            drawLine(
+                color = PixelBorder,
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 2.dp.toPx(),
+            )
+        }
+        question.targets.forEachIndexed { index, target ->
+            val x = size.width * (index + 1f) / (question.targets.size + 1f)
+            val step = writtenStaffStepForSoundingMidi(target.soundingMidi)
+            val y = bottomLineY - step * lineSpacing / 2f
+            staffLedgerSteps(step).forEach { ledgerStep ->
+                val ledgerY = bottomLineY - ledgerStep * lineSpacing / 2f
+                drawLine(
+                    color = PixelBorder,
+                    start = Offset(x - 11.dp.toPx(), ledgerY),
+                    end = Offset(x + 11.dp.toPx(), ledgerY),
+                    strokeWidth = 2.dp.toPx(),
+                )
+            }
+            drawOval(
+                color = PixelBorder,
+                topLeft = Offset(x - 7.dp.toPx(), y - 5.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size(14.dp.toPx(), 10.dp.toPx()),
+            )
+        }
+    }
+}
+
+internal fun staffLedgerSteps(step: Int): List<Int> = when {
+    step < 0 -> (-2 downTo step).filter { it % 2 == 0 }
+    step > 8 -> (10..step).filter { it % 2 == 0 }
+    else -> emptyList()
 }
 
 @Composable
@@ -240,6 +374,8 @@ private fun TabReadingBody(
                                 text = exercise.label,
                                 onClick = { state = stateMachine.selectExercise(exercise) },
                                 selected = stateMachine.selectedExercise == exercise,
+                                enabled = (state as? TabTrainingState.Awaiting)
+                                    ?.selected?.isEmpty() == true,
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -368,35 +504,5 @@ private fun TabCell(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun NotationPlaceholder(notation: ReadingNotation) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        val lineColor = PixelBorder
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize(),
-        ) {
-            val spacing = size.height / (notation.lineCount + 1)
-            repeat(notation.lineCount) { index ->
-                val y = spacing * (index + 1)
-                drawLine(
-                    color = lineColor,
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = 2.dp.toPx(),
-                )
-            }
-        }
-        Text(
-            text = if (notation == ReadingNotation.Tab) "TAB 题面" else "五线谱题面",
-            color = PixelInkMuted,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp),
-        )
     }
 }
