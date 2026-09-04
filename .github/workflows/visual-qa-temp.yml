@@ -40,7 +40,7 @@ jobs:
           emulator-options: -no-snapshot -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             ./gradlew installDebug
             mkdir -p visual-qa
             adb shell am start -n com.a3322505a.guitarlearning/.MainActivity
