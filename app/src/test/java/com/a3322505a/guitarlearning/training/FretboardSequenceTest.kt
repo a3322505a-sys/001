@@ -42,13 +42,53 @@ class FretboardSequenceTest {
                 if (question.kind == "c_major_scale_descending") {
                     assertEquals(listOf("C", "B", "A", "G", "F", "E", "D", "C"), notes)
                 }
-                if (question.curriculumLevel == 6) assertEquals(listOf("C", "E", "G"), notes)
-                if (!question.kind.startsWith("c_major_scale_")) {
+                val chordNotes = mapOf(
+                    "c_major_triad" to listOf("C", "E", "G"),
+                    "g_major_triad" to listOf("G", "B", "D"),
+                    "a_minor_triad" to listOf("A", "C", "E"),
+                    "e_minor_triad" to listOf("E", "G", "B"),
+                    "f_major_triad" to listOf("F", "A", "C"),
+                )[question.kind]
+                if (chordNotes != null) assertEquals(chordNotes, notes)
+                if (
+                    !question.kind.startsWith("c_major_scale_") &&
+                    !question.kind.endsWith("_triad")
+                ) {
                     assertTrue(question.targetPositions.all { it.string in settings.selectedStrings })
                     assertTrue(question.targetPositions.all { it.fret in settings.fretStart..settings.fretEnd })
                 }
             }
         }
+    }
+
+    @Test
+    fun levelSixContainsAllFiveNaturalChordToneSequencesInFirstPosition() {
+        val settings = Settings(
+            unlockedFretboardLevel = 6,
+            firstPositionBaselineComplete = true,
+            firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                .map(FirstPositionCurriculum::id).toSet(),
+            firstPositionComplete = true,
+        )
+        val chordQuestions = FirstFretboardModule().buildQuestionBank(settings)
+            .filter { it.kind.endsWith("_triad") }
+            .groupBy { it.kind }
+
+        assertEquals(
+            setOf(
+                "c_major_triad",
+                "g_major_triad",
+                "a_minor_triad",
+                "e_minor_triad",
+                "f_major_triad",
+            ),
+            chordQuestions.keys,
+        )
+        assertTrue(chordQuestions.values.flatten().all { question ->
+            question.answerMode == AnswerMode.FRETBOARD_SEQUENCE &&
+                question.targetPositions.size == 3 &&
+                question.targetPositions.all { it.fret in 0..4 && GuitarCore.isNaturalNote(it.note) }
+        })
     }
 
     @Test

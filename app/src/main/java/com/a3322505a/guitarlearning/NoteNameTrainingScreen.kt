@@ -297,7 +297,10 @@ fun NoteNameTrainingScreen(
                             }
                         },
                         showLabels = false,
-                        lastFret = if (question.kind.startsWith("c_major_scale_")) 4 else 12,
+                        lastFret = if (
+                            question.kind.startsWith("c_major_scale_") ||
+                            question.kind.endsWith("_triad")
+                        ) 4 else 12,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

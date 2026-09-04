@@ -101,7 +101,7 @@ class FirstFretboardModule : TrainingModule {
                 if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(trainingRange))
                 if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(trainingRange))
                 if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(trainingRange))
-                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(trainingRange))
+                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix())
             }
         }.also { require(it.isNotEmpty()) { "First fretboard question bank must not be empty" } }
     }
@@ -212,14 +212,24 @@ class FirstFretboardModule : TrainingModule {
         )
     }
 
-    private fun levelSix(positions: List<FretPosition>): List<TrainingQuestion> =
-        namedSequenceQuestions(
-            positions = positions,
-            level = 6,
-            kind = "c_major_triad",
-            noteNames = listOf("C", "E", "G"),
-            prompt = "Lv.6 · C 大三和弦 · 按顺序点 C→E→G",
-        )
+    private fun levelSix(): List<TrainingQuestion> {
+        val firstPosition = GuitarCore.allPositions(frets = 0..4, naturalOnly = true)
+        return listOf(
+            ChordToneSequence("c_major_triad", "C 大三和弦", listOf("C", "E", "G")),
+            ChordToneSequence("g_major_triad", "G 大三和弦", listOf("G", "B", "D")),
+            ChordToneSequence("a_minor_triad", "Am 小三和弦", listOf("A", "C", "E")),
+            ChordToneSequence("e_minor_triad", "Em 小三和弦", listOf("E", "G", "B")),
+            ChordToneSequence("f_major_triad", "F 大三和弦", listOf("F", "A", "C")),
+        ).flatMap { chord ->
+            namedSequenceQuestions(
+                positions = firstPosition,
+                level = 6,
+                kind = chord.kind,
+                noteNames = chord.notes,
+                prompt = "Lv.6 · ${chord.label} · 按顺序点 ${chord.notes.joinToString("→")}",
+            )
+        }
+    }
 
     private fun namedSequenceQuestions(
         positions: List<FretPosition>,
@@ -296,6 +306,12 @@ class FirstFretboardModule : TrainingModule {
         val id: String,
         val label: String,
         val semitones: Int,
+    )
+
+    private data class ChordToneSequence(
+        val kind: String,
+        val label: String,
+        val notes: List<String>,
     )
 
     private companion object {
