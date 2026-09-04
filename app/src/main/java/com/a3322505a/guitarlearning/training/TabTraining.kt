@@ -119,6 +119,10 @@ class TabTrainingStateMachine(
 
     fun selectExercise(exercise: TabExercise): TabTrainingState {
         check(remainingGuideQuestions == 0) { "Finish the TAB guide before selecting an exercise" }
+        val awaiting = state as? TabTrainingState.Awaiting
+        check(awaiting != null && awaiting.selected.isEmpty()) {
+            "Finish the current TAB question before changing exercises"
+        }
         selectedExercise = exercise
         state = TabTrainingState.Awaiting(createQuestion())
         return state
