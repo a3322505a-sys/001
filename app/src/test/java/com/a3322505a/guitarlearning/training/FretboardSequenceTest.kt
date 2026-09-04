@@ -58,6 +58,9 @@ class FretboardSequenceTest {
             noteTrainingRangeId = NoteTrainingRange.MID_POSITION.name,
             fretStart = 5,
             fretEnd = 8,
+            firstPositionBaselineComplete = true,
+            firstPositionActiveKnowledgeIds = FirstPositionCurriculum.expansionPositions
+                .map(FirstPositionCurriculum::id).toSet(),
             firstPositionComplete = true,
         )
         val questions = FirstFretboardModule().buildQuestionBank(settings)
