@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.audio.handleFretboardTap
+import com.a3322505a.guitarlearning.core.FretPosition
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.training.AnswerValue
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
@@ -51,7 +52,8 @@ import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
-import com.a3322505a.guitarlearning.ui.fretboard.croppedFretboardBoundary
+import com.a3322505a.guitarlearning.ui.fretboard.FIRST_FRET
+import com.a3322505a.guitarlearning.ui.fretboard.LAST_FRET
 import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
@@ -60,6 +62,7 @@ import kotlinx.coroutines.delay
 internal const val FRETBOARD_CORRECT_FEEDBACK_DURATION_MS = 1_000L
 private const val CORRECT_PULSE_HALF_DURATION_MS = 250
 private const val CORRECT_PULSE_SCALE = 1.14f
+internal val NOTE_TRAINING_VISIBLE_FRET_RANGE = FIRST_FRET..LAST_FRET
 
 /** The landscape-only trainer for identifying physical fret locations by note name. */
 @Composable
@@ -78,7 +81,7 @@ fun NoteNameTrainingScreen(
     val session = trainingSession.currentSession
     val settings = trainingSession.currentSettings()
     val unlockedLevel = settings.unlockedFretboardLevel
-    val visibleFretRange = NoteTrainingRange.fromSettings(settings).fretRange
+    val trainingRange = NoteTrainingRange.fromSettings(settings)
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
     var overlayText by remember { mutableStateOf<String?>(null) }
     var overlayIsError by remember { mutableStateOf(false) }
@@ -293,21 +296,18 @@ fun NoteNameTrainingScreen(
                         interactionMode = interactionMode,
                         markerScale = markerScale.value,
                         onPositionClick = { position ->
-                            handleFretboardTap(position, pitchPlayer) { tapped ->
-                                state = stateMachine.submitAnswer(
-                                    AnswerValue.FretPosition(tapped.string, tapped.fret),
-                                )
+                            dispatchNoteTrainingTap(position, trainingRange) { allowedPosition ->
+                                handleFretboardTap(allowedPosition, pitchPlayer) { tapped ->
+                                    state = stateMachine.submitAnswer(
+                                        AnswerValue.FretPosition(tapped.string, tapped.fret),
+                                    )
+                                }
                             }
                         },
                         showLabels = false,
-                        firstFret = visibleFretRange.first,
-                        lastFret = visibleFretRange.last,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .croppedFretboardBoundary(
-                                firstFret = visibleFretRange.first,
-                                lastFret = visibleFretRange.last,
-                            ),
+                        firstFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.first,
+                        lastFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.last,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
@@ -325,6 +325,16 @@ fun NoteNameTrainingScreen(
             }
         }
     }
+}
+
+internal fun dispatchNoteTrainingTap(
+    position: FretPosition,
+    trainingRange: NoteTrainingRange,
+    onAllowedTap: (FretPosition) -> Unit,
+): Boolean {
+    if (position.fret !in trainingRange.fretRange) return false
+    onAllowedTap(position)
+    return true
 }
 
 private fun markerFor(
