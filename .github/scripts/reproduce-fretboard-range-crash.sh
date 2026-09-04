@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
-set -u
+set -eu
 
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 tap_text() {
   local target="$1"
-  adb shell uiautomator dump /sdcard/window.xml >/dev/null
-  adb pull /sdcard/window.xml window.xml >/dev/null
   local coordinates
-  coordinates=$(TARGET_TEXT="$target" python3 -c 'import os, re, xml.etree.ElementTree as ET; target=os.environ["TARGET_TEXT"]; root=ET.parse("window.xml").getroot(); node=next((n for n in root.iter("node") if n.attrib.get("text")==target), None); assert node is not None, f"UI text not found: {target}"; x1,y1,x2,y2=map(int,re.findall(r"\d+",node.attrib["bounds"])); print(f"{(x1+x2)//2} {(y1+y2)//2}")')
-  adb shell input tap $coordinates
-  sleep 3
+  for _ in 1 2 3 4 5 6; do
+    adb shell uiautomator dump /sdcard/window.xml >/dev/null
+    adb pull /sdcard/window.xml window.xml >/dev/null
+    coordinates=$(TARGET_TEXT="$target" python3 -c 'import os, re, xml.etree.ElementTree as ET; target=os.environ["TARGET_TEXT"]; root=ET.parse("window.xml").getroot(); node=next((n for n in root.iter("node") if n.attrib.get("text")==target or target in n.attrib.get("content-desc", "")), None); print("" if node is None else (lambda v: f"{(v[0]+v[2])//2} {(v[1]+v[3])//2}")(list(map(int, re.findall(r"\d+", node.attrib["bounds"])))))')
+    if [[ -n "$coordinates" ]]; then
+      adb shell input tap $coordinates
+      sleep 15
+      return
+    fi
+    sleep 10
+  done
+  echo "UI text not found: $target"
+  cat window.xml
+  return 1
 }
 
 open_home() {
   adb shell am force-stop com.a3322505a.guitarlearning
   adb shell am start -W -n com.a3322505a.guitarlearning/.MainActivity >/dev/null
-  sleep 3
+  sleep 30
   tap_text "指板训练"
 }
 
@@ -25,7 +34,7 @@ exercise_range() {
   adb logcat -c
   open_home
   tap_text "$label"
-  sleep 5
+  sleep 30
   echo "===== $label process ====="
   adb shell pidof com.a3322505a.guitarlearning || true
   echo "===== $label exceptions ====="
