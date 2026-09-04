@@ -26,10 +26,12 @@ jobs:
       - name: Exercise all range selections and capture logcat
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           arch: x86_64
           profile: pixel_6
-          disable-animations: true
+          disable-animations: false
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             set -u
             adb install -r app/build/outputs/apk/debug/app-debug.apk
