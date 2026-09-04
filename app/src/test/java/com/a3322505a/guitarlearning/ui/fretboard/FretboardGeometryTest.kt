@@ -95,4 +95,74 @@ class FretboardGeometryTest {
             }
         }
     }
+
+    @Test
+    fun middlePositionGeometryDrawsAndHitsOnlyFiveThroughEight() {
+        val firstFret = 5
+        val lastFret = 8
+        val width = 1_000f
+        val height = 600f
+
+        assertEquals(0f, fretLeftFraction(firstFret, lastFret, firstFret))
+        assertEquals(1f, fretRightFraction(lastFret, lastFret, firstFret))
+        for (string in 1..6) {
+            for (fret in firstFret..lastFret) {
+                val position = assertNotNull(
+                    FretboardGeometry.positionAt(
+                        x = width * fretCenterFraction(fret, lastFret, firstFret),
+                        y = height * stringCenterFraction(string),
+                        width = width,
+                        height = height,
+                        firstFret = firstFret,
+                        lastFret = lastFret,
+                    ),
+                )
+                assertEquals(string, position.string)
+                assertEquals(fret, position.fret)
+            }
+        }
+    }
+
+    @Test
+    fun middlePositionBoundariesMapToTheSameVisibleCellsAsDrawing() {
+        val firstFret = 5
+        val lastFret = 8
+        val width = 1_000f
+        val height = 600f
+        val y = height * stringCenterFraction(3)
+
+        assertEquals(
+            firstFret,
+            FretboardGeometry.positionAt(
+                0f,
+                y,
+                width,
+                height,
+                firstFret = firstFret,
+                lastFret = lastFret,
+            )?.fret,
+        )
+        assertEquals(
+            6,
+            FretboardGeometry.positionAt(
+                width * fretRightFraction(5, lastFret, firstFret),
+                y,
+                width,
+                height,
+                firstFret = firstFret,
+                lastFret = lastFret,
+            )?.fret,
+        )
+        assertEquals(
+            lastFret,
+            FretboardGeometry.positionAt(
+                width,
+                y,
+                width,
+                height,
+                firstFret = firstFret,
+                lastFret = lastFret,
+            )?.fret,
+        )
+    }
 }

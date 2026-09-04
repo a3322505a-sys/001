@@ -75,7 +75,9 @@ fun NoteNameTrainingScreen(
         trainingSession.consumeIntroduction(question)
     }
     val session = trainingSession.currentSession
-    val unlockedLevel = trainingSession.currentSettings().unlockedFretboardLevel
+    val settings = trainingSession.currentSettings()
+    val unlockedLevel = settings.unlockedFretboardLevel
+    val visibleFretRange = NoteTrainingRange.fromSettings(settings).fretRange
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
     var overlayText by remember { mutableStateOf<String?>(null) }
     var overlayIsError by remember { mutableStateOf(false) }
@@ -297,11 +299,8 @@ fun NoteNameTrainingScreen(
                             }
                         },
                         showLabels = false,
-                        lastFret = if (
-                            question.kind.startsWith("c_major_scale_") ||
-                            question.kind.endsWith("_triad") ||
-                            question.kind.endsWith("_chord_shape")
-                        ) 4 else 12,
+                        firstFret = visibleFretRange.first,
+                        lastFret = visibleFretRange.last,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

@@ -77,18 +77,32 @@ enum class FretboardInteractionMode {
 
 /** One source of truth for drawing coordinates and pointer hit testing. */
 object FretboardGeometry {
-    fun fretLeftFraction(fret: Int, lastFret: Int = LAST_FRET): Float {
-        requireValidFret(fret, lastFret)
-        return fretBoundaryFraction(fret, lastFret)
+    fun fretLeftFraction(
+        fret: Int,
+        lastFret: Int = LAST_FRET,
+        firstFret: Int = FIRST_FRET,
+    ): Float {
+        requireValidFret(fret, firstFret, lastFret)
+        return fretBoundaryFraction(fret, firstFret, lastFret)
     }
 
-    fun fretRightFraction(fret: Int, lastFret: Int = LAST_FRET): Float {
-        requireValidFret(fret, lastFret)
-        return fretBoundaryFraction(fret + 1, lastFret)
+    fun fretRightFraction(
+        fret: Int,
+        lastFret: Int = LAST_FRET,
+        firstFret: Int = FIRST_FRET,
+    ): Float {
+        requireValidFret(fret, firstFret, lastFret)
+        return fretBoundaryFraction(fret + 1, firstFret, lastFret)
     }
 
-    fun fretCenterFraction(fret: Int, lastFret: Int = LAST_FRET): Float =
-        (fretLeftFraction(fret, lastFret) + fretRightFraction(fret, lastFret)) / 2f
+    fun fretCenterFraction(
+        fret: Int,
+        lastFret: Int = LAST_FRET,
+        firstFret: Int = FIRST_FRET,
+    ): Float = (
+        fretLeftFraction(fret, lastFret, firstFret) +
+            fretRightFraction(fret, lastFret, firstFret)
+        ) / 2f
 
     fun stringCenterFraction(string: Int): Float =
         (rowIndexForString(string) + 0.5f) / 6f
@@ -99,36 +113,51 @@ object FretboardGeometry {
         width: Float,
         height: Float,
         lastFret: Int = LAST_FRET,
+        firstFret: Int = FIRST_FRET,
     ): FretPosition? {
-        require(lastFret in FIRST_FRET..LAST_FRET) { "lastFret must be between 0 and 12" }
+        requireValidRange(firstFret, lastFret)
         if (width <= 0f || height <= 0f || x < 0f || x > width || y < 0f || y > height) {
             return null
         }
         val xFraction = x / width
-        val fret = (FIRST_FRET..lastFret).firstOrNull {
-            xFraction < fretRightFraction(it, lastFret)
+        val fret = (firstFret..lastFret).firstOrNull {
+            xFraction < fretRightFraction(it, lastFret, firstFret)
         } ?: lastFret
         val string = ((y / height) * 6f).toInt().coerceIn(0, 5) + 1
         return GuitarCore.getFretPosition(string, fret)
     }
 
-    private fun requireValidFret(fret: Int, lastFret: Int) {
-        require(lastFret in FIRST_FRET..LAST_FRET) { "lastFret must be between 0 and 12" }
-        require(fret in FIRST_FRET..lastFret) { "fret must be between 0 and $lastFret" }
+    private fun requireValidFret(fret: Int, firstFret: Int, lastFret: Int) {
+        requireValidRange(firstFret, lastFret)
+        require(fret in firstFret..lastFret) {
+            "fret must be between $firstFret and $lastFret"
+        }
     }
 
-    private fun fretBoundaryFraction(boundary: Int, lastFret: Int): Float {
-        require(boundary in FIRST_FRET..(lastFret + 1)) {
-            "boundary must be between 0 and ${lastFret + 1}"
-        }
-        val fretboardWidthUnits = OPEN_STRING_WIDTH_UNITS + lastFret
-        return when (boundary) {
-            FIRST_FRET -> 0f
-            FIRST_FRET + 1 -> OPEN_STRING_WIDTH_UNITS / fretboardWidthUnits
-            lastFret + 1 -> 1f
-            else -> (OPEN_STRING_WIDTH_UNITS + boundary - 1f) / fretboardWidthUnits
+    private fun requireValidRange(firstFret: Int, lastFret: Int) {
+        require(firstFret in FIRST_FRET..LAST_FRET) { "firstFret must be between 0 and 12" }
+        require(lastFret in firstFret..LAST_FRET) {
+            "lastFret must be between firstFret and 12"
         }
     }
+
+    private fun fretBoundaryFraction(
+        boundary: Int,
+        firstFret: Int,
+        lastFret: Int,
+    ): Float {
+        require(boundary in firstFret..(lastFret + 1)) {
+            "boundary must be between $firstFret and ${lastFret + 1}"
+        }
+        val visibleFrets = firstFret..lastFret
+        val fretboardWidthUnits = visibleFrets.sumOf { fretWidthUnits(it, firstFret).toDouble() }
+        val precedingWidthUnits = (firstFret until boundary)
+            .sumOf { fretWidthUnits(it, firstFret).toDouble() }
+        return (precedingWidthUnits / fretboardWidthUnits).toFloat()
+    }
+
+    private fun fretWidthUnits(fret: Int, firstFret: Int): Float =
+        if (firstFret == FIRST_FRET && fret == FIRST_FRET) OPEN_STRING_WIDTH_UNITS else 1f
 }
 
 fun rowIndexForString(string: Int): Int {
@@ -161,16 +190,25 @@ fun fretWidthWeight(fret: Int): Float {
 }
 
 /** The horizontal start of an open-string region or fretted cell. */
-fun fretLeftFraction(fret: Int, lastFret: Int = LAST_FRET): Float =
-    FretboardGeometry.fretLeftFraction(fret, lastFret)
+fun fretLeftFraction(
+    fret: Int,
+    lastFret: Int = LAST_FRET,
+    firstFret: Int = FIRST_FRET,
+): Float = FretboardGeometry.fretLeftFraction(fret, lastFret, firstFret)
 
 /** The horizontal end of an open-string region or fretted cell. */
-fun fretRightFraction(fret: Int, lastFret: Int = LAST_FRET): Float =
-    FretboardGeometry.fretRightFraction(fret, lastFret)
+fun fretRightFraction(
+    fret: Int,
+    lastFret: Int = LAST_FRET,
+    firstFret: Int = FIRST_FRET,
+): Float = FretboardGeometry.fretRightFraction(fret, lastFret, firstFret)
 
 /** Horizontal center for the open-string target or a numbered fret. */
-fun fretCenterFraction(fret: Int, lastFret: Int = LAST_FRET): Float =
-    FretboardGeometry.fretCenterFraction(fret, lastFret)
+fun fretCenterFraction(
+    fret: Int,
+    lastFret: Int = LAST_FRET,
+    firstFret: Int = FIRST_FRET,
+): Float = FretboardGeometry.fretCenterFraction(fret, lastFret, firstFret)
 
 /** The vertical center of a string row, expressed as a fraction of board height. */
 fun stringCenterFraction(string: Int): Float = FretboardGeometry.stringCenterFraction(string)
@@ -192,10 +230,12 @@ fun Fretboard(
     onPositionClick: ((FretPosition) -> Unit)? = null,
     markerScale: Float = 1f,
     showLabels: Boolean = true,
+    firstFret: Int = FIRST_FRET,
     lastFret: Int = LAST_FRET,
     modifier: Modifier = Modifier,
 ) {
-    require(lastFret in FIRST_FRET..LAST_FRET) { "lastFret must be between 0 and 12" }
+    require(firstFret in FIRST_FRET..LAST_FRET) { "firstFret must be between 0 and 12" }
+    require(lastFret in firstFret..LAST_FRET) { "lastFret must be between firstFret and 12" }
     val selectedDescription = selectedPosition?.let {
         "，当前位置：" + it.string + "弦" + it.fret + "品"
     }.orEmpty()
@@ -204,11 +244,11 @@ fun Fretboard(
             .fillMaxWidth()
             .fillMaxHeight()
             .semantics {
-                contentDescription = "真实六弦零至${lastFret}品指板" + selectedDescription
+                contentDescription = "真实六弦${firstFret}至${lastFret}品指板" + selectedDescription
             },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (showLabels) FretHeader(lastFret)
+        if (showLabels) FretHeader(firstFret, lastFret)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -220,6 +260,7 @@ fun Fretboard(
                 interactionMode = interactionMode,
                 onPositionClick = onPositionClick,
                 markerScale = markerScale,
+                firstFret = firstFret,
                 lastFret = lastFret,
                 modifier = Modifier
                     .weight(1f)
@@ -230,10 +271,10 @@ fun Fretboard(
 }
 
 @Composable
-private fun FretHeader(lastFret: Int) {
+private fun FretHeader(firstFret: Int, lastFret: Int) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Spacer(modifier = Modifier.width(STRING_LABEL_WIDTH_DP.dp))
-        (FIRST_FRET..lastFret).forEach { fret ->
+        (firstFret..lastFret).forEach { fret ->
             Box(
                 modifier = Modifier
                     .weight(fretWidthWeight(fret))
@@ -282,6 +323,7 @@ private fun FretboardCanvas(
     interactionMode: FretboardInteractionMode,
     onPositionClick: ((FretPosition) -> Unit)?,
     markerScale: Float,
+    firstFret: Int,
     lastFret: Int,
     modifier: Modifier,
 ) {
@@ -294,7 +336,7 @@ private fun FretboardCanvas(
                     interactionMode != FretboardInteractionMode.Disabled &&
                     onPositionClick != null
                 ) {
-                    Modifier.pointerInput(interactionMode, onPositionClick) {
+                    Modifier.pointerInput(interactionMode, onPositionClick, firstFret, lastFret) {
                         detectTapGestures { offset ->
                             FretboardGeometry.positionAt(
                                 x = offset.x,
@@ -302,6 +344,7 @@ private fun FretboardCanvas(
                                 width = size.width.toFloat(),
                                 height = size.height.toFloat(),
                                 lastFret = lastFret,
+                                firstFret = firstFret,
                             )?.let(onPositionClick)
                         }
                     }
@@ -315,10 +358,10 @@ private fun FretboardCanvas(
     ) {
         drawRect(color = FretboardWood)
         drawPixelWoodGrain()
-        drawOpenStringArea(lastFret)
-        drawMarkers(markers, markerScale, lastFret)
-        drawFretLines(lastFret)
-        drawInlayMarkers(lastFret)
+        drawOpenStringArea(firstFret, lastFret)
+        drawMarkers(markers, markerScale, firstFret, lastFret)
+        drawFretLines(firstFret, lastFret)
+        drawInlayMarkers(firstFret, lastFret)
         drawStrings()
         drawRect(
             color = FretboardWoodDark,
@@ -357,8 +400,9 @@ private fun DrawScope.drawPixelWoodGrain() {
     }
 }
 
-private fun DrawScope.drawOpenStringArea(lastFret: Int) {
-    val nutX = size.width * fretRightFraction(0, lastFret)
+private fun DrawScope.drawOpenStringArea(firstFret: Int, lastFret: Int) {
+    if (firstFret != FIRST_FRET) return
+    val nutX = size.width * fretRightFraction(0, lastFret, firstFret)
     drawRect(
         color = FretboardWoodDark.copy(alpha = 0.22f),
         size = androidx.compose.ui.geometry.Size(nutX, size.height),
@@ -368,16 +412,17 @@ private fun DrawScope.drawOpenStringArea(lastFret: Int) {
 private fun DrawScope.drawMarkers(
     markers: List<FretboardMarker>,
     markerScale: Float,
+    firstFret: Int,
     lastFret: Int,
 ) {
     markers.forEach { marker ->
         val cell = FretboardCell(marker.position.string, marker.position.fret)
-        require(cell.fret in FIRST_FRET..lastFret) { "marker must be inside the visible fret range" }
-        val left = size.width * fretLeftFraction(cell.fret, lastFret)
-        val right = size.width * fretRightFraction(cell.fret, lastFret)
+        require(cell.fret in firstFret..lastFret) { "marker must be inside the visible fret range" }
+        val left = size.width * fretLeftFraction(cell.fret, lastFret, firstFret)
+        val right = size.width * fretRightFraction(cell.fret, lastFret, firstFret)
         val cellHeight = size.height / 6f
         val center = androidx.compose.ui.geometry.Offset(
-            x = size.width * fretCenterFraction(cell.fret, lastFret),
+            x = size.width * fretCenterFraction(cell.fret, lastFret, firstFret),
             y = cellHeight * (rowIndexForString(cell.string) + 0.5f),
         )
         val outerSize = minOf(right - left, cellHeight) *
@@ -419,16 +464,20 @@ private fun DrawScope.drawMarkers(
     }
 }
 
-private fun DrawScope.drawFretLines(lastFret: Int) {
+private fun DrawScope.drawFretLines(firstFret: Int, lastFret: Int) {
     val regularWidth = 1.dp.toPx()
     val nutWidth = 5.dp.toPx()
-    for (boundary in 1..(lastFret + 1)) {
-        val x = if (boundary <= lastFret) {
-            size.width * fretLeftFraction(boundary, lastFret)
-        } else {
+    for (fret in firstFret..lastFret) {
+        val x = if (fret == lastFret) {
             size.width - regularWidth / 2f
+        } else {
+            size.width * fretRightFraction(fret, lastFret, firstFret)
         }
-        val strokeWidth = if (boundary == 1) nutWidth else regularWidth
+        val strokeWidth = if (firstFret == FIRST_FRET && fret == FIRST_FRET) {
+            nutWidth
+        } else {
+            regularWidth
+        }
         drawLine(
             color = FretboardWoodDark,
             start = androidx.compose.ui.geometry.Offset(x, 0f),
@@ -436,7 +485,7 @@ private fun DrawScope.drawFretLines(lastFret: Int) {
             strokeWidth = strokeWidth + 2.dp.toPx(),
         )
         drawLine(
-            color = if (boundary == 1) NutIvory else FretMetal,
+            color = if (firstFret == FIRST_FRET && fret == FIRST_FRET) NutIvory else FretMetal,
             start = androidx.compose.ui.geometry.Offset(x, 0f),
             end = androidx.compose.ui.geometry.Offset(x, size.height),
             strokeWidth = strokeWidth,
@@ -444,12 +493,12 @@ private fun DrawScope.drawFretLines(lastFret: Int) {
     }
 }
 
-private fun DrawScope.drawInlayMarkers(lastFret: Int) {
-    for (fret in FIRST_FRET..lastFret) {
+private fun DrawScope.drawInlayMarkers(firstFret: Int, lastFret: Int) {
+    for (fret in firstFret..lastFret) {
         val count = markerCountForFret(fret)
         if (count == 0) continue
 
-        val centerX = size.width * fretCenterFraction(fret, lastFret)
+        val centerX = size.width * fretCenterFraction(fret, lastFret, firstFret)
         val yPositions = if (count == 1) {
             listOf(size.height / 2f)
         } else {

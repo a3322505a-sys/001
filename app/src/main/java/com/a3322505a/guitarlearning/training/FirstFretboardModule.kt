@@ -133,7 +133,12 @@ class FirstFretboardModule : TrainingModule {
                 if (settings.unlockedFretboardLevel >= 3) addAll(levelThree(trainingRange))
                 if (settings.unlockedFretboardLevel >= 4) addAll(levelFour(trainingRange))
                 if (settings.unlockedFretboardLevel >= 5) addAll(levelFive(trainingRange))
-                if (settings.unlockedFretboardLevel >= 6) addAll(levelSix(settings))
+                if (
+                    settings.unlockedFretboardLevel >= 6 &&
+                    trainingRange.containsAll(firstPositionNaturals)
+                ) {
+                    addAll(levelSix(settings))
+                }
             }
         }.also { require(it.isNotEmpty()) { "First fretboard question bank must not be empty" } }
     }
@@ -143,13 +148,15 @@ class FirstFretboardModule : TrainingModule {
         settings: Settings,
     ): List<TrainingQuestion> = scope.activeKnowledge
         .groupBy { it.note }
-        .toSortedMap(compareBy { note ->
-            if (!settings.firstPositionBaselineComplete) {
-                FirstPositionCurriculum.baselineNotes.indexOf(note)
-            } else {
-                NATURAL_NOTE_ORDER.indexOf(note)
-            }
-        })
+        .toSortedMap(
+            compareBy<String> { note ->
+                if (!settings.firstPositionBaselineComplete) {
+                    FirstPositionCurriculum.baselineNotes.indexOf(note)
+                } else {
+                    NATURAL_NOTE_ORDER.indexOf(note)
+                }
+            }.thenBy { it },
+        )
         .map { (note, targets) ->
             factory.createFretboardNoteSetQuestion(
                 note = note,
@@ -224,24 +231,26 @@ class FirstFretboardModule : TrainingModule {
                 prompt = "Lv.5 · 按顺序点 C→D→E（1→2→3）",
             ),
         )
-        add(
-            factory.createSequenceCurriculumQuestion(
-                level = 5,
-                kind = "c_major_scale_ascending",
-                prompt = "Lv.5 · C 大调音阶上行 · C→D→E→F→G→A→B→C′",
-                targets = FirstPositionScaleRoutes.cMajorAscending,
-                relationId = "c_major_scale:ascending",
-            ),
-        )
-        add(
-            factory.createSequenceCurriculumQuestion(
-                level = 5,
-                kind = "c_major_scale_descending",
-                prompt = "Lv.5 · C 大调音阶下行 · C′→B→A→G→F→E→D→C",
-                targets = FirstPositionScaleRoutes.cMajorDescending,
-                relationId = "c_major_scale:descending",
-            ),
-        )
+        if (positions.containsAll(FirstPositionScaleRoutes.cMajorAscending)) {
+            add(
+                factory.createSequenceCurriculumQuestion(
+                    level = 5,
+                    kind = "c_major_scale_ascending",
+                    prompt = "Lv.5 · C 大调音阶上行 · C→D→E→F→G→A→B→C′",
+                    targets = FirstPositionScaleRoutes.cMajorAscending,
+                    relationId = "c_major_scale:ascending",
+                ),
+            )
+            add(
+                factory.createSequenceCurriculumQuestion(
+                    level = 5,
+                    kind = "c_major_scale_descending",
+                    prompt = "Lv.5 · C 大调音阶下行 · C′→B→A→G→F→E→D→C",
+                    targets = FirstPositionScaleRoutes.cMajorDescending,
+                    relationId = "c_major_scale:descending",
+                ),
+            )
+        }
     }
 
     private fun levelSix(settings: Settings): List<TrainingQuestion> {
@@ -361,5 +370,6 @@ class FirstFretboardModule : TrainingModule {
     private companion object {
         val NATURAL_NOTE_ORDER = listOf("C", "D", "E", "F", "G", "A", "B")
         val OPEN_STRING_PITCH = mapOf(6 to 40, 5 to 45, 4 to 50, 3 to 55, 2 to 59, 1 to 64)
+        val firstPositionNaturals = GuitarCore.allPositions(frets = 0..4, naturalOnly = true)
     }
 }

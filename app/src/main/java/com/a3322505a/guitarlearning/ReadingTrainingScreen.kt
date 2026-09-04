@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -180,12 +179,10 @@ private fun StaffReadingBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PixelPanel(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -208,37 +205,19 @@ private fun StaffReadingBody(
                     question = state.question,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .height(132.dp),
                 )
-                when (state) {
-                    is StaffTrainingState.CorrectionRequired -> Text(
-                        text = "错了，请先点亮正确位置",
-                        color = PixelError,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    is StaffTrainingState.CorrectionConfirmed -> PixelButton(
-                        text = "下一题",
-                        onClick = { state = stateMachine.nextQuestion() },
-                        modifier = Modifier.width(160.dp),
-                    )
-                    is StaffTrainingState.Completed -> Text(
-                        text = "✓ 正确",
-                        color = PixelSuccess,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    is StaffTrainingState.Awaiting -> Unit
-                }
             }
         }
         PixelPanel(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1.35f),
+                .height(220.dp),
             contentPadding = PaddingValues(8.dp),
         ) {
             Fretboard(
                 lastFret = 4,
-                showLabels = true,
+                showLabels = false,
                 markers = markers,
                 interactionMode = interactionMode,
                 onPositionClick = { position ->
@@ -249,6 +228,12 @@ private fun StaffReadingBody(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        ReadingFeedback(
+            isCorrectionRequired = state is StaffTrainingState.CorrectionRequired,
+            isCorrectionConfirmed = state is StaffTrainingState.CorrectionConfirmed,
+            isCompleted = state is StaffTrainingState.Completed,
+            onNextQuestion = { state = stateMachine.nextQuestion() },
+        )
     }
 }
 
@@ -275,7 +260,7 @@ private fun StaffNotation(
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier) {
-        val lineSpacing = minOf(size.height / 8f, 18.dp.toPx())
+        val lineSpacing = minOf(size.height / 12f, 10.dp.toPx())
         val bottomLineY = size.height / 2f + lineSpacing * 2f
         repeat(5) { line ->
             val y = bottomLineY - line * lineSpacing
@@ -387,31 +372,12 @@ private fun TabReadingBody(
                         .fillMaxWidth()
                         .height(108.dp),
                 )
-                when (state) {
-                    is TabTrainingState.CorrectionRequired -> Text(
-                        text = "错了，请先点亮正确位置",
-                        color = PixelError,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    is TabTrainingState.CorrectionConfirmed -> PixelButton(
-                        text = "下一题",
-                        onClick = { state = stateMachine.nextQuestion() },
-                        modifier = Modifier.width(160.dp),
-                    )
-                    is TabTrainingState.Completed -> Text(
-                        text = "✓ 正确",
-                        color = PixelSuccess,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    is TabTrainingState.Awaiting -> Unit
-                }
             }
         }
         PixelPanel(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false)
-                .heightIn(max = 220.dp),
+                .height(220.dp),
             contentPadding = PaddingValues(8.dp),
         ) {
             Fretboard(
@@ -425,6 +391,45 @@ private fun TabReadingBody(
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+        ReadingFeedback(
+            isCorrectionRequired = state is TabTrainingState.CorrectionRequired,
+            isCorrectionConfirmed = state is TabTrainingState.CorrectionConfirmed,
+            isCompleted = state is TabTrainingState.Completed,
+            onNextQuestion = { state = stateMachine.nextQuestion() },
+        )
+    }
+}
+
+@Composable
+private fun ReadingFeedback(
+    isCorrectionRequired: Boolean,
+    isCorrectionConfirmed: Boolean,
+    isCompleted: Boolean,
+    onNextQuestion: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            isCorrectionRequired -> Text(
+                text = "错了，请先点亮正确位置",
+                color = PixelError,
+                fontWeight = FontWeight.Bold,
+            )
+            isCorrectionConfirmed -> PixelButton(
+                text = "下一题",
+                onClick = onNextQuestion,
+                modifier = Modifier.width(160.dp),
+            )
+            isCompleted -> Text(
+                text = "✓ 正确",
+                color = PixelSuccess,
+                fontWeight = FontWeight.Bold,
             )
         }
     }
