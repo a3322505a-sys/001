@@ -173,6 +173,14 @@ class TrainingSession(
         return introduction.text
     }
 
+    fun completeTabIntroduction() {
+        val settings = engine.settings()
+        if (settings.tabIntroductionCompleted) return
+        val updated = settings.copy(tabIntroductionCompleted = true)
+        store.saveSettings(updated)
+        engine.updateSettingsAfterAnswer(updated)
+    }
+
     fun nextQuestion(): Question = engine.nextQuestion()
 
     fun resetForSettings(settings: Settings): Question {

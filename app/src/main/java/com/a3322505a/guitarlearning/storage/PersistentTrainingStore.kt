@@ -132,6 +132,10 @@ class PersistentTrainingStore(
             "settings.seenIntroductionIds",
             snapshot.settings.seenIntroductionIds.sorted().joinToString(","),
         )
+        properties.setProperty(
+            "settings.tabIntroductionCompleted",
+            snapshot.settings.tabIntroductionCompleted.toString(),
+        )
         properties.setProperty("settings.notationMode", snapshot.settings.notationMode.name)
         properties.setProperty("settings.naturalOnly", snapshot.settings.naturalOnly.toString())
 
@@ -240,6 +244,9 @@ class PersistentTrainingStore(
                 .split(",")
                 .filter { it.isNotEmpty() }
                 .toSet(),
+            tabIntroductionCompleted = properties
+                .getProperty("settings.tabIntroductionCompleted", "false")
+                .toBoolean(),
             notationMode = enumValueOrDefault(
                 properties.getProperty("settings.notationMode"),
                 NotationMode.FIXED_SOLFEGE,

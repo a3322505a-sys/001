@@ -120,10 +120,14 @@ fun GuitarLearningApp(
         )
         AppDestination.TabReading -> ReadingTrainingScreen(
             notation = ReadingNotation.Tab,
+            pitchPlayer = pitchPlayer,
+            tabGuideCompleted = noteTrainingSession.currentSettings().tabIntroductionCompleted,
+            onTabGuideCompleted = noteTrainingSession::completeTabIntroduction,
             onBack = { navigateTo(AppDestination.ReadingMenu) },
         )
         AppDestination.StaffReading -> ReadingTrainingScreen(
             notation = ReadingNotation.Staff,
+            pitchPlayer = pitchPlayer,
             onBack = { navigateTo(AppDestination.ReadingMenu) },
         )
     }

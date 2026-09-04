@@ -49,6 +49,7 @@ class PersistentTrainingStoreTest {
             firstPositionBaselineComplete = true,
             firstPositionComplete = true,
             seenIntroductionIds = setOf("half_step"),
+            tabIntroductionCompleted = true,
             naturalOnly = true,
         )
 
