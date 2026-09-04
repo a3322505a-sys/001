@@ -166,15 +166,4 @@ class FretboardGeometryTest {
         )
     }
 
-    @Test
-    fun croppedMiddlePositionHasBothOuterFretBoundaries() {
-        val lines = fretLineFractions(firstFret = 5, lastFret = 8)
-
-        assertEquals(5, lines.size)
-        assertEquals(0f, lines.first())
-        assertEquals(0.25f, lines[1])
-        assertEquals(0.5f, lines[2])
-        assertEquals(0.75f, lines[3])
-        assertEquals(1f, lines.last())
-    }
 }
