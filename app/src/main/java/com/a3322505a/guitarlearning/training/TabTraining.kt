@@ -6,10 +6,18 @@ import kotlin.random.Random
 
 const val TAB_GUIDE_QUESTION_COUNT = 6
 
+enum class TabExercise(
+    val label: String,
+) {
+    SHORT_PHRASE("3–4 音短句"),
+    ONE_MEASURE("一小节"),
+}
+
 data class TabQuestion(
     val id: Int,
     val targets: List<FretPosition>,
     val isGuide: Boolean,
+    val exercise: TabExercise = TabExercise.SHORT_PHRASE,
 ) {
     init {
         require(targets.isNotEmpty()) { "A TAB question needs at least one target" }
@@ -18,8 +26,13 @@ data class TabQuestion(
         }
         if (isGuide) {
             require(targets.size == 1) { "A guide question must contain one target" }
-        } else {
-            require(targets.size in 3..4) { "A formal TAB phrase must contain three or four targets" }
+        } else when (exercise) {
+            TabExercise.SHORT_PHRASE -> require(targets.size in 3..4) {
+                "A short TAB phrase must contain three or four targets"
+            }
+            TabExercise.ONE_MEASURE -> require(targets.size in 6..8) {
+                "A TAB measure must contain six to eight targets"
+            }
         }
     }
 }
@@ -57,11 +70,15 @@ class TabTrainingStateMachine(
     private val random: Random = Random.Default,
     private val guideQuestionCount: Int = TAB_GUIDE_QUESTION_COUNT,
     private val onGuideCompleted: () -> Unit = {},
+    initialExercise: TabExercise = TabExercise.SHORT_PHRASE,
 ) {
     private var remainingGuideQuestions = if (guideCompleted) 0 else guideQuestionCount
     private var nextQuestionId = 1
     private var formalQuestionCount = 0
     private var guideCompletionRecorded = guideCompleted
+
+    var selectedExercise: TabExercise = initialExercise
+        private set
 
     var state: TabTrainingState = TabTrainingState.Awaiting(createQuestion())
         private set
@@ -96,6 +113,13 @@ class TabTrainingStateMachine(
             state is TabTrainingState.Completed ||
                 state is TabTrainingState.CorrectionConfirmed,
         ) { "The current TAB question must be completed before advancing" }
+        state = TabTrainingState.Awaiting(createQuestion())
+        return state
+    }
+
+    fun selectExercise(exercise: TabExercise): TabTrainingState {
+        check(remainingGuideQuestions == 0) { "Finish the TAB guide before selecting an exercise" }
+        selectedExercise = exercise
         state = TabTrainingState.Awaiting(createQuestion())
         return state
     }
@@ -138,11 +162,15 @@ class TabTrainingStateMachine(
             id = nextQuestionId++,
             targets = createFormalPhrase(),
             isGuide = false,
+            exercise = selectedExercise,
         )
     }
 
     private fun createFormalPhrase(): List<FretPosition> {
-        val length = if (random.nextBoolean()) 3 else 4
+        val length = when (selectedExercise) {
+            TabExercise.SHORT_PHRASE -> if (random.nextBoolean()) 3 else 4
+            TabExercise.ONE_MEASURE -> random.nextInt(from = 6, until = 9)
+        }
         val phrase = mutableListOf(randomPosition())
         repeat(length - 1) {
             val previous = phrase.last()

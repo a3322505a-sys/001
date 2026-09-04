@@ -85,4 +85,22 @@ class TabTrainingTest {
         assertIs<TabTrainingState.CorrectionConfirmed>(machine.submit(expected))
         assertIs<TabTrainingState.Awaiting>(machine.nextQuestion())
     }
+
+    @Test
+    fun oneMeasureContainsSixToEightOrderedFirstPositionTargets() {
+        val machine = TabTrainingStateMachine(
+            guideCompleted = true,
+            random = Random(205),
+        )
+
+        val state = assertIs<TabTrainingState.Awaiting>(
+            machine.selectExercise(TabExercise.ONE_MEASURE),
+        )
+
+        assertEquals(TabExercise.ONE_MEASURE, state.question.exercise)
+        assertTrue(state.question.targets.size in 6..8)
+        assertTrue(state.question.targets.all { it.string in 1..6 && it.fret in 0..4 })
+        state.question.targets.forEach { machine.submit(it) }
+        assertIs<TabTrainingState.Completed>(machine.state)
+    }
 }
