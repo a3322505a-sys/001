@@ -19,7 +19,7 @@ open_home() {
   adb shell am force-stop com.a3322505a.guitarlearning
   adb shell am start -W -n com.a3322505a.guitarlearning/.MainActivity >/dev/null
   sleep 60
-  tap_fraction 0.50 0.53
+  tap_fraction 0.50 0.50
   sleep 45
 }
 
