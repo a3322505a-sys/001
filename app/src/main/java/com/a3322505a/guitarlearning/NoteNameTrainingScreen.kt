@@ -48,10 +48,10 @@ import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
 import com.a3322505a.guitarlearning.ui.components.PixelStats
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
-import com.a3322505a.guitarlearning.ui.fretboard.FretboardGeometry
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
+import com.a3322505a.guitarlearning.ui.fretboard.croppedFretboardBoundary
 import com.a3322505a.guitarlearning.ui.theme.PixelError
 import com.a3322505a.guitarlearning.ui.theme.PixelInkMuted
 import com.a3322505a.guitarlearning.ui.theme.PixelSuccess
@@ -78,9 +78,7 @@ fun NoteNameTrainingScreen(
     val session = trainingSession.currentSession
     val settings = trainingSession.currentSettings()
     val unlockedLevel = settings.unlockedFretboardLevel
-    val trainingRange = NoteTrainingRange.fromSettings(settings)
-    val visibleFretRange = trainingRange.fretRange
-    val fretboardWidthFraction = noteTrainingFretboardWidthFraction(trainingRange)
+    val visibleFretRange = NoteTrainingRange.fromSettings(settings).fretRange
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
     var overlayText by remember { mutableStateOf<String?>(null) }
     var overlayIsError by remember { mutableStateOf(false) }
@@ -286,8 +284,7 @@ fun NoteNameTrainingScreen(
 
                 PixelPanel(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .fillMaxWidth(fretboardWidthFraction)
+                        .fillMaxWidth()
                         .weight(1f),
                     contentPadding = PaddingValues(8.dp),
                 ) {
@@ -305,7 +302,12 @@ fun NoteNameTrainingScreen(
                         showLabels = false,
                         firstFret = visibleFretRange.first,
                         lastFret = visibleFretRange.last,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .croppedFretboardBoundary(
+                                firstFret = visibleFretRange.first,
+                                lastFret = visibleFretRange.last,
+                            ),
                     )
                 }
             }
@@ -323,19 +325,6 @@ fun NoteNameTrainingScreen(
             }
         }
     }
-}
-
-internal fun noteTrainingFretboardWidthFraction(range: NoteTrainingRange): Float {
-    val referenceRange = NoteTrainingRange.LOW_POSITION.fretRange
-    val referenceWidth = FretboardGeometry.visibleWidthUnits(
-        firstFret = referenceRange.first,
-        lastFret = referenceRange.last,
-    )
-    val visibleWidth = FretboardGeometry.visibleWidthUnits(
-        firstFret = range.fretRange.first,
-        lastFret = range.fretRange.last,
-    )
-    return (visibleWidth / referenceWidth).coerceAtMost(1.0).toFloat()
 }
 
 private fun markerFor(
