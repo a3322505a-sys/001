@@ -77,10 +77,9 @@ class FretboardTest {
             fretRightFraction(0) - fretLeftFraction(0) <
                 fretRightFraction(1) - fretLeftFraction(1),
         )
-        assertEquals(
-            fretRightFraction(1) - fretLeftFraction(1),
-            fretRightFraction(3) - fretLeftFraction(3),
-            0.0001f,
+        assertTrue(
+            fretRightFraction(1) - fretLeftFraction(1) >
+                fretRightFraction(3) - fretLeftFraction(3),
         )
         assertEquals(1f, fretRightFraction(12))
     }
@@ -99,10 +98,10 @@ class FretboardTest {
     }
 
     @Test
-    fun headerUsesTheSameNarrowOpenStringWidthAsTheBoard() {
+    fun headerUsesTheSamePhysicalFretWidthsAsTheBoard() {
         assertTrue(fretWidthWeight(0) < fretWidthWeight(1))
         assertEquals(1f, fretWidthWeight(1))
-        assertEquals(1f, fretWidthWeight(12))
+        assertTrue(fretWidthWeight(12) < fretWidthWeight(1))
     }
 
     @Test

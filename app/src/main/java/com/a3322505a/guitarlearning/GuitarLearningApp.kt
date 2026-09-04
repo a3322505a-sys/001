@@ -84,7 +84,9 @@ fun GuitarLearningApp(
         onDestinationChanged(destination)
     }
 
-    BackHandler(enabled = destination != AppDestination.Home) {
+    BackHandler(
+        enabled = destination != AppDestination.Home && destination != AppDestination.NoteName,
+    ) {
         navigateTo(previousDestination(destination))
     }
 

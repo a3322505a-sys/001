@@ -1,5 +1,6 @@
 package com.a3322505a.guitarlearning
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,7 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.a3322505a.guitarlearning.audio.PitchPlayer
 import com.a3322505a.guitarlearning.audio.handleFretboardTap
 import com.a3322505a.guitarlearning.core.FretPosition
@@ -41,9 +47,11 @@ import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.training.AnswerValue
 import com.a3322505a.guitarlearning.training.NoteTrainingRange
 import com.a3322505a.guitarlearning.training.QuestionState
+import com.a3322505a.guitarlearning.training.SessionTrainingStats
 import com.a3322505a.guitarlearning.training.TrainingSession
 import com.a3322505a.guitarlearning.training.TrainingStateMachine
 import com.a3322505a.guitarlearning.ui.components.PixelButton
+import com.a3322505a.guitarlearning.ui.components.PixelButtonStyle
 import com.a3322505a.guitarlearning.ui.components.PixelHeader
 import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
@@ -62,6 +70,8 @@ import kotlinx.coroutines.delay
 internal const val FRETBOARD_CORRECT_FEEDBACK_DURATION_MS = 1_000L
 private const val CORRECT_PULSE_HALF_DURATION_MS = 250
 private const val CORRECT_PULSE_SCALE = 1.14f
+internal const val NOTE_TRAINING_FRETBOARD_ASPECT_RATIO = 6.8f
+internal const val NOTE_TRAINING_STATS_WIDTH_DP = 184
 internal val NOTE_TRAINING_VISIBLE_FRET_RANGE = FIRST_FRET..LAST_FRET
 
 /** The landscape-only trainer for identifying physical fret locations by note name. */
@@ -84,7 +94,16 @@ fun NoteNameTrainingScreen(
     val trainingRange = NoteTrainingRange.fromSettings(settings)
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
     var overlayText by remember { mutableStateOf<String?>(null) }
-    var overlayIsError by remember { mutableStateOf(false) }
+    var showSessionStats by remember { mutableStateOf(false) }
+    val derivationText = noteTrainingDerivation(state)
+    fun requestExit() {
+        if (trainingSession.currentStats().answerCount == 0) {
+            trainingSession.finish()
+            onBack?.invoke()
+        } else {
+            showSessionStats = true
+        }
+    }
     val anchorMarker = question.anchorPosition?.let {
         FretboardMarker(it, FretboardMarkerRole.ANCHOR)
     }
@@ -171,6 +190,14 @@ fun NoteNameTrainingScreen(
         else -> FretboardInteractionMode.Disabled
     }
 
+    BackHandler(enabled = onBack != null) {
+        if (showSessionStats) {
+            showSessionStats = false
+        } else {
+            requestExit()
+        }
+    }
+
     LaunchedEffect(state) {
         val completedState = state.takeIf {
             it is QuestionState.Correct ||
@@ -201,23 +228,20 @@ fun NoteNameTrainingScreen(
 
     LaunchedEffect(state, unlockedLevel) {
         val feedback = when {
-            unlockedLevel > seenUnlockedLevel -> "已解锁 Lv.$unlockedLevel" to false
+            unlockedLevel > seenUnlockedLevel -> "已解锁 Lv.$unlockedLevel"
             state is QuestionState.Correct ||
                 state is QuestionState.SequenceCompleted ||
                 state is QuestionState.SetCompleted ->
-                "✓ 正确" to false
-            state is QuestionState.CorrectionRequired ||
-                state is QuestionState.SetCorrectionRequired -> "错了" to true
+                "✓ 正确"
             state is QuestionState.CorrectionConfirmed ||
-                state is QuestionState.SetCorrectionConfirmed -> "已纠正" to false
+                state is QuestionState.SetCorrectionConfirmed -> "已纠正"
             else -> null
         }
         seenUnlockedLevel = maxOf(seenUnlockedLevel, unlockedLevel)
-        overlayText = feedback?.first
-        overlayIsError = feedback?.second == true
+        overlayText = feedback
         if (feedback != null) {
             delay(FRETBOARD_CORRECT_FEEDBACK_DURATION_MS)
-            if (overlayText == feedback.first) overlayText = null
+            if (overlayText == feedback) overlayText = null
         }
     }
 
@@ -243,11 +267,28 @@ fun NoteNameTrainingScreen(
                     if (onBack != null) {
                         PixelOutlinedButton(
                             text = "返回",
-                            onClick = onBack,
+                            onClick = ::requestExit,
                             modifier = Modifier
                                 .width(84.dp)
                                 .align(Alignment.CenterStart),
                         )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 96.dp)
+                            .width(156.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        derivationText?.let { derivation ->
+                            Text(
+                                text = derivation,
+                                color = PixelError,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -271,7 +312,8 @@ fun NoteNameTrainingScreen(
                         PixelStats(
                             correctCount = session.correctCount,
                             errorCount = session.questionCount - session.correctCount,
-                            modifier = Modifier.width(132.dp),
+                            modifier = Modifier.width(NOTE_TRAINING_STATS_WIDTH_DP.dp),
+                            emphasized = true,
                         )
                         if (
                             state is QuestionState.CorrectionConfirmed ||
@@ -285,37 +327,43 @@ fun NoteNameTrainingScreen(
                     }
                 }
 
-                PixelPanel(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(8.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Fretboard(
-                        markers = markers,
-                        interactionMode = interactionMode,
-                        markerScale = markerScale.value,
-                        onPositionClick = { position ->
-                            dispatchNoteTrainingTap(position, trainingRange) { allowedPosition ->
-                                handleFretboardTap(allowedPosition, pitchPlayer) { tapped ->
-                                    state = stateMachine.submitAnswer(
-                                        AnswerValue.FretPosition(tapped.string, tapped.fret),
-                                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.90f)
+                            .aspectRatio(NOTE_TRAINING_FRETBOARD_ASPECT_RATIO),
+                    ) {
+                        Fretboard(
+                            markers = markers,
+                            interactionMode = interactionMode,
+                            markerScale = markerScale.value,
+                            onPositionClick = { position ->
+                                dispatchNoteTrainingTap(position, trainingRange) { allowedPosition ->
+                                    handleFretboardTap(allowedPosition, pitchPlayer) { tapped ->
+                                        state = stateMachine.submitAnswer(
+                                            AnswerValue.FretPosition(tapped.string, tapped.fret),
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                        showLabels = false,
-                        firstFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.first,
-                        lastFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.last,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                            },
+                            showLabels = false,
+                            firstFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.first,
+                            lastFret = NOTE_TRAINING_VISIBLE_FRET_RANGE.last,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
 
             overlayText?.let { message ->
                 Text(
                     text = message,
-                    color = if (overlayIsError) PixelError else PixelSuccess,
+                    color = PixelSuccess,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
@@ -325,6 +373,139 @@ fun NoteNameTrainingScreen(
             }
         }
     }
+
+    if (showSessionStats) {
+        SessionStatsDialog(
+            stats = trainingSession.currentStats(),
+            onContinue = { showSessionStats = false },
+            onFinish = {
+                trainingSession.finish()
+                showSessionStats = false
+                onBack?.invoke()
+            },
+        )
+    }
+}
+
+internal fun noteTrainingDerivation(state: QuestionState): String? {
+    val (wrongPosition, targetNote) = when (state) {
+        is QuestionState.CorrectionRequired -> state.wrongPosition to
+            GuitarCore.getFretPosition(
+                state.correctPosition.string,
+                state.correctPosition.fret,
+            ).note
+        is QuestionState.CorrectionConfirmed -> state.wrongPosition to
+            GuitarCore.getFretPosition(
+                state.correctPosition.string,
+                state.correctPosition.fret,
+            ).note
+        is QuestionState.SetCorrectionRequired -> state.wrongPosition to state.question.note
+        is QuestionState.SetCorrectionProgress -> state.wrongPosition to state.question.note
+        is QuestionState.SetCorrectionConfirmed -> state.wrongPosition to state.question.note
+        else -> return null
+    }
+    val wrongNote = GuitarCore.getFretPosition(wrongPosition.string, wrongPosition.fret).note
+    return "$wrongNote → $targetNote"
+}
+
+@Composable
+private fun SessionStatsDialog(
+    stats: SessionTrainingStats,
+    onContinue: () -> Unit,
+    onFinish: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onContinue,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            PixelPanel(
+                modifier = Modifier
+                    .fillMaxWidth(0.56f)
+                    .widthIn(max = 620.dp),
+                contentPadding = PaddingValues(20.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "本次训练统计",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "本次答题：${stats.answerCount}",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    PixelStats(
+                        correctCount = stats.correctCount,
+                        errorCount = stats.errorCount,
+                        modifier = Modifier.width(240.dp),
+                        emphasized = true,
+                    )
+                    Text(
+                        text = "正确率：${stats.correctRatePercent}%",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "最易错音：${formatMostMistakenNotes(stats)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = "薄弱位置：${formatWeakestLocations(stats)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        PixelOutlinedButton(
+                            text = "继续训练",
+                            onClick = onContinue,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PixelButton(
+                            text = "结束并返回",
+                            onClick = onFinish,
+                            style = PixelButtonStyle.Primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal fun formatMostMistakenNotes(stats: SessionTrainingStats): String {
+    if (stats.mostMistakenNotes.isEmpty()) return "无"
+    val notes = stats.mostMistakenNotes.joinToString(" / ")
+    val countText = if (stats.mostMistakenNotes.size == 1) {
+        "${stats.mostMistakenNoteErrorCount} 次"
+    } else {
+        "各 ${stats.mostMistakenNoteErrorCount} 次"
+    }
+    return "$notes（$countText）"
+}
+
+internal fun formatWeakestLocations(stats: SessionTrainingStats): String {
+    if (stats.weakestLocations.isEmpty()) return "无"
+    val locations = stats.weakestLocations.joinToString(" / ") {
+        "${it.string}弦 ${it.fretRange.first}–${it.fretRange.last}品"
+    }
+    val count = stats.weakestLocations.first().errorCount
+    val countText = if (stats.weakestLocations.size == 1) "$count 次" else "各 $count 次"
+    return "$locations（$countText）"
 }
 
 internal fun dispatchNoteTrainingTap(

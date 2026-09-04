@@ -79,6 +79,11 @@ class TrainingSessionTest {
         val updated = assertNotNull(store.loadProgress(question.knowledgeItemId))
         assertEquals(1, updated.attempts)
         assertEquals(1.6, updated.weight, absoluteTolerance = 0.000_001)
+        val stats = session.currentStats()
+        assertEquals(1, stats.errorCount)
+        assertEquals(listOf(question.note), stats.mostMistakenNotes)
+        assertEquals(wrong.string, stats.weakestLocations.single().string)
+        assertEquals(fretBandFor(wrong.fret), stats.weakestLocations.single().fretRange)
         val otherId = if (question.knowledgeItemId.endsWith(":f0")) {
             "FretToNote:s1:f1"
         } else {
@@ -111,5 +116,7 @@ class TrainingSessionTest {
         session.resetForSettings(NoteTrainingRange.MID_POSITION.applyTo(Settings()))
 
         assertEquals(history, store.loadProgress(history.knowledgeItemId))
+        assertEquals(0, session.currentStats().answerCount)
+        assertEquals(emptyList(), session.currentStats().mostMistakenNotes)
     }
 }
