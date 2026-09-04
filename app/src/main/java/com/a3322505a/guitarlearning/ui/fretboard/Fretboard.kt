@@ -77,6 +77,16 @@ enum class FretboardInteractionMode {
 
 /** One source of truth for drawing coordinates and pointer hit testing. */
 object FretboardGeometry {
+    fun visibleWidthUnits(
+        firstFret: Int = FIRST_FRET,
+        lastFret: Int = LAST_FRET,
+    ): Float {
+        requireValidRange(firstFret, lastFret)
+        return (firstFret..lastFret).sumOf {
+            fretWidthUnits(it, firstFret).toDouble()
+        }.toFloat()
+    }
+
     fun fretLeftFraction(
         fret: Int,
         lastFret: Int = LAST_FRET,
@@ -149,8 +159,7 @@ object FretboardGeometry {
         require(boundary in firstFret..(lastFret + 1)) {
             "boundary must be between $firstFret and ${lastFret + 1}"
         }
-        val visibleFrets = firstFret..lastFret
-        val fretboardWidthUnits = visibleFrets.sumOf { fretWidthUnits(it, firstFret).toDouble() }
+        val fretboardWidthUnits = visibleWidthUnits(firstFret, lastFret)
         val precedingWidthUnits = (firstFret until boundary)
             .sumOf { fretWidthUnits(it, firstFret).toDouble() }
         return (precedingWidthUnits / fretboardWidthUnits).toFloat()

@@ -48,6 +48,7 @@ import com.a3322505a.guitarlearning.ui.components.PixelOutlinedButton
 import com.a3322505a.guitarlearning.ui.components.PixelPanel
 import com.a3322505a.guitarlearning.ui.components.PixelStats
 import com.a3322505a.guitarlearning.ui.fretboard.Fretboard
+import com.a3322505a.guitarlearning.ui.fretboard.FretboardGeometry
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardInteractionMode
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarker
 import com.a3322505a.guitarlearning.ui.fretboard.FretboardMarkerRole
@@ -77,7 +78,9 @@ fun NoteNameTrainingScreen(
     val session = trainingSession.currentSession
     val settings = trainingSession.currentSettings()
     val unlockedLevel = settings.unlockedFretboardLevel
-    val visibleFretRange = NoteTrainingRange.fromSettings(settings).fretRange
+    val trainingRange = NoteTrainingRange.fromSettings(settings)
+    val visibleFretRange = trainingRange.fretRange
+    val fretboardWidthFraction = noteTrainingFretboardWidthFraction(trainingRange)
     var seenUnlockedLevel by remember { mutableIntStateOf(unlockedLevel) }
     var overlayText by remember { mutableStateOf<String?>(null) }
     var overlayIsError by remember { mutableStateOf(false) }
@@ -283,7 +286,8 @@ fun NoteNameTrainingScreen(
 
                 PixelPanel(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .align(Alignment.CenterHorizontally)
+                        .fillMaxWidth(fretboardWidthFraction)
                         .weight(1f),
                     contentPadding = PaddingValues(8.dp),
                 ) {
@@ -319,6 +323,19 @@ fun NoteNameTrainingScreen(
             }
         }
     }
+}
+
+internal fun noteTrainingFretboardWidthFraction(range: NoteTrainingRange): Float {
+    val referenceRange = NoteTrainingRange.LOW_POSITION.fretRange
+    val referenceWidth = FretboardGeometry.visibleWidthUnits(
+        firstFret = referenceRange.first,
+        lastFret = referenceRange.last,
+    )
+    val visibleWidth = FretboardGeometry.visibleWidthUnits(
+        firstFret = range.fretRange.first,
+        lastFret = range.fretRange.last,
+    )
+    return (visibleWidth / referenceWidth).coerceAtMost(1f)
 }
 
 private fun markerFor(
