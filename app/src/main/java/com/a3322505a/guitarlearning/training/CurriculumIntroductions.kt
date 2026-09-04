@@ -32,7 +32,9 @@ object CurriculumIntroductions {
             CurriculumIntroduction("c_major_scale", "C 大调音阶：全全半全全全半")
         question.curriculumLevel == 5 ->
             CurriculumIntroduction("c_major_degrees", "C 大调：C=1 D=2 E=3 F=4 G=5 A=6 B=7")
-        question.curriculumLevel == 6 ->
+        question.kind == "g_major_triad" ->
+            CurriculumIntroduction("g_major_triad", "G–B–D：G 大三和弦的根音、三音、五音")
+        question.kind == "c_major_triad" ->
             CurriculumIntroduction("one_three_five", "1–3–5 = C–E–G")
         else -> null
     }
