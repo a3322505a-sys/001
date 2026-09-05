@@ -1,5 +1,8 @@
 package com.a3322505a.guitarlearning.training
 
+// LEGACY v1 course material. Current courses use learning/Curriculum.kt and LessonScheduler.kt.
+// Changes here do not add tasks to the current App; see docs/legacy-v1.md for adaptation.
+
 import com.a3322505a.guitarlearning.core.FretPosition
 import com.a3322505a.guitarlearning.core.GuitarCore
 import com.a3322505a.guitarlearning.storage.LevelProgress

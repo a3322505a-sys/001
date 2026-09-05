@@ -1,5 +1,8 @@
 package com.a3322505a.guitarlearning.training
 
+// LEGACY v1 mapping material/state machine, not the planned v2 Curriculum "mapping" node.
+// Reuse requires v2 tasks/evidence and explicit key context for degrees; see docs/legacy-v1.md.
+
 import com.a3322505a.guitarlearning.audio.PitchCatalog
 import com.a3322505a.guitarlearning.audio.PitchCue
 import com.a3322505a.guitarlearning.audio.PitchPlaybackStyle

@@ -1,5 +1,8 @@
 package com.a3322505a.guitarlearning.storage
 
+// LEGACY v1 SharedPreferences storage, not opened by the current App entry point.
+// Current learning data: learning/LearningRepository.kt (Room); see docs/legacy-v1.md.
+
 import android.content.Context
 import android.content.SharedPreferences
 import com.a3322505a.guitarlearning.training.PositionQuestionWeights

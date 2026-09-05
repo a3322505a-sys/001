@@ -1,5 +1,7 @@
 # Draft 0.4 — first usable learning loop
 
+> 状态：A+B 已实现并合并（PR #37）。本文保留 alpha01 交付事实；当前能力与资料索引见 [README](../README.md)，后续 alpha02/03 已更新指板及首页。旧模块边界见 [legacy-v1.md](legacy-v1.md)。
+
 Scope: slices A and B of App重构初版设计与复用审计_20260905_2323.md.
 User approved a fresh profile on 2026-09-06 (UTC+8); old v1 progress is not imported.
 
