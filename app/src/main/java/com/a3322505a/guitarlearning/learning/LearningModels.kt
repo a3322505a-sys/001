@@ -21,7 +21,7 @@ enum class Category(val title: String, val description: String) {
 }
 
 @Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE }
-@Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION }
+@Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION, PRACTICE }
 @Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL }
 @Serializable enum class CompletionKind { SINGLE, SET, SEQUENCE }
 @Serializable enum class Phase { ANSWERING, CORRECT, CORRECTING, CORRECTED }
@@ -114,7 +114,14 @@ data class Attempt(
 data class NodeProgress(val masteredAt: Long? = null, val retainedOn: String? = null, val needsReview: Boolean = false)
 
 @Serializable
-data class LearningSession(val id: String = newId(), val startedAt: Long, val endedAt: Long? = null)
+data class LearningSession(val id: String = newId(), val startedAt: Long, val endedAt: Long? = null, val mode: String = "learning")
+
+@Serializable enum class PracticeKind(val title: String) {
+    POSITION_MIXED("音位双向混合"), FIND_POSITION("音名找位置"), NAME_NOTE("看位置认音名"),
+    MAPPING_MIXED("唱名与级数混合"), FIXED_MAPPING("固定唱名双向"), DEGREE_MAPPING("C 大调级数双向"), TAB("TAB 定位")
+}
+@Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
+@Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)
 
 @Serializable
 data class LearnerState(
@@ -133,6 +140,8 @@ data class LearnerState(
     val themeId: String = "clear",
     val reviewMode: Boolean = false,
     val endedSummary: String? = null,
+    val practice: PracticePlan? = null,
+    val suspendedLesson: SuspendedLesson? = null,
 )
 
 data class CurriculumNode(

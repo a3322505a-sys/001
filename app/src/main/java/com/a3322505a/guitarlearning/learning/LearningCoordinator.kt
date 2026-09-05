@@ -6,6 +6,7 @@ import java.time.ZoneId
 /** Pure state transitions. The caller must commit the returned state before exposing it. */
 class LearningCoordinator(private val scheduler: LessonScheduler = LessonScheduler()) {
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
+        if (state.practice != null) return start(endPractice(state, now), nodeId, now)
         val node = Curriculum.node(nodeId)
         require(Curriculum.available(state, node)) { "请先完成前置内容。" }
         if (state.sessionId != null && state.currentNode == nodeId && state.active != null) return state
@@ -14,6 +15,27 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
             active = null, reviewMode = Curriculum.mastered(state, nodeId), endedSummary = null)
         return next.copy(active = ActiveTask(scheduler.next(next, now)))
+    }
+
+    fun startPractice(state: LearnerState, selection: PracticePlan, now: Long): LearnerState {
+        PracticeLessons.validateSelection(state, selection)
+        if (state.practice == selection && state.active != null) return state
+        val base = if (state.practice != null) endPractice(state, now) else state
+        val session = LearningSession(startedAt = now, mode = "practice")
+        val next = base.copy(practice = selection,
+            suspendedLesson = SuspendedLesson(base.currentNode, base.sessionId, base.active, base.reviewMode),
+            currentNode = selection.nodeIds.first(), sessionId = session.id, sessions = base.sessions + session,
+            active = null, reviewMode = false, endedSummary = null)
+        return next.copy(active = ActiveTask(scheduler.next(next, now)))
+    }
+
+    private fun endPractice(state: LearnerState, now: Long): LearnerState {
+        val resume = requireNotNull(state.suspendedLesson)
+        val count = state.attempts.count { it.sessionId == state.sessionId && it.completed }
+        return state.copy(currentNode = resume.currentNode, sessionId = resume.sessionId, active = resume.active,
+            reviewMode = resume.reviewMode, practice = null, suspendedLesson = null,
+            sessions = state.sessions.map { if (it.id == state.sessionId) it.copy(endedAt = now) else it },
+            endedSummary = "专项完成 $count 个任务，记录已保存。")
     }
 
     fun hint(state: LearnerState): LearnerState {
@@ -74,7 +96,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val a = state.active ?: return state
         if (a.task.id != expectedTaskId || a.phase !in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
         var changed = state.copy(active = null)
-        if (!state.reviewMode && Curriculum.mastered(state, state.currentNode)) {
+        if (state.practice == null && !state.reviewMode && Curriculum.mastered(state, state.currentNode)) {
             val next = Curriculum.next(state)
             if (next == null) return end(changed, now, "首轮学习已完成。可以从知识树复习；后续课程会逐步补齐。")
             changed = changed.copy(currentNode = next.id)
@@ -83,6 +105,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun end(state: LearnerState, now: Long, summary: String? = null): LearnerState {
+        if (state.practice != null) return endPractice(state, now)
         val id = state.sessionId ?: return state
         val attempts = state.attempts.filter { it.sessionId == id }
         val independent = attempts.filter { it.independent }

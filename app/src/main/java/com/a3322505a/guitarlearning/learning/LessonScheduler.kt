@@ -5,6 +5,7 @@ import kotlin.random.Random
 
 class LessonScheduler(private val random: Random = Random.Default) {
     fun next(state: LearnerState, now: Long): LearningTask {
+        if (state.practice != null) return PracticeLessons.next(state, this, random)
         val node = Curriculum.node(state.currentNode)
         val source = if (state.reviewMode) TaskSource.REVIEW else TaskSource.MAIN
         return when (node.id) {

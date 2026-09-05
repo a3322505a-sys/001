@@ -58,7 +58,17 @@ object LearningCodec {
         require(state.attempts.all { a -> a.ordinal > 0 && state.sessions.any { it.id == a.sessionId } })
         require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
         require(state.active == null || state.sessionId != null)
-        (state.attempts.map { it.task } + listOfNotNull(state.active?.task)).forEach { task ->
+        require((state.practice == null) == (state.suspendedLesson == null))
+        state.practice?.let { plan ->
+            require(state.sessionId != null && plan.nodeIds.isNotEmpty() && plan.nodeIds.distinct().size == plan.nodeIds.size)
+            require(plan.nodeIds.all { id -> Curriculum.nodes.any { it.id == id } })
+        }
+        state.suspendedLesson?.let { lesson ->
+            require(Curriculum.nodes.any { it.id == lesson.currentNode })
+            require(lesson.sessionId == null || state.sessions.any { it.id == lesson.sessionId && it.endedAt == null })
+            require(lesson.active == null || lesson.sessionId != null)
+        }
+        (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task)).forEach { task ->
             require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
             if (task.direction in MappingLessons.directions) {
                 require(task.mappingNote in MappingLessons.notes)
