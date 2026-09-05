@@ -16,5 +16,5 @@ if [ "$actual" != "$expected" ]; then
   echo 'Refusing to sign: this is not the pinned v2 release key.' >&2
   exit 1
 fi
-java -jar "$APKSIGNER_JAR" sign --ks "$RELEASE_KEYSTORE" --ks-key-alias guitar-release --ks-pass "file:$RELEASE_PASSWORD_FILE" --key-pass "file:$RELEASE_PASSWORD_FILE" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$2" "$1"
+java -jar "$APKSIGNER_JAR" sign --ks "$RELEASE_KEYSTORE" --ks-key-alias guitar-release --ks-pass "file:$RELEASE_PASSWORD_FILE" --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "$2" "$1"
 java -jar "$APKSIGNER_JAR" verify --verbose --print-certs "$2"
