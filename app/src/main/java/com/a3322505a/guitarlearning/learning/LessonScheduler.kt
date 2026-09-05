@@ -95,7 +95,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
             return balanced(state, pick.first, listOf(pick.second), TaskSource.REVIEW)
         }
         val stableEnough = node.positions.all { c -> independent.count { it.task.coordinate == c && it.firstCorrect == true } >= 2 }
-        val previewNode = Curriculum.nodes.firstOrNull { it.id == when (node.id) { "p01" -> "p02"; "p02" -> "p03"; else -> "" } }
+        val previewNode = Curriculum.positionSuccessor(node.id)
         if (!state.reviewMode && stableEnough && previewNode != null && history.takeLast(9).none { it.task.source == TaskSource.PREVIEW } && random.nextDouble() < 0.1) {
             return makePosition(previewNode.id, previewNode.positions.first(), Direction.NOTE_TO_POSITION, TaskSource.PREVIEW)
         }
@@ -119,10 +119,10 @@ class LessonScheduler(private val random: Random = Random.Default) {
     fun makePosition(node: String, c: Coordinate, direction: Direction, source: TaskSource): LearningTask {
         val name = MusicFacts.note(c.string, c.fret)
         val reverse = direction == Direction.POSITION_TO_NOTE
-        val knownOptions = when (node) { "p01" -> listOf("E", "F"); "p02" -> listOf("E", "F", "G", "B"); else -> listOf("E", "F", "G", "B", "C", "D") }
+        val knownOptions = (Curriculum.noteOptions(node) + name).distinct()
         return LearningTask(nodeId = node, skillId = "std:${c.id}:${direction.name.lowercase()}", coordinate = c, direction = direction,
             prompt = if (reverse) "亮起的位置是什么音名？" else "在第${c.string}弦找到 $name",
-            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。"}",
+            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else when (node) { "p04" -> "G在不同八度仍叫G；A是本课新音名。"; "p05" -> "3弦4品与2弦空弦都是B3，同音高可有不同位置。"; "p06" -> "E到F相邻一品，仍相差半音。"; else -> "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。" }}",
             constraint = if (reverse) AnswerConstraint(ConstraintKind.SYMBOL, symbol = name) else AnswerConstraint(ConstraintKind.NOTE_CLASS, symbol = name),
             range = PhysicalRange(strings = setOf(c.string)), source = source,
             options = if (reverse) knownOptions.shuffled(random) else emptyList())

@@ -4,9 +4,9 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 ## 当前交接基线
 
-所属项目：01；仓库：`a3322505a-sys/001`。本次功能范围为未来规划方案的 R1。
+所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha04（versionCode 21）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
+- 当前应用版本：**2.0.0-alpha05（versionCode 22）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。
@@ -26,13 +26,13 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | tab01 | 用已知位置认识 TAB | p01 | 已实现 |
 | p02 | 加入 G / B | p01 | 已实现 |
 | p03 | 2弦 C / D | p02 | 已实现 |
-| p04–p09 | 继续扩展低把位 | 从 p03 逐节点递进 | 规划中 |
+| p04–p09 | 继续扩展低把位，共覆盖 18 个自然音位 | 从 p03 逐节点递进 | 已实现 |
 | mapping | 唱名与级数 | p03 | 规划中，`implemented=false` |
 | staff | 五线谱入门 | tab01 | 规划中 |
 | middle / full | 中把位／全指板 | p09 / middle | 规划中 |
 | structure | 音程、音阶与和弦 | p03 | 规划中 |
 
-默认推荐按 g00 → n00 → p01 → tab01 → p02 → p03 推进；`tab01` 与 `p02` 的直接前置都是 `p01`，TAB 不是 P02 的硬性门槛。已实现节点也需满足各自前置才能进入；规划节点可查看详情，不能开始训练。
+默认推荐按 g00 → n00 → p01 → tab01 → p02 → … → p09 推进；`tab01` 与 `p02` 的直接前置都是 `p01`，TAB 不是 P02 的硬性门槛。已实现节点也需满足各自前置才能进入；规划节点可查看详情，不能开始训练。
 
 `mapping` 尚未接入新版，完成 P03 也不会开放它。`p03` 是当前规划的排课条件，不是理解音名、唱名在乐理上的必需条件；`n00` 目前只介绍 E/F。旧版独立映射入口不再从当前 App 导航可达。后续映射复用及级数语境见 [legacy 边界](docs/legacy-v1.md#映射的两种规则)。
 
@@ -66,6 +66,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | [rebuild-draft04.md](docs/rebuild-draft04.md) | 已实现 A+B 的历史交付记录；不是重做任务清单 |
 | [fretboard-alpha02.md](docs/fretboard-alpha02.md) | 已合并的指板修正记录，效果由真机反馈继续迭代 |
 | [interface-alpha03.md](docs/interface-alpha03.md) | 已合并的首页和训练页修正记录 |
+| [roadmap-progress.md](docs/roadmap-progress.md) | R2–R7 分批范围、实现边界和交接 |
 | [r1-regions-themes.md](docs/r1-regions-themes.md) | alpha04 的 R1 范围、主题兼容与验证说明 |
 | [release-signing.md](docs/release-signing.md) | 持续生效的长期签名说明；公开证书用于核验 |
 
@@ -83,4 +84,4 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 ./gradlew test assembleDebug assembleRelease
 ```
 
-CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha04 属功能版本，正式包使用原长期签名，versionCode 为 21；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
+CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha05 属功能版本，正式包使用原长期签名，versionCode 为 22；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
