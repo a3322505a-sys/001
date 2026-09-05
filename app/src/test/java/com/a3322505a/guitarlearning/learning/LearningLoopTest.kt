@@ -67,6 +67,15 @@ class LearningLoopTest {
         assertTrue((1..6).all { AnswerEvaluator.matches(Coordinate(it, 12), fretRule) })
     }
 
+    @Test fun openingAnswerDetailsPreventsImmediateMasteryEvidence() {
+        val task = LessonScheduler().makePosition("p01", Coordinate(1, 1), Direction.NOTE_TO_POSITION, TaskSource.MAIN)
+        val state = LearnerState(viewedPositions = mapOf("s1:f1" to 10))
+        val active = ActiveTask(task, firstCorrect = true)
+        assertFalse(MasteryPolicy.independent(state, active, 11))
+        assertFalse(MasteryPolicy.independent(state, active, 12))
+        assertTrue(MasteryPolicy.independent(state, active, 13))
+    }
+
     @Test fun pitchesAndTabCoordinatesHaveDifferentAnswerSets() {
         val pitch = AnswerConstraint(ConstraintKind.PITCH, midi = MusicFacts.midi(5, 2) + 12)
         assertTrue(AnswerEvaluator.matches(Coordinate(2, 0), pitch))

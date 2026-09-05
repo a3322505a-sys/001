@@ -1,6 +1,7 @@
 package com.a3322505a.guitarlearning.learning
 
 import android.content.Context
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -10,10 +11,12 @@ import kotlin.test.*
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class LearningRepositoryTest {
+    private fun openTest(context: Context, name: String): LearningDatabase =
+        Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
     @Test fun closeReopenKeepsTaskProfileSettingsAndEvidenceExactlyOnce() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "test-${newId()}.db"
-        var db = LearningDatabase.open(context, name)
+        var db = openTest(context, name)
         var repo = RoomLearningRepository(db)
         val co = LearningCoordinator()
         var state = repo.load()
@@ -23,7 +26,7 @@ class LearningRepositoryTest {
         state = repo.commit(state, state.copy(soundEnabled = false))
         val id = state.learnerId
         db.close()
-        db = LearningDatabase.open(context, name)
+        db = openTest(context, name)
         repo = RoomLearningRepository(db)
         assertEquals(state, repo.load())
         assertEquals(id, repo.load().learnerId)
@@ -38,7 +41,7 @@ class LearningRepositoryTest {
     @Test fun transactionFailureRollsBackEvidenceAndCanRetry() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "test-${newId()}.db"
-        val db = LearningDatabase.open(context, name)
+        val db = openTest(context, name)
         val repo = RoomLearningRepository(db)
         val co = LearningCoordinator()
         val initial = repo.load()
@@ -59,7 +62,7 @@ class LearningRepositoryTest {
     @Test fun invalidRestoreCannotEraseValidProfileAndValidBackupRoundTrips() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "test-${newId()}.db"
-        val db = LearningDatabase.open(context, name)
+        val db = openTest(context, name)
         val repo = RoomLearningRepository(db)
         val initial = repo.load()
         val saved = repo.commit(initial, LearningCoordinator().start(initial, "g00", 1000))

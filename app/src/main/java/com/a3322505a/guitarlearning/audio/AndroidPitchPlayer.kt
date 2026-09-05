@@ -15,7 +15,7 @@ private const val RELEASE_MS = 45
 private const val OUTPUT_GAIN = 0.24
 
 /** A small reusable PCM player with a clean sine tone and no page-level audio logic. */
-class AndroidPitchPlayer : PitchPlayer {
+class AndroidPitchPlayer(private val onError: (Exception) -> Unit = {}) : PitchPlayer {
     private val executor = Executors.newSingleThreadExecutor()
     private val lock = Any()
     private var generation = 0
@@ -31,7 +31,7 @@ class AndroidPitchPlayer : PitchPlayer {
                 generation
             }
         executor.execute {
-            when (cue.style) {
+            try { when (cue.style) {
                 PitchPlaybackStyle.SEQUENCE ->
                     cue.pitches.forEachIndexed { index, pitch ->
                         if (!isCurrent(token)) return@execute
@@ -41,6 +41,10 @@ class AndroidPitchPlayer : PitchPlayer {
                         }
                     }
                 PitchPlaybackStyle.CHORD -> playTone(cue.pitches, token)
+            } } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } catch (error: Exception) {
+                onError(error)
             }
         }
     }

@@ -31,6 +31,28 @@ jobs:
       - name: Build APK variants
         run: ./gradlew assembleDebug assembleRelease
 
+      - name: Build increasing-version upgrade pair
+        run: |
+          mkdir -p upgrade-check
+          cp app/build/outputs/apk/debug/app-debug.apk upgrade-check/base.apk
+          ./gradlew assembleDebug assembleDebugAndroidTest -PappVersionCode=19
+          cp app/build/outputs/apk/debug/app-debug.apk upgrade-check/update.apk
+
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify upgrade preserves learning profile
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: scripts/check-upgrade.sh
+
       - name: Prepare unsigned release and signing tools
         run: |
           mkdir -p release-bundle
@@ -58,4 +80,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: guitar-learning-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: upgrade-check/base.apk

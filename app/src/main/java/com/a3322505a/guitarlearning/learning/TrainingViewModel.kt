@@ -18,7 +18,6 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     private val db = LearningDatabase.open(application)
     private val repository: LearningRepository = RoomLearningRepository(db)
     private val coordinator = LearningCoordinator()
-    private val player = AndroidPitchPlayer()
     private val _state = MutableStateFlow<LearnerState?>(null)
     val state = _state.asStateFlow()
     private val _busy = MutableStateFlow(false)
@@ -27,6 +26,7 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     val error = _error.asStateFlow()
     private val _notice = MutableStateFlow<String?>(null)
     val notice = _notice.asStateFlow()
+    private val player = AndroidPitchPlayer { _notice.value = "声音暂时不可用，仍可继续练习。" }
     private var retryAction: (() -> Unit)? = null
 
     init { reload() }
@@ -78,6 +78,10 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     fun next(taskId: String) = change { coordinator.next(it, taskId, System.currentTimeMillis()) }
     fun end(onDone: () -> Unit) = change(onDone) { coordinator.end(it, System.currentTimeMillis()) }
     fun sound(enabled: Boolean) = change { it.copy(soundEnabled = enabled) }
+    fun viewNode(nodeId: String, onDone: () -> Unit) = change(onDone) { state ->
+        val ordinal = state.attempts.maxOfOrNull { it.ordinal } ?: 0
+        state.copy(viewedPositions = state.viewedPositions + Curriculum.node(nodeId).positions.associate { it.id to ordinal })
+    }
     fun clearSummary() = change { it.copy(endedSummary = null) }
     fun play(coordinate: Coordinate) {
         if (_state.value?.soundEnabled != true) return

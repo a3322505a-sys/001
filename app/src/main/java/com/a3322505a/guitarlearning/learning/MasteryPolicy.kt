@@ -4,6 +4,8 @@ object MasteryPolicy {
     fun independent(state: LearnerState, active: ActiveTask, ordinal: Int): Boolean {
         val t = active.task
         if (t.guided || active.hintLevel > 0 || active.firstCorrect == null) return false
+        val viewedAt = t.coordinate?.let { state.viewedPositions[it.id] }
+        if (viewedAt != null && ordinal - viewedAt < 3) return false
         // An answer shown immediately beforehand is exposure, not independent recall.
         val previous = state.attempts.lastOrNull { a -> a.task.id != t.id && (
             a.task.skillId == t.skillId || (t.coordinate != null && a.task.coordinate == t.coordinate && (a.task.guided || a.hintLevel > 0))) }
@@ -44,7 +46,8 @@ object MasteryPolicy {
             val recentGood = old.masteredAt != null && latest?.firstCorrect == true && pass
             val masteredAt = old.masteredAt ?: if (pass) now else null
             val initialDay = state.attempts.lastOrNull { it.at <= (old.masteredAt ?: now) }?.localDay
-            val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay
+            val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay &&
+                node.positions.all { c -> state.attempts.any { it.independent && it.task.coordinate == c && it.firstCorrect == true && it.localDay == day && it.at > old.masteredAt } }
             updated[node.id] = NodeProgress(masteredAt, if (retention) day else old.retainedOn,
                 if (failureAfterMastery) true else if (recentGood) false else old.needsReview)
         }

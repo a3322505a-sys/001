@@ -123,6 +123,7 @@ data class LearnerState(
     val attempts: List<Attempt> = emptyList(),
     val progress: Map<String, NodeProgress> = emptyMap(),
     val introductions: Set<String> = emptySet(),
+    val viewedPositions: Map<String, Int> = emptyMap(),
     val sessions: List<LearningSession> = emptyList(),
     val sessionId: String? = null,
     val soundEnabled: Boolean = true,

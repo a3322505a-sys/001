@@ -44,6 +44,7 @@ fun LearningApp(model: TrainingViewModel) {
     SideEffect { activity.requestedOrientation = if (page == "training") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
     BackHandler(page != "home") { page = if (page == "training") returnPage else "home" }
     val start: (String) -> Unit = { id -> model.start(id) { returnPage = page; page = "training" } }
+    val detail: (String) -> Unit = { id -> model.viewNode(id) { page = "node:$id" } }
     Surface(Modifier.fillMaxSize(), color = PixelBackground) {
         val s = state
         if (s == null) {
@@ -70,10 +71,10 @@ fun LearningApp(model: TrainingViewModel) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when {
                         page == "home" -> HomeContent(s, start, { page = "category:${it.name}" }, { page = "tree" })
-                        page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, { page = "node:$it" })
-                        page == "tree" -> TreeContent(s, { page = "node:$it" }, { page = "history" })
+                        page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, detail)
+                        page == "tree" -> TreeContent(s, detail, { page = "history" })
                         page.startsWith("node:") -> NodeContent(s, Curriculum.node(page.substringAfter(':')), start)
-                        page == "history" -> HistoryContent(s) { page = "node:$it" }
+                        page == "history" -> HistoryContent(s, detail)
                         page == "settings" -> SettingsContent(s, busy, model)
                     }
                     Spacer(Modifier.height(16.dp))
