@@ -19,7 +19,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
         val demos = listOf(
             "strings" to guitar("strings", 1, TaskSource.DEMONSTRATION, "1弦最细、6弦最粗，从上往下编号1–6。跟着点第1弦。"),
             "frets" to guitar("frets", 1, TaskSource.DEMONSTRATION, "金属线是品丝，两条品丝之间是品格。从弦枕向右数，点第1品格。"),
-            "open" to guitar("frets", 0, TaskSource.DEMONSTRATION, "0表示空弦，不按任何品。左侧单独的一格用来表示空弦。"),
+            "open" to guitar("frets", 0, TaskSource.DEMONSTRATION, "0表示空弦，不按任何品。点弦枕左侧的琴弦表示弹空弦。"),
             "markers" to guitar("markers", 12, TaskSource.DEMONSTRATION, "常见单点在3、5、7、9品，12品是双点；6品通常没有圆点。"),
             "marker15" to guitar("markers", 15, TaskSource.DEMONSTRATION, "15品再次是单点。现在看的是9–15品，品号仍按整把吉他计算。"),
         )
@@ -48,7 +48,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
             explanation = explanation ?: when (group) {
                 "strings" -> "从最细的1弦往下数，点第${target}弦的任意一处。"
                 "markers" -> "${target}品是${if (target == 12) "双点" else "单点"}所在的品格。"
-                else -> if (target == 0) "空弦不按品，用最左侧0区表示。" else "从弦枕向右数，第${target}格就是${target}品。"
+                else -> if (target == 0) "空弦不按品，点弦枕左侧的琴弦。" else "从弦枕向右数，第${target}格就是${target}品。"
             },
             constraint = if (isString) AnswerConstraint(ConstraintKind.STRING, string = target) else AnswerConstraint(ConstraintKind.FRET, fret = target),
             range = if (group == "markers" && target >= 9) PhysicalRange(9, 15) else if (group == "markers") PhysicalRange(1, 7) else PhysicalRange(),
@@ -122,7 +122,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
         val knownOptions = when (node) { "p01" -> listOf("E", "F"); "p02" -> listOf("E", "F", "G", "B"); else -> listOf("E", "F", "G", "B", "C", "D") }
         return LearningTask(nodeId = node, skillId = "std:${c.id}:${direction.name.lowercase()}", coordinate = c, direction = direction,
             prompt = if (reverse) "亮起的位置是什么音名？" else "在第${c.string}弦找到 $name",
-            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else "先看弦号，再找品格。"}",
+            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。"}",
             constraint = if (reverse) AnswerConstraint(ConstraintKind.SYMBOL, symbol = name) else AnswerConstraint(ConstraintKind.NOTE_CLASS, symbol = name),
             range = PhysicalRange(strings = setOf(c.string)), source = source,
             options = if (reverse) knownOptions.shuffled(random) else emptyList())

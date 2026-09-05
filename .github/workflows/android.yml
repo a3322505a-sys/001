@@ -35,7 +35,10 @@ jobs:
         run: |
           mkdir -p upgrade-check
           cp app/build/outputs/apk/debug/app-debug.apk upgrade-check/base.apk
-          ./gradlew assembleDebug assembleDebugAndroidTest -PappVersionCode=19
+          tools_dir=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          base_version=$("$tools_dir/aapt" dump badging upgrade-check/base.apk | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+          test -n "$base_version"
+          ./gradlew assembleDebug assembleDebugAndroidTest -PappVersionCode=$((base_version + 1))
           cp app/build/outputs/apk/debug/app-debug.apk upgrade-check/update.apk
 
       - name: Enable emulator acceleration

@@ -20,7 +20,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val a = state.active ?: return state
         if (a.phase != Phase.ANSWERING) return state
         return state.copy(active = a.copy(hintLevel = (a.hintLevel + 1).coerceAtMost(2), hintRequested = true,
-            feedback = if (a.hintLevel == 0) "先看弦号和所在区域；再点一次提示可查看答案。" else a.task.explanation))
+            feedback = if (a.hintLevel == 0) "先看琴弦粗细、弦枕和定位圆点；再点一次提示可查看答案。" else a.task.explanation))
     }
 
     fun answer(state: LearnerState, coordinate: Coordinate? = null, symbol: String? = null, now: Long, zone: ZoneId = ZoneId.systemDefault()): LearnerState {
