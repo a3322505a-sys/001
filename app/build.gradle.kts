@@ -1,4 +1,5 @@
 plugins {
+    id("androidx.room")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
     id("com.android.application")
@@ -54,7 +55,7 @@ android {
     }
 }
 
-ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+room { schemaDirectory("$projectDir/schemas") }
 
 dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
