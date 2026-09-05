@@ -2,6 +2,8 @@ package com.a3322505a.guitarlearning.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// Fixed colors retained for legacy v1 consumers. Current v2 UI uses LocalGuitarColors.
+
 val PixelBackground = Color(0xFFF3EBD9)
 val PixelSurface = Color(0xFFFFF8E8)
 val PixelSurfaceAlt = Color(0xFFEDE5D2)

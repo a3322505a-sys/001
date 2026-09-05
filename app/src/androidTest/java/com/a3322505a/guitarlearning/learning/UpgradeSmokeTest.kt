@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.learning
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.a3322505a.guitarlearning.ui.theme.AppTheme
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -27,7 +28,7 @@ class UpgradeSmokeTest {
                 i++
             }
             assertTrue(Curriculum.mastered(s, "g00"))
-            s = repo.commit(s, s.copy(soundEnabled = false))
+            s = repo.commit(s, s.copy(soundEnabled = false, themeId = AppTheme.MIDNIGHT.id))
             context.filesDir.resolve("upgrade-expected.json").writeText(LearningCodec.encode(s))
             @Suppress("DEPRECATION")
             val version = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
@@ -45,6 +46,7 @@ class UpgradeSmokeTest {
             assertEquals(expected, current)
             assertEquals(expected.attempts.size, db.learningDao().attemptCount())
             assertFalse(current.soundEnabled)
+            assertEquals(AppTheme.MIDNIGHT.id, current.themeId)
             assertNotNull(current.active)
             assertTrue(Curriculum.mastered(current, "g00"))
             @Suppress("DEPRECATION")

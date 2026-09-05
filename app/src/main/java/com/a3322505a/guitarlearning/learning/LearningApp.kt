@@ -14,18 +14,24 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.a3322505a.guitarlearning.BuildConfig
@@ -39,21 +45,32 @@ import java.util.Locale
 
 @Composable
 fun LearningApp(model: TrainingViewModel) {
+    val colors = LocalGuitarColors.current
     val state by model.state.collectAsState()
     val busy by model.busy.collectAsState()
     val error by model.error.collectAsState()
     var page by rememberSaveable { mutableStateOf("home") }
     var returnPage by rememberSaveable { mutableStateOf("home") }
+    var nodeReturnPage by rememberSaveable { mutableStateOf("home") }
+    val pageStates = rememberSaveableStateHolder()
     val activity = LocalContext.current as MainActivity
     DisposableEffect(activity, page == "training") {
         activity.setTrainingImmersive(page == "training")
         onDispose { activity.setTrainingImmersive(false) }
     }
     SideEffect { activity.requestedOrientation = if (page == "training") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-    BackHandler(page != "home") { page = if (page == "training") returnPage else "home" }
+    val back: () -> Unit = { page = when {
+        page == "training" -> returnPage
+        page.startsWith("node:") -> nodeReturnPage
+        else -> "home"
+    } }
+    BackHandler(page != "home", onBack = back)
     val start: (String) -> Unit = { id -> model.start(id) { returnPage = page; page = "training" } }
-    val detail: (String) -> Unit = { id -> model.viewNode(id) { page = "node:$id" } }
-    Surface(Modifier.fillMaxSize(), color = PixelBackground) {
+    val detail: (String) -> Unit = { id ->
+        val origin = page
+        model.viewNode(id) { nodeReturnPage = origin; page = "node:$id" }
+    }
+    Surface(Modifier.fillMaxSize(), color = colors.background) {
         val s = state
         if (s == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -67,7 +84,7 @@ fun LearningApp(model: TrainingViewModel) {
         } else {
             Column(Modifier.safeDrawingPadding().fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (page != "home") TextButton(onClick = { page = "home" }) { Text("‹ 首页") }
+                    if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:")) "‹ 返回" else "‹ 首页") }
                     Text(if (page == "home") "吉他 · 一小步" else when {
                         page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
@@ -77,7 +94,8 @@ fun LearningApp(model: TrainingViewModel) {
                     if (page == "home") TextButton(onClick = { page = "settings" }) { Text("设置") }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                pageStates.SaveableStateProvider(page) {
+                  Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when {
                         page == "home" -> HomeContent(s, start, { page = "group:${it.name}" }, { page = "tree" })
                         page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail)
@@ -88,6 +106,7 @@ fun LearningApp(model: TrainingViewModel) {
                         page == "settings" -> SettingsContent(s, busy, model)
                     }
                     Spacer(Modifier.height(16.dp))
+                  }
                 }
             }
         }
@@ -100,11 +119,12 @@ fun LearningApp(model: TrainingViewModel) {
 
 @Composable
 private fun Panel(title: String, subtitle: String? = null, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit = {}) {
-    Column(Modifier.fillMaxWidth().border(1.dp, PixelBorder, CutCornerShape(5.dp))
-        .background(PixelSurface, CutCornerShape(5.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(16.dp),
+    val colors = LocalGuitarColors.current
+    Column(Modifier.fillMaxWidth().border(1.dp, colors.border, CutCornerShape(5.dp))
+        .background(colors.surface, CutCornerShape(5.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = PixelInk)
-        if (subtitle != null) Text(subtitle, color = PixelInkMuted, fontSize = 14.sp)
+        Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = colors.ink)
+        if (subtitle != null) Text(subtitle, color = colors.muted, fontSize = 14.sp)
         content()
     }
 }
@@ -130,24 +150,26 @@ private fun HomeContent(s: LearnerState, start: (String) -> Unit, group: (HomeGr
 
 @Composable
 private fun HomeEntry(title: String, subtitle: String, onClick: () -> Unit, action: (() -> Unit)? = null, actionLabel: String = "") {
+    val colors = LocalGuitarColors.current
     Row(Modifier.fillMaxWidth().heightIn(min = 88.dp)
-        .border(1.dp, PixelBorder, CutCornerShape(5.dp)).background(PixelSurface, CutCornerShape(5.dp))
+        .border(1.dp, colors.border, CutCornerShape(5.dp)).background(colors.surface, CutCornerShape(5.dp))
         .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = PixelInk)
-            Text(subtitle, color = PixelInkMuted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = colors.ink)
+            Text(subtitle, color = colors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         if (action != null) Button(onClick = action, shape = CutCornerShape(4.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
             Text(actionLabel, fontSize = 13.sp)
-        } else Text("›", fontSize = 24.sp, color = PixelGreenDark)
+        } else Text("›", fontSize = 24.sp, color = colors.accent)
     }
 }
 
 @Composable
 private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit) {
+    val colors = LocalGuitarColors.current
     group.categories.forEach { category ->
-        if (group.categories.size > 1) Text(category.title, fontWeight = FontWeight.Bold, color = PixelGreenDark,
+        if (group.categories.size > 1) Text(category.title, fontWeight = FontWeight.Bold, color = colors.accent,
             modifier = Modifier.padding(top = 6.dp))
         CategoryContent(s, category, start, detail)
     }
@@ -155,35 +177,111 @@ private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> U
 
 @Composable
 private fun CategoryContent(s: LearnerState, category: Category, start: (String) -> Unit, detail: (String) -> Unit) {
-    Curriculum.nodes.filter { it.category == category }.forEach { node ->
-        Panel(node.title, "${Curriculum.status(s, node)} · ${node.description}", { detail(node.id) }) {
-            if (Curriculum.available(s, node)) OutlinedButton(onClick = { start(node.id) }) {
-                Text(if (Curriculum.mastered(s, node.id)) "专项复习" else "进入学习")
+    if (category == Category.FRETBOARD) FretboardRegions(s, start, detail)
+    else Curriculum.nodes.filter { it.category == category }.forEach { node ->
+        NodeRow(s, node, onClick = { detail(node.id) }, start = { start(node.id) })
+    }
+}
+
+@Composable
+private fun FretboardRegions(s: LearnerState, start: (String) -> Unit, detail: (String) -> Unit) {
+    val colors = LocalGuitarColors.current
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
+    FretboardRegion.entries.forEach { region ->
+        val open = expanded == region.name
+        Row(Modifier.fillMaxWidth().heightIn(min = 82.dp)
+            .border(if (open) 2.dp else 1.dp, if (open) colors.accent else colors.border, CutCornerShape(5.dp))
+            .background(colors.surface, CutCornerShape(5.dp))
+            .clickable { expanded = if (open) null else region.name }
+            .semantics { stateDescription = if (open) "已展开" else "已折叠" }
+            .padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("${region.title} · ${region.rangeLabel}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.ink)
+                Text(region.progressLabel(s), fontSize = 13.sp, color = colors.muted)
+            }
+            Text(if (open) "⌄" else "›", fontSize = 24.sp, color = colors.accent)
+        }
+        if (open) Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            region.nodes.forEach { node ->
+                NodeRow(s, node, onClick = { detail(node.id) }, start = { start(node.id) })
             }
         }
     }
 }
 
 @Composable
-private fun TreeContent(s: LearnerState, detail: (String) -> Unit, history: () -> Unit) {
-    Text("已掌握点亮，未掌握保持灰色。灰色节点也可以查看内容。", fontSize = 13.sp, color = PixelInkMuted)
-    OutlinedButton(onClick = history) { Text("查看练习历史") }
-    Curriculum.nodes.forEach { node ->
-        if (node.prerequisites.isNotEmpty()) Text("来自：${node.prerequisites.joinToString("、") { Curriculum.node(it).title }} ↓", fontSize = 12.sp, color = PixelInkMuted)
-        Row(Modifier.fillMaxWidth().border(if (s.currentNode == node.id) 2.dp else 1.dp, if (s.currentNode == node.id) PixelGreen else PixelBorder, CutCornerShape(4.dp))
-            .background(if (Curriculum.mastered(s, node.id)) PixelGreenLight else PixelSurfaceAlt)
-            .clickable { detail(node.id) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (Curriculum.mastered(s, node.id)) "✓" else if (Curriculum.available(s, node)) "○" else "·", fontSize = 24.sp, modifier = Modifier.width(30.dp))
-            Column(Modifier.weight(1f)) { Text(node.title, fontWeight = FontWeight.Bold); Text(Curriculum.status(s, node), fontSize = 12.sp, color = PixelInkMuted) }
-            Text("›")
+private fun NodeRow(s: LearnerState, node: CurriculumNode, onClick: (() -> Unit)? = null, start: (() -> Unit)? = null) {
+    val colors = LocalGuitarColors.current
+    val status = nodeVisualState(s, node)
+    val pair = when (status) {
+        NodeVisualState.MASTERED, NodeVisualState.REVIEW -> colors.mastered
+        NodeVisualState.AVAILABLE, NodeVisualState.CURRENT -> colors.available
+        NodeVisualState.LOCKED -> colors.locked
+        NodeVisualState.PLANNED -> StateColors(colors.surface, colors.muted)
+    }
+    val current = s.sessionId != null && s.currentNode == node.id && Curriculum.available(s, node)
+    val outline = if (status == NodeVisualState.PLANNED) Modifier.drawBehind {
+        val width = 1.dp.toPx()
+        drawRect(colors.border, topLeft = Offset(width / 2, width / 2),
+            size = androidx.compose.ui.geometry.Size(size.width - width, size.height - width),
+            style = Stroke(width, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))))
+    } else Modifier.border(if (current) 3.dp else 1.dp, if (current) colors.accent else pair.ink.copy(alpha = 0.6f))
+    Row(Modifier.fillMaxWidth().heightIn(min = 68.dp).background(pair.background).then(outline)
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(status.symbol, color = pair.ink, fontSize = 20.sp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(node.title, color = pair.ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            if (status == NodeVisualState.REVIEW) {
+                Text("需复习 · 已掌握", color = colors.review.ink, fontSize = 12.sp,
+                    modifier = Modifier.background(colors.review.background).padding(horizontal = 6.dp, vertical = 3.dp))
+            } else Text(if (status == NodeVisualState.MASTERED && node.id == "g00") "已认识" else status.label,
+                color = pair.ink, fontSize = 12.sp)
+            if (current && status != NodeVisualState.CURRENT) Text("正在复习", color = pair.ink, fontSize = 12.sp)
+        }
+        if (start != null && Curriculum.available(s, node)) TextButton(onClick = start,
+            colors = ButtonDefaults.textButtonColors(contentColor = pair.ink), contentPadding = PaddingValues(horizontal = 8.dp)) {
+            Text(if (Curriculum.mastered(s, node.id)) "复习" else if (current) "继续" else "学习")
+        } else if (onClick != null) Text("›", color = pair.ink, fontSize = 22.sp)
+    }
+}
+
+@Composable
+private fun ThemeChoice(theme: AppTheme, selected: Boolean, enabled: Boolean, onSelect: () -> Unit) {
+    val preview = colorsFor(theme)
+    Row(Modifier.fillMaxWidth().background(preview.background)
+        .border(if (selected) 2.dp else 1.dp, if (selected) preview.accent else preview.border)
+        .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
+        .padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        RadioButton(selected = selected, onClick = null, enabled = enabled,
+            colors = RadioButtonDefaults.colors(selectedColor = preview.accent, unselectedColor = preview.muted,
+                disabledSelectedColor = preview.accent, disabledUnselectedColor = preview.muted))
+        Text(theme.title, color = preview.ink, modifier = Modifier.weight(1f))
+        listOf(preview.accent, preview.mastered.background, preview.locked.background).forEach { color ->
+            Box(Modifier.size(16.dp).background(color).border(1.dp, preview.border))
         }
     }
 }
 
 @Composable
+private fun TreeContent(s: LearnerState, detail: (String) -> Unit, history: () -> Unit) {
+    val colors = LocalGuitarColors.current
+    Text("绿色已掌握 · 蓝色可学习 · 灰色未解锁 · 虚线规划中", fontSize = 13.sp, color = colors.muted)
+    OutlinedButton(onClick = history) { Text("查看练习历史") }
+    Curriculum.nodes.forEach { node ->
+        if (node.prerequisites.isNotEmpty()) Text("来自：${node.prerequisites.joinToString("、") { Curriculum.node(it).title }} ↓", fontSize = 12.sp, color = colors.muted)
+        NodeRow(s, node, onClick = { detail(node.id) })
+    }
+}
+
+@Composable
 private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -> Unit) {
-    Panel(node.title, node.description) {
-        Text(Curriculum.status(s, node), color = if (Curriculum.mastered(s, node.id)) PixelGreen else PixelInkMuted)
+    val colors = LocalGuitarColors.current
+    NodeRow(s, node)
+    Panel("学习内容", node.description) {
         if (node.prerequisites.isNotEmpty()) Text("先修：${node.prerequisites.joinToString("、") { Curriculum.node(it).title }}")
         if (Curriculum.available(s, node)) Button(onClick = { start(node.id) }) { Text(if (Curriculum.mastered(s, node.id)) "开始复习" else "开始 / 继续学习") }
     }
@@ -194,7 +292,7 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
             Panel("${c.label} · ${MusicFacts.label(c.string, c.fret)}") {
                 Text("有效独立回答 ${recent.size}/6，最近正确 ${recent.count { it.firstCorrect == true }}/${recent.size}")
                 Text("找位置 ${recent.count { it.task.direction == Direction.NOTE_TO_POSITION }} 次 · 看位置认音 ${recent.count { it.task.direction == Direction.POSITION_TO_NOTE }} 次", fontSize = 13.sp)
-                Text(if (MasteryPolicy.positionPassed(s, c)) "该音位达到初步掌握条件" else "需要两个方向都独立作答；示范、提示和预学习不用于过关。", fontSize = 12.sp, color = PixelInkMuted)
+                Text(if (MasteryPolicy.positionPassed(s, c)) "该音位达到初步掌握条件" else "需要两个方向都独立作答；示范、提示和预学习不用于过关。", fontSize = 12.sp, color = colors.muted)
             }
         }
     }
@@ -202,7 +300,7 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
     Text("记录 ${attempts.size} 次 · 提示 ${attempts.count { it.hintLevel > 0 }} 次 · 预学习 ${attempts.count { it.task.source == TaskSource.PREVIEW }} 次", fontSize = 13.sp)
     val p = s.progress[node.id]
     if (p?.retainedOn != null) Text("${p.retainedOn}有隔日独立正确记录。", fontSize = 13.sp)
-    attempts.takeLast(6).asReversed().forEach { a -> Text("${formatTime(a.at)} · ${a.task.prompt}\n${attemptLabel(a)}", fontSize = 13.sp, color = PixelInkMuted) }
+    attempts.takeLast(6).asReversed().forEach { a -> Text("${formatTime(a.at)} · ${a.task.prompt}\n${attemptLabel(a)}", fontSize = 13.sp, color = colors.muted) }
 }
 
 private fun attemptLabel(a: Attempt): String = when {
@@ -228,20 +326,26 @@ private fun HistoryContent(s: LearnerState, detail: (String) -> Unit) {
 
 @Composable
 private fun SettingsContent(s: LearnerState, busy: Boolean, model: TrainingViewModel) {
+    val colors = LocalGuitarColors.current
     val notice by model.notice.collectAsState()
     var restoreUri by remember { mutableStateOf<Uri?>(null) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::export) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { restoreUri = it }
-    Panel("声音与显示") {
+    Panel("外观", "配色主题") {
+        AppTheme.entries.forEach { theme ->
+            ThemeChoice(theme, AppTheme.fromId(s.themeId) == theme, !busy) { model.theme(theme.id) }
+        }
+    }
+    Panel("声音") {
         Row(verticalAlignment = Alignment.CenterVertically) { Text("指板声音", Modifier.weight(1f)); Switch(s.soundEnabled, { model.sound(it) }, enabled = !busy) }
         Text("训练中方向保持稳定。界面跟随系统字号，正确、错误同时用符号区分。", fontSize = 13.sp)
     }
     Panel("学习档案", "进度保存在本机；无需注册。") {
         Button(onClick = { export.launch("guitar-learning-backup.json") }, enabled = !busy) { Text("导出备份") }
         OutlinedButton(onClick = { restore.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, enabled = !busy) { Text("从备份恢复") }
-        if (notice != null) Text(notice.orEmpty(), color = PixelGreenDark)
+        if (notice != null) Text(notice.orEmpty(), color = colors.accent)
     }
-    Panel("版本") { Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"); Text("课程 Draft 0.4 · 首个学习闭环", fontSize = 13.sp) }
+    Panel("版本") { Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"); Text("区域课程 · 四套配色", fontSize = 13.sp) }
     if (restoreUri != null) AlertDialog(onDismissRequest = { restoreUri = null },
         title = { Text("恢复学习档案？") }, text = { Text("当前进度将替换为备份中的进度。恢复前会在本机保留一份当前档案副本。") },
         confirmButton = { TextButton(onClick = { restoreUri?.let(model::restore); restoreUri = null }) { Text("恢复") } },
@@ -250,6 +354,7 @@ private fun SettingsContent(s: LearnerState, busy: Boolean, model: TrainingViewM
 
 @Composable
 private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewModel, onBack: () -> Unit, onEnd: () -> Unit) {
+    val colors = LocalGuitarColors.current
     val foreground by model.foreground.collectAsState()
     val a = s.active
     if (a == null) {
@@ -296,9 +401,9 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
             if (message != null) {
                 val wrong = a.firstCorrect == false
                 Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
-                    color = if (wrong) PixelErrorSurface else PixelGreenLight,
-                    border = BorderStroke(1.dp, if (wrong) PixelError else PixelGreen)) {
-                    Text(message, color = if (wrong) PixelErrorDark else PixelGreenDark, fontSize = 15.sp,
+                    color = if (wrong) colors.error.background else colors.available.background,
+                    border = BorderStroke(1.dp, if (wrong) colors.error.ink else colors.available.ink)) {
+                    Text(message, color = if (wrong) colors.error.ink else colors.available.ink, fontSize = 15.sp,
                         modifier = Modifier.heightIn(max = messageHeight).verticalScroll(rememberScrollState())
                             .padding(horizontal = 14.dp, vertical = 8.dp))
                 }
@@ -324,6 +429,7 @@ private fun trainingMessage(active: ActiveTask): String? = when {
 
 @Composable
 private fun AnswerOptions(active: ActiveTask, busy: Boolean, model: TrainingViewModel, modifier: Modifier = Modifier) {
+    val colors = LocalGuitarColors.current
     val task = active.task
     val mistake = active.inputs.lastOrNull { it.result == ClickResult.WRONG }?.symbol
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -331,14 +437,18 @@ private fun AnswerOptions(active: ActiveTask, busy: Boolean, model: TrainingView
             val confirmed = active.phase in listOf(Phase.CORRECT, Phase.CORRECTED) && option == task.constraint.symbol
             val wrong = mistake == option && !confirmed
             val answerShown = (task.guided || active.hintLevel >= 2 || active.phase == Phase.CORRECTING || confirmed) && option == task.constraint.symbol
+            val optionColors = when {
+                wrong -> colors.error
+                confirmed -> colors.mastered
+                answerShown -> colors.available
+                else -> StateColors(colors.surface, colors.ink)
+            }
             OutlinedButton(onClick = { model.answer(task.id, symbol = option) },
                 enabled = !busy && active.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
                 modifier = Modifier.weight(1f), contentPadding = PaddingValues(8.dp), shape = CutCornerShape(4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (wrong) PixelErrorSurface else if (answerShown) PixelGreenLight else Color.Transparent,
-                    contentColor = if (wrong) PixelErrorDark else PixelGreenDark,
-                    disabledContainerColor = if (wrong) PixelErrorSurface else if (confirmed) PixelGreenLight else Color.Transparent,
-                    disabledContentColor = if (wrong) PixelErrorDark else PixelGreenDark)) {
+                    containerColor = optionColors.background, contentColor = optionColors.ink,
+                    disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {
                 Text(option + if (wrong) " ×" else if (confirmed) " ✓" else "", fontSize = 19.sp)
             }
         }
@@ -347,13 +457,14 @@ private fun AnswerOptions(active: ActiveTask, busy: Boolean, model: TrainingView
 
 @Composable
 private fun TabPrompt(c: Coordinate, modifier: Modifier = Modifier) {
-    Box(modifier.height(64.dp).background(PixelSurface).semantics { contentDescription = "TAB：${c.label}" }) {
+    val colors = LocalGuitarColors.current
+    Box(modifier.height(64.dp).background(colors.surface).semantics { contentDescription = "TAB：${c.label}" }) {
         Canvas(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-            (1..6).forEach { s -> val y = size.height * (s - 0.5f) / 6; drawLine(PixelBorder, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()) }
+            (1..6).forEach { s -> val y = size.height * (s - 0.5f) / 6; drawLine(colors.border, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()) }
         }
         Column(Modifier.fillMaxSize()) { (1..6).forEach { s ->
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (s == c.string) Text(c.fret.toString(), modifier = Modifier.background(PixelSurface).padding(horizontal = 5.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (s == c.string) Text(c.fret.toString(), modifier = Modifier.background(colors.surface).padding(horizontal = 5.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         } }
     }
