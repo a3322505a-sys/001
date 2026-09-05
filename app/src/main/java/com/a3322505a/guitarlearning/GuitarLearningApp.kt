@@ -1,5 +1,8 @@
 package com.a3322505a.guitarlearning
 
+// LEGACY v1 navigation, unreachable from MainActivity. Current UI: learning/LearningApp.kt.
+// See docs/legacy-v1.md before reusing screens or restoring any of these routes.
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

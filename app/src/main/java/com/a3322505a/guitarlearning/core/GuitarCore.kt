@@ -1,6 +1,6 @@
 package com.a3322505a.guitarlearning.core
 
-/** The fixed natural-note relationship used by every mapping question. */
+/** Legacy natural-note mapping: fixed solfege, with the degree interpreted in C major only. */
 data class NoteMapping(
     val note: String,
     val solfege: String,
@@ -39,7 +39,9 @@ object GuitarCore {
     /** Standard tuning, keyed by the guitar string number used by players. */
     val openStringNotes: Map<Int, String> = MusicFacts.openStringMidi.mapValues { (_, midi) -> MusicFacts.noteNames[midi % 12] }
 
-    /** One authoritative ordered set for note, fixed solfege, and scale degree. */
+    /** Legacy compatibility table: fixed solfege and C-major degrees, not key-independent degrees.
+     * New degree tasks need explicit key context; see MusicFacts.majorDegree and docs/legacy-v1.md.
+     */
     val fixedMappings: List<NoteMapping> = listOf(
         NoteMapping(note = "C", solfege = "Do", degree = 1),
         NoteMapping(note = "D", solfege = "Re", degree = 2),
