@@ -1,12 +1,12 @@
 package com.a3322505a.guitarlearning.learning
 
-import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,9 +23,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.a3322505a.guitarlearning.BuildConfig
+import com.a3322505a.guitarlearning.MainActivity
 import com.a3322505a.guitarlearning.core.MusicFacts
 import com.a3322505a.guitarlearning.ui.theme.*
 import kotlinx.coroutines.delay
@@ -40,7 +44,11 @@ fun LearningApp(model: TrainingViewModel) {
     val error by model.error.collectAsState()
     var page by rememberSaveable { mutableStateOf("home") }
     var returnPage by rememberSaveable { mutableStateOf("home") }
-    val activity = LocalContext.current as Activity
+    val activity = LocalContext.current as MainActivity
+    DisposableEffect(activity, page == "training") {
+        activity.setTrainingImmersive(page == "training")
+        onDispose { activity.setTrainingImmersive(false) }
+    }
     SideEffect { activity.requestedOrientation = if (page == "training") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
     BackHandler(page != "home") { page = if (page == "training") returnPage else "home" }
     val start: (String) -> Unit = { id -> model.start(id) { returnPage = page; page = "training" } }
@@ -62,6 +70,7 @@ fun LearningApp(model: TrainingViewModel) {
                     if (page != "home") TextButton(onClick = { page = "home" }) { Text("‹ 首页") }
                     Text(if (page == "home") "吉他 · 一小步" else when {
                         page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
+                        page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
                         else -> "节点详情"
                     }, fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
@@ -70,7 +79,8 @@ fun LearningApp(model: TrainingViewModel) {
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when {
-                        page == "home" -> HomeContent(s, start, { page = "category:${it.name}" }, { page = "tree" })
+                        page == "home" -> HomeContent(s, start, { page = "group:${it.name}" }, { page = "tree" })
+                        page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail)
                         page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, detail)
                         page == "tree" -> TreeContent(s, detail, { page = "history" })
                         page.startsWith("node:") -> NodeContent(s, Curriculum.node(page.substringAfter(':')), start)
@@ -99,31 +109,52 @@ private fun Panel(title: String, subtitle: String? = null, onClick: (() -> Unit)
     }
 }
 
+// Navigation groups only: curriculum IDs, prerequisites and persisted categories stay unchanged.
+private enum class HomeGroup(val title: String, val description: String, val categories: Set<Category>) {
+    INTRO("吉他入门", "认识吉他 · 基础认识 · 读谱入门", setOf(Category.GUITAR, Category.SYMBOL, Category.READING)),
+    FRETBOARD("指板训练", "音位练习与复习", setOf(Category.FRETBOARD)),
+    ADVANCED("进阶应用", "音程、音阶与和弦 · 规划中", setOf(Category.ADVANCED)),
+}
+
 @Composable
-private fun HomeContent(s: LearnerState, start: (String) -> Unit, category: (Category) -> Unit, tree: () -> Unit) {
+private fun HomeContent(s: LearnerState, start: (String) -> Unit, group: (HomeGroup) -> Unit, tree: () -> Unit) {
     val current = if (s.sessionId != null) Curriculum.node(s.currentNode) else Curriculum.next(s)
-    if (s.endedSummary != null) Text(s.endedSummary, color = PixelGreenDark, fontSize = 14.sp)
-    Category.entries.forEach { c ->
-        val nodes = Curriculum.nodes.filter { it.category == c && it.implemented }
-        val count = nodes.count { Curriculum.mastered(s, it.id) }
-        Panel(c.title, c.description, onClick = { category(c) }) {
-            if (nodes.isNotEmpty()) Text("已掌握 $count / ${nodes.size}", fontSize = 12.sp, color = PixelInkMuted)
-            if (current?.category == c) {
-                Text("当前：${current.title}", color = PixelGreenDark)
-                Button(onClick = { start(current.id) }, modifier = Modifier.fillMaxWidth(), shape = CutCornerShape(4.dp)) {
-                    Text(if (s.sessionId != null) "继续学习" else if (current.id == "g00") "开始认识" else "开始学习")
-                }
-            }
-        }
+    HomeGroup.entries.forEach { item ->
+        val active = current?.takeIf { it.category in item.categories }
+        HomeEntry(item.title, active?.let { "当前：${it.title}" } ?: item.description,
+            onClick = { group(item) }, action = active?.let { { start(it.id) } },
+            actionLabel = if (s.sessionId != null) "继续学习" else "开始学习")
     }
-    Panel("知识树  →", "看见已经会的，找到下一小步", tree) {
-        Text("${s.progress.count { it.value.masteredAt != null }} 个节点已点亮", color = PixelGreenDark)
+    HomeEntry("知识树", "${s.progress.count { it.value.masteredAt != null }} 个节点已点亮", onClick = tree)
+}
+
+@Composable
+private fun HomeEntry(title: String, subtitle: String, onClick: () -> Unit, action: (() -> Unit)? = null, actionLabel: String = "") {
+    Row(Modifier.fillMaxWidth().heightIn(min = 88.dp)
+        .border(1.dp, PixelBorder, CutCornerShape(5.dp)).background(PixelSurface, CutCornerShape(5.dp))
+        .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = PixelInk)
+            Text(subtitle, color = PixelInkMuted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (action != null) Button(onClick = action, shape = CutCornerShape(4.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(actionLabel, fontSize = 13.sp)
+        } else Text("›", fontSize = 24.sp, color = PixelGreenDark)
+    }
+}
+
+@Composable
+private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit) {
+    group.categories.forEach { category ->
+        if (group.categories.size > 1) Text(category.title, fontWeight = FontWeight.Bold, color = PixelGreenDark,
+            modifier = Modifier.padding(top = 6.dp))
+        CategoryContent(s, category, start, detail)
     }
 }
 
 @Composable
 private fun CategoryContent(s: LearnerState, category: Category, start: (String) -> Unit, detail: (String) -> Unit) {
-    Text("首页分类用于找内容；课程按每个节点的前置知识衔接。", fontSize = 13.sp, color = PixelInkMuted)
     Curriculum.nodes.filter { it.category == category }.forEach { node ->
         Panel(node.title, "${Curriculum.status(s, node)} · ${node.description}", { detail(node.id) }) {
             if (Curriculum.available(s, node)) OutlinedButton(onClick = { start(node.id) }) {
@@ -229,67 +260,102 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
         return
     }
     val task = a.task
+    var menuOpen by remember(task.id) { mutableStateOf(false) }
+    val hasBoard = task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null
+    val message = trainingMessage(a)
     LaunchedEffect(task.id, a.phase, busy, foreground) {
         if (a.phase == Phase.CORRECT && !busy && foreground) { delay(if (task.guided) 1200 else 650); model.next(task.id) }
     }
-    Column(Modifier.safeDrawingPadding().fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("‹ 暂停") }
-            Column(Modifier.weight(1f)) {
-                Text(task.prompt, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Text("${Curriculum.node(s.currentNode).title}${if (task.source == TaskSource.PREVIEW) " · 先认识一下" else if (task.source == TaskSource.REVIEW) " · 复习" else ""}", fontSize = 11.sp, color = PixelInkMuted)
-            }
-            TextButton(onClick = onEnd, enabled = !busy) { Text("结束") }
-        }
-        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null) {
-                TeachingFretboard(a, task.constraint.kind != ConstraintKind.SYMBOL && !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
-                    { model.answer(task.id, coordinate = it) }, Modifier.weight(1f).fillMaxHeight())
-            }
-            if (task.options.isNotEmpty() || task.showTab || task.guided) {
-                Column(Modifier.then(if (task.coordinate == null && task.options.isNotEmpty()) Modifier.weight(1f) else Modifier.width(230.dp))
-                    .fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (task.showTab) TabPrompt(task.coordinate!!)
-                    if (task.guided) Text(fretboardInstruction(task.explanation), fontSize = 14.sp, color = PixelGreenDark)
-                    task.options.chunked(3).forEach { options ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { options.forEach { option ->
-                            val answerShown = (task.guided || a.hintLevel >= 2 || a.phase == Phase.CORRECTING) && option == task.constraint.symbol
-                            OutlinedButton(onClick = { model.answer(task.id, symbol = option) }, enabled = !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
-                                modifier = Modifier.weight(1f), contentPadding = PaddingValues(6.dp), shape = CutCornerShape(4.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(containerColor = if (answerShown) PixelGreenLight else Color.Transparent)) {
-                                Text(option, fontSize = 19.sp)
-                            }
-                        } }
+    BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        val messageHeight = (maxHeight * 0.24f).coerceIn(48.dp, 88.dp)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
+                    Text("‹", fontSize = 28.sp)
+                }
+                Text(task.prompt, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.weight(1f))
+                if (task.showTab) TabPrompt(task.coordinate!!, Modifier.width(144.dp))
+                if (a.phase == Phase.CORRECTED) Button(onClick = { model.next(task.id) }, enabled = !busy) { Text("下一题") }
+                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "训练菜单" }) {
+                        Text("⋯", fontSize = 26.sp)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (a.phase == Phase.ANSWERING && !task.guided) DropdownMenuItem(
+                            text = { Text(if (a.hintLevel == 0) "提示" else "看示范") }, enabled = !busy,
+                            onClick = { menuOpen = false; model.hint() })
+                        task.coordinate?.let { c -> if (s.soundEnabled) DropdownMenuItem(text = { Text("听音") },
+                            onClick = { menuOpen = false; model.play(c) }) }
+                        DropdownMenuItem(text = { Text("结束练习") }, enabled = !busy,
+                            onClick = { menuOpen = false; onEnd() })
                     }
                 }
             }
+            if (message != null) {
+                val wrong = a.firstCorrect == false
+                Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
+                    color = if (wrong) PixelErrorSurface else PixelGreenLight,
+                    border = BorderStroke(1.dp, if (wrong) PixelError else PixelGreen)) {
+                    Text(message, color = if (wrong) PixelErrorDark else PixelGreenDark, fontSize = 15.sp,
+                        modifier = Modifier.heightIn(max = messageHeight).verticalScroll(rememberScrollState())
+                            .padding(horizontal = 14.dp, vertical = 8.dp))
+                }
+            }
+            if (task.options.isNotEmpty()) AnswerOptions(a, busy, model,
+                Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
+            if (hasBoard) TeachingFretboard(a,
+                task.constraint.kind != ConstraintKind.SYMBOL && !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
+                { model.answer(task.id, coordinate = it) }, Modifier.fillMaxWidth().weight(1f))
+            else Spacer(Modifier.weight(1f))
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = 54.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(fretboardInstruction(a.feedback).ifEmpty { if (task.guided) "跟随蓝色高亮完成一次操作" else "自己试一试" },
-                modifier = Modifier.weight(1f), fontSize = 13.sp, color = if (a.firstCorrect == false) PixelErrorDark else PixelGreenDark)
-            if (a.phase == Phase.CORRECTED) Button(onClick = { model.next(task.id) }, enabled = !busy) { Text("下一题") }
-            else if (a.phase == Phase.CORRECTING) Text("点高亮处纠正后继续", fontSize = 12.sp)
-            else if (a.phase == Phase.ANSWERING && !task.guided) OutlinedButton(onClick = model::hint, enabled = !busy) { Text(if (a.hintLevel == 0) "提示" else "看示范") }
-            task.coordinate?.let { c -> if (s.soundEnabled) TextButton(onClick = { model.play(c) }) { Text("听音") } }
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+    }
+}
+
+// One upper message area: guidance or actionable feedback, never a repeated instruction footer.
+private fun trainingMessage(active: ActiveTask): String? = when {
+    active.phase == Phase.CORRECTED -> "已纠正。"
+    active.phase == Phase.CORRECT -> null // Board/answer marks already confirm success.
+    active.feedback.isNotBlank() -> fretboardInstruction(active.feedback)
+    active.task.guided -> fretboardInstruction(active.task.explanation)
+    else -> null
+}
+
+@Composable
+private fun AnswerOptions(active: ActiveTask, busy: Boolean, model: TrainingViewModel, modifier: Modifier = Modifier) {
+    val task = active.task
+    val mistake = active.inputs.lastOrNull { it.result == ClickResult.WRONG }?.symbol
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        task.options.forEach { option ->
+            val confirmed = active.phase in listOf(Phase.CORRECT, Phase.CORRECTED) && option == task.constraint.symbol
+            val wrong = mistake == option && !confirmed
+            val answerShown = (task.guided || active.hintLevel >= 2 || active.phase == Phase.CORRECTING || confirmed) && option == task.constraint.symbol
+            OutlinedButton(onClick = { model.answer(task.id, symbol = option) },
+                enabled = !busy && active.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
+                modifier = Modifier.weight(1f), contentPadding = PaddingValues(8.dp), shape = CutCornerShape(4.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (wrong) PixelErrorSurface else if (answerShown) PixelGreenLight else Color.Transparent,
+                    contentColor = if (wrong) PixelErrorDark else PixelGreenDark,
+                    disabledContainerColor = if (wrong) PixelErrorSurface else if (confirmed) PixelGreenLight else Color.Transparent,
+                    disabledContentColor = if (wrong) PixelErrorDark else PixelGreenDark)) {
+                Text(option + if (wrong) " ×" else if (confirmed) " ✓" else "", fontSize = 19.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun TabPrompt(c: Coordinate) {
-    Column {
-        Text("TAB · 线是弦，数字是品", fontSize = 12.sp)
-        Box(Modifier.fillMaxWidth().height(98.dp).background(PixelSurface)) {
-            Canvas(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-                (1..6).forEach { s -> val y = size.height * (s - 0.5f) / 6; drawLine(PixelBorder, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()) }
-            }
-            Column(Modifier.fillMaxSize()) { (1..6).forEach { s ->
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    if (s == c.string) Text(c.fret.toString(), modifier = Modifier.background(PixelSurface).padding(horizontal = 5.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-            } }
+private fun TabPrompt(c: Coordinate, modifier: Modifier = Modifier) {
+    Box(modifier.height(64.dp).background(PixelSurface).semantics { contentDescription = "TAB：${c.label}" }) {
+        Canvas(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+            (1..6).forEach { s -> val y = size.height * (s - 0.5f) / 6; drawLine(PixelBorder, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()) }
         }
+        Column(Modifier.fillMaxSize()) { (1..6).forEach { s ->
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (s == c.string) Text(c.fret.toString(), modifier = Modifier.background(PixelSurface).padding(horizontal = 5.dp), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        } }
     }
 }
 
