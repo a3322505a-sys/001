@@ -219,6 +219,7 @@ private fun SettingsContent(s: LearnerState, busy: Boolean, model: TrainingViewM
 
 @Composable
 private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewModel, onBack: () -> Unit, onEnd: () -> Unit) {
+    val foreground by model.foreground.collectAsState()
     val a = s.active
     if (a == null) {
         Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.Center) {
@@ -228,8 +229,8 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
         return
     }
     val task = a.task
-    LaunchedEffect(task.id, a.phase, busy) {
-        if (a.phase == Phase.CORRECT && !busy) { delay(if (task.guided) 1200 else 650); model.next(task.id) }
+    LaunchedEffect(task.id, a.phase, busy, foreground) {
+        if (a.phase == Phase.CORRECT && !busy && foreground) { delay(if (task.guided) 1200 else 650); model.next(task.id) }
     }
     Column(Modifier.safeDrawingPadding().fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

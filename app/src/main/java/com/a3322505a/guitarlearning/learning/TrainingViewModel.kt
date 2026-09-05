@@ -22,6 +22,8 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     val state = _state.asStateFlow()
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
+    private val _foreground = MutableStateFlow(false)
+    val foreground = _foreground.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
     private val _notice = MutableStateFlow<String?>(null)
@@ -89,6 +91,7 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
         catch (_: Exception) { _notice.value = "声音暂时不可用，仍可继续练习。" }
     }
     fun stopAudio() = player.stop()
+    fun foreground(active: Boolean) { _foreground.value = active; if (!active) player.stop() }
 
     fun export(uri: Uri) {
         val snapshot = _state.value ?: return

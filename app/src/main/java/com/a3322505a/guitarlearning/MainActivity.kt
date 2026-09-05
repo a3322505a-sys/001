@@ -14,8 +14,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent { GuitarLearningTheme { LearningApp(model) } }
     }
+    override fun onStart() { super.onStart(); model.foreground(true) }
     override fun onStop() {
-        model.stopAudio()
+        model.foreground(false)
         // Backgrounding pauses the persisted task; only the explicit End action closes a session.
         super.onStop()
     }
