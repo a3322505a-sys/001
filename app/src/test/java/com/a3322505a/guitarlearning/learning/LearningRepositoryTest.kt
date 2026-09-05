@@ -106,4 +106,32 @@ class LearningRepositoryTest {
         assertEquals(saved.attempts.size, db.learningDao().attemptCount())
         db.close(); context.deleteDatabase(name)
     }
+
+    @Test fun mappingContextAndPartialCorrectionPersistWithoutDuplicatingAttempts() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val initial = repo.load()
+        val task = MappingLessons.make("C", Direction.NOTE_TO_DEGREE, TaskSource.MAIN, tonic = 7)
+        val session = LearningSession(startedAt = 1)
+        var state = repo.commit(initial, initial.copy(currentNode = "mapping", sessions = listOf(session), sessionId = session.id, active = ActiveTask(task)))
+        val co = LearningCoordinator()
+        state = repo.commit(state, co.answer(state, symbol = "1", now = 2))
+        db.close()
+        db = openTest(context, name)
+        repo = RoomLearningRepository(db)
+        assertEquals(state, repo.load())
+        assertEquals(7, state.active!!.task.tonicPitchClass)
+        state = repo.commit(state, co.answer(state, symbol = "4", now = 3))
+        assertEquals(Phase.CORRECTED, state.active!!.phase)
+        assertEquals(false, state.attempts.single().firstCorrect)
+        assertEquals(1, db.learningDao().attemptCount())
+        assertFails { repo.restore(state, LearningCodec.encode(state.copy(active = state.active!!.copy(task = task.copy(tonicPitchClass = 99))))) }
+        assertEquals(state, repo.load())
+        val restored = repo.restore(state, LearningCodec.encode(state))
+        assertEquals(state.copy(revision = state.revision + 1), restored)
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
 }

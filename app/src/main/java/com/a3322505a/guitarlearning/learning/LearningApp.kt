@@ -285,6 +285,14 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
         if (node.prerequisites.isNotEmpty()) Text("先修：${node.prerequisites.joinToString("、") { Curriculum.node(it).title }}")
         if (Curriculum.available(s, node)) Button(onClick = { start(node.id) }) { Text(if (Curriculum.mastered(s, node.id)) "开始复习" else "开始 / 继续学习") }
     }
+    if (node.id == "mapping") Panel("映射证据", "各方向分别记录；固定唱名与 C 大调级数分别过关。") {
+        MappingLessons.notes.forEach { note ->
+            Text("$note · 唱名 ${MappingLessons.evidence(s, note, false).takeLast(6).count { it.firstCorrect == true }}/6 · 级数 ${MappingLessons.evidence(s, note, true).takeLast(6).count { it.firstCorrect == true }}/6")
+        }
+        MappingLessons.directions.forEach { direction ->
+            Text("${MappingLessons.directionLabel(direction)}：独立正确 ${s.attempts.count { it.independent && it.firstCorrect == true && it.task.direction == direction }} 次", fontSize = 13.sp)
+        }
+    }
     if (node.positions.isNotEmpty()) {
         Text("掌握依据", fontWeight = FontWeight.Bold)
         node.positions.forEach { c ->

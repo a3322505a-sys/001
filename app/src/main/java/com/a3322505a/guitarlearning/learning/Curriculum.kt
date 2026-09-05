@@ -14,9 +14,8 @@ object Curriculum {
         CurriculumNode("p07", "5弦 A / B", Category.FRETBOARD, "增加第五根弦。", listOf("p06"), listOf(Coordinate(5, 0), Coordinate(5, 2))),
         CurriculumNode("p08", "加入 C / E", Category.FRETBOARD, "连接第5弦与第6弦。", listOf("p07"), listOf(Coordinate(5, 3), Coordinate(6, 0))),
         CurriculumNode("p09", "6弦 F / G", Category.FRETBOARD, "完成第一把位18个自然音位置。", listOf("p08"), listOf(Coordinate(6, 1), Coordinate(6, 3))),
-        // Planned v2 course, not the legacy standalone screen. P03 is a curriculum choice;
-        // even after P03, implemented=false keeps training unavailable. See docs/legacy-v1.md.
-        CurriculumNode("mapping", "唱名与级数", Category.SYMBOL, "固定唱名、带调性语境的级数映射。", listOf("p03"), implemented = false),
+        // V2 mapping keeps its P03 prerequisite and its own directional/key evidence.
+        CurriculumNode("mapping", "唱名与级数", Category.SYMBOL, "固定唱名、带调性语境的级数映射。", listOf("p03")),
         CurriculumNode("staff", "五线谱入门", Category.READING, "谱号、吉他记谱八度、单音定位。", listOf("tab01"), implemented = false),
         CurriculumNode("middle", "中把位 5–8品", Category.FRETBOARD, "由已知锚点分组扩展。", listOf("p09"), implemented = false),
         CurriculumNode("full", "全指板 0–12品", Category.FRETBOARD, "八度关系与跨区域检索。", listOf("middle"), implemented = false),

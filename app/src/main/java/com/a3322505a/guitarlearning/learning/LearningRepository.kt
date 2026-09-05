@@ -58,6 +58,13 @@ object LearningCodec {
         require(state.attempts.all { a -> a.ordinal > 0 && state.sessions.any { it.id == a.sessionId } })
         require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
         require(state.active == null || state.sessionId != null)
+        (state.attempts.map { it.task } + listOfNotNull(state.active?.task)).forEach { task ->
+            require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
+            if (task.direction in MappingLessons.directions) {
+                require(task.mappingNote in MappingLessons.notes)
+                if (task.direction in MappingLessons.degreeDirections) require(task.tonicPitchClass != null && task.tonalMode == "major")
+            }
+        }
         return state
     }
 }

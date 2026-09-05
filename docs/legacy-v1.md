@@ -26,17 +26,17 @@ Manifest 只有 `MainActivity`。它创建 `TrainingViewModel` 并显示 `learni
 
 | 项目 | v1 legacy | 当前 v2 |
 | --- | --- | --- |
-| 入口 | 旧首页直接打开 `CombinedMappingTrainingScreen` | 吉他入门分类中可查看 `mapping` 节点详情 |
-| 开始条件 | 独立页面，不经过新版课程图 | `Curriculum.available` 要求已实现且前置全部掌握；`mapping` 目前 `implemented=false`，所以通过 P03 仍不可开始 |
-| 前置关系 | 没有新版 P03 门槛 | 当前规划前置为 `p03` |
-| 记录 | `remember` 内的 `CombinedMappingStateMachine` 和临时计数 | 映射任务尚未接入；后续需使用统一档案与方向证据 |
+| 入口 | 旧首页直接打开 `CombinedMappingTrainingScreen` | 吉他入门中的 `mapping` 节点，接当前学习任务 |
+| 开始条件 | 独立页面，不经过新版课程图 | R3 已实现；直接前置 P03，之后可开始，不要求 P09 |
+| 前置关系 | 没有新版 P03 门槛 | 直接前置为 `p03` |
+| 记录 | `remember` 内的 `CombinedMappingStateMachine` 和临时计数 | 当前 Room 档案记录固定唱名与带主音级数的双向证据 |
 | 符号语境 | `GuitarCore.fixedMappings/fixedDegrees` 固定 C–B 对应 1–7 | 固定唱名与调性中的级数需分别定义，级数题注明主音／调性 |
 
 **当前没有两个映射入口同时生效的冲突。** P03 前置是当前课程编排，不是乐理定律，也不表示所有符号解释都必须等到 P03。现在 `n00` 只教 E/F；未来若提前引入音名与固定唱名的基础对应，应在新版课程中明确它与综合映射、带调性级数的区别。
 
 旧表中的 C→1 仅表示 C 大调语境，不能推广到任意调；`MusicFacts.majorDegree(midi, tonicPitchClass)` 已提供带主音的大调级数计算。复用旧选项、序列、缺失项和和弦集合时，必须同时确认调性和实际考察方向，C→Do 答对不等于 C→级数也已作答。
 
-本轮明确资料与代码注释，保留现有 P03 前置和“规划中”状态。接入新版映射需要任务生成、判题、学习证据和恢复路径完整支持，不能只把 `implemented` 改为 `true`；当前调度器没有独立的映射任务分支。
+R3 已通过 `MappingLessons` 接入生成、判题、方向证据和恢复路径；保留 P03 前置。旧独立状态机仍属于 legacy，不恢复旧分数或旧入口。
 
 ## 旧进度与历史资料
 
