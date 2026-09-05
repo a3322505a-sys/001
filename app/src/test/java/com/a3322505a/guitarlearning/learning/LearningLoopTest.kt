@@ -12,12 +12,12 @@ class LearningLoopTest {
         else coordinator.answer(state, coordinate = AnswerEvaluator.validPositions(task).first(), now = at)
     }
 
-    @Test fun fullFirstLoopCompletesAcrossSavedStateReloads() {
+    @Test fun lowPositionLoopCompletesAcrossSavedStateReloads() {
         repeat(12) { seed ->
             val co = LearningCoordinator(LessonScheduler(Random(seed)))
             var s = co.start(LearnerState(), "g00", now)
             var step = 0
-            while (s.sessionId != null && step < 300) {
+            while (!Curriculum.mastered(s, "p09") && step < 900) {
                 val id = s.active!!.task.id
                 s = answerCorrect(co, s, now + step * 1000)
                 assertEquals(Phase.CORRECT, s.active?.phase)
@@ -25,9 +25,9 @@ class LearningLoopTest {
                 s = LearningCodec.decode(LearningCodec.encode(s))
                 step++
             }
-            assertNull(s.sessionId, "seed=$seed, stuck at ${s.currentNode} after $step tasks")
-            listOf("g00", "n00", "p01", "tab01", "p02", "p03").forEach { assertTrue(Curriculum.mastered(s, it), "$seed $it") }
-            assertFalse(Curriculum.available(s, Curriculum.node("p04")))
+            assertTrue(Curriculum.mastered(s, "p09"), "seed=$seed, stuck at ${s.currentNode} after $step tasks")
+            (listOf("g00", "n00", "tab01") + (1..9).map { "p0$it" }).forEach { assertTrue(Curriculum.mastered(s, it), "$seed $it") }
+            assertTrue(Curriculum.available(s, Curriculum.node("p04")))
             assertEquals(s.attempts.size, s.attempts.map { it.task.id }.distinct().size)
             s.attempts.windowed(10).forEach { assertTrue(it.count { a -> a.task.source == TaskSource.PREVIEW } <= 1) }
             assertTrue(s.attempts.none { it.task.guided && it.independent })
