@@ -20,7 +20,7 @@ enum class Category(val title: String, val description: String) {
     ADVANCED("进阶应用", "音程、音阶、和弦与听觉 · 规划中"),
 }
 
-@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION }
+@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE }
 @Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION }
 @Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL }
 @Serializable enum class CompletionKind { SINGLE, SET, SEQUENCE }
@@ -64,6 +64,9 @@ data class LearningTask(
     val hideStringLabels: Boolean = false,
     val hideFretLabels: Boolean = false,
     val introductionId: String? = null,
+    val mappingNote: String? = null,
+    val tonicPitchClass: Int? = null,
+    val tonalMode: String? = null,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
