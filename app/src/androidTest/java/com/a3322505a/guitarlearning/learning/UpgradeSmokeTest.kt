@@ -29,6 +29,9 @@ class UpgradeSmokeTest {
             assertTrue(Curriculum.mastered(s, "g00"))
             s = repo.commit(s, s.copy(soundEnabled = false))
             context.filesDir.resolve("upgrade-expected.json").writeText(LearningCodec.encode(s))
+            @Suppress("DEPRECATION")
+            val version = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+            context.filesDir.resolve("upgrade-version.txt").writeText(version.toString())
             assertTrue(s.attempts.size >= 6)
         } finally { db.close() }
     }
@@ -46,7 +49,7 @@ class UpgradeSmokeTest {
             assertTrue(Curriculum.mastered(current, "g00"))
             @Suppress("DEPRECATION")
             val version = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
-            assertEquals(19, version)
+            assertEquals(context.filesDir.resolve("upgrade-version.txt").readText().toInt() + 1, version)
         } finally { db.close() }
     }
 }

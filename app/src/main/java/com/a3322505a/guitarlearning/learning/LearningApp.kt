@@ -250,7 +250,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                 Column(Modifier.then(if (task.coordinate == null && task.options.isNotEmpty()) Modifier.weight(1f) else Modifier.width(230.dp))
                     .fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (task.showTab) TabPrompt(task.coordinate!!)
-                    if (task.guided) Text(task.explanation, fontSize = 14.sp, color = PixelGreenDark)
+                    if (task.guided) Text(fretboardInstruction(task.explanation), fontSize = 14.sp, color = PixelGreenDark)
                     task.options.chunked(3).forEach { options ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { options.forEach { option ->
                             val answerShown = (task.guided || a.hintLevel >= 2 || a.phase == Phase.CORRECTING) && option == task.constraint.symbol
@@ -265,7 +265,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
             }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 54.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(a.feedback.ifEmpty { if (task.guided) "跟随高亮完成一次操作" else "自己试一试" },
+            Text(fretboardInstruction(a.feedback).ifEmpty { if (task.guided) "跟随蓝色高亮完成一次操作" else "自己试一试" },
                 modifier = Modifier.weight(1f), fontSize = 13.sp, color = if (a.firstCorrect == false) PixelErrorDark else PixelGreenDark)
             if (a.phase == Phase.CORRECTED) Button(onClick = { model.next(task.id) }, enabled = !busy) { Text("下一题") }
             else if (a.phase == Phase.CORRECTING) Text("点高亮处纠正后继续", fontSize = 12.sp)
@@ -294,3 +294,10 @@ private fun TabPrompt(c: Coordinate) {
 }
 
 private fun formatTime(at: Long): String = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(at))
+
+// Old saved tasks keep their identity and evidence; only obsolete drawing instructions change.
+private fun fretboardInstruction(text: String): String = text
+    .replace("先看弦号，再找品格。", "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。")
+    .replace("先看弦号和所在区域", "先看琴弦粗细、弦枕和定位圆点")
+    .replace("左侧单独的一格用来表示空弦。", "点弦枕左侧的琴弦表示弹空弦。")
+    .replace("空弦不按品，用最左侧0区表示。", "空弦不按品，点弦枕左侧的琴弦。")
