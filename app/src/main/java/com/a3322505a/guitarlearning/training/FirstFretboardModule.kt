@@ -353,7 +353,7 @@ class FirstFretboardModule : TrainingModule {
     }
 
     private fun pitch(position: FretPosition): Int =
-        OPEN_STRING_PITCH.getValue(position.string) + position.fret
+        com.a3322505a.guitarlearning.core.MusicFacts.midi(position.string, position.fret)
 
     private data class Relation(
         val id: String,
@@ -369,7 +369,6 @@ class FirstFretboardModule : TrainingModule {
 
     private companion object {
         val NATURAL_NOTE_ORDER = listOf("C", "D", "E", "F", "G", "A", "B")
-        val OPEN_STRING_PITCH = mapOf(6 to 40, 5 to 45, 4 to 50, 3 to 55, 2 to 59, 1 to 64)
         val firstPositionNaturals = GuitarCore.allPositions(frets = 0..4, naturalOnly = true)
     }
 }

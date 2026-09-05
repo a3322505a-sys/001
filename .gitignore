@@ -7,3 +7,10 @@ local.properties
 .idea/
 *.iml
 .DS_Store
+
+# Release identity is kept outside the public repository.
+*.jks
+*.keystore
+*.p12
+*.password
+release-private/

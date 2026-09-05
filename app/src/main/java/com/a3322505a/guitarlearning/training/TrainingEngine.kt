@@ -133,7 +133,7 @@ class TrainingEngine(
     ): AnswerResult {
         val result = AnswerResult(
             accepted = true,
-            isCorrect = answer == question.correctAnswerValue,
+            isCorrect = isSemanticallyCorrect(question, answer),
             submittedAnswer = submittedLabel,
             correctAnswer = question.correctAnswer,
             knowledgeItemId = question.knowledgeItemId,
@@ -145,6 +145,16 @@ class TrainingEngine(
         submitted = true
         lastResult = result
         return result
+    }
+
+    private fun isSemanticallyCorrect(question: Question, answer: AnswerValue): Boolean {
+        val payload = question.payload
+        if (payload is FretboardCurriculumPayload && payload.anchor != null && answer is AnswerValue.FretPosition) {
+            if (answer.fret !in currentSettings.fretStart..currentSettings.fretEnd || answer.string !in currentSettings.selectedStrings) return false
+            return com.a3322505a.guitarlearning.core.MusicFacts.midi(answer.string, answer.fret) ==
+                com.a3322505a.guitarlearning.core.MusicFacts.midi(payload.target.string, payload.target.fret)
+        }
+        return answer == question.correctAnswerValue
     }
 
     private fun invalidResult(question: Question, submitted: String): AnswerResult = AnswerResult(

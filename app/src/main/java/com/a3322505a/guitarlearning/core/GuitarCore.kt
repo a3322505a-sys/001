@@ -37,14 +37,7 @@ object GuitarCore {
     )
 
     /** Standard tuning, keyed by the guitar string number used by players. */
-    val openStringNotes: Map<Int, String> = mapOf(
-        6 to "E",
-        5 to "A",
-        4 to "D",
-        3 to "G",
-        2 to "B",
-        1 to "E",
-    )
+    val openStringNotes: Map<Int, String> = MusicFacts.openStringMidi.mapValues { (_, midi) -> MusicFacts.noteNames[midi % 12] }
 
     /** One authoritative ordered set for note, fixed solfege, and scale degree. */
     val fixedMappings: List<NoteMapping> = listOf(

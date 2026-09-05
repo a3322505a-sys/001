@@ -38,16 +38,6 @@ interface PitchPlayer {
 
 /** The single pitch authority shared by fretboard and symbolic mapping exercises. */
 object PitchCatalog {
-    private val openStringMidi =
-        mapOf(
-            6 to 40,
-            5 to 45,
-            4 to 50,
-            3 to 55,
-            2 to 59,
-            1 to 64,
-        )
-
     private val cMajorMidi =
         mapOf(
             "C" to 60,
@@ -59,7 +49,7 @@ object PitchCatalog {
             "B" to 71,
         )
 
-    fun forFretPosition(position: FretPosition): MidiPitch = MidiPitch(requireNotNull(openStringMidi[position.string]) + position.fret)
+    fun forFretPosition(position: FretPosition): MidiPitch = MidiPitch(com.a3322505a.guitarlearning.core.MusicFacts.midi(position.string, position.fret))
 
     fun forNaturalNote(note: String): MidiPitch = MidiPitch(requireNotNull(cMajorMidi[note]) { "Only C-major natural notes are supported" })
 }
