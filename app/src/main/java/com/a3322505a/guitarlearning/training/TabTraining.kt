@@ -10,7 +10,7 @@ enum class TabExercise(
     val label: String,
 ) {
     SHORT_PHRASE("3–4 音短句"),
-    ONE_MEASURE("一小节"),
+    ONE_MEASURE("6–8音短句"),
 }
 
 data class TabQuestion(

@@ -11,7 +11,7 @@ enum class StaffExercise(
 ) {
     SINGLE("单音"),
     SHORT_PHRASE("2–4 音"),
-    ONE_MEASURE("一小节"),
+    ONE_MEASURE("6–8音短句"),
 }
 
 data class StaffTarget(
@@ -95,7 +95,7 @@ class StaffTrainingStateMachine(
         state = when (val current = state) {
             is StaffTrainingState.Awaiting -> submitAwaiting(current, position)
             is StaffTrainingState.CorrectionRequired -> {
-                if (position == current.expected) {
+                if (PitchCatalog.forFretPosition(position).noteNumber == PitchCatalog.forFretPosition(current.expected).noteNumber) {
                     StaffTrainingState.CorrectionConfirmed(
                         current.question,
                         current.selected,
@@ -126,7 +126,7 @@ class StaffTrainingStateMachine(
         position: FretPosition,
     ): StaffTrainingState {
         val expected = current.question.targets[current.selected.size].position
-        if (position != expected) {
+        if (PitchCatalog.forFretPosition(position).noteNumber != PitchCatalog.forFretPosition(expected).noteNumber) {
             return StaffTrainingState.CorrectionRequired(
                 current.question,
                 current.selected,

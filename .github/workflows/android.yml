@@ -28,8 +28,31 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Build APK variants
+        run: ./gradlew assembleDebug assembleRelease
+
+      - name: Prepare unsigned release and signing tools
+        run: |
+          mkdir -p release-bundle
+          tools_dir=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$tools_dir/zipalign" -P 16 -f 4 app/build/outputs/apk/release/app-release-unsigned.apk release-bundle/app-release-unsigned.apk
+          cp "$tools_dir/lib/apksigner.jar" release-bundle/
+          cp "$tools_dir/zipalign" release-bundle/
+          cp -r app/schemas release-bundle/schemas
+          git rev-parse HEAD > release-bundle/source-sha.txt
+
+      - name: Upload unsigned release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: guitar-learning-release-unsigned
+          path: release-bundle/
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: app/build/test-results/
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
