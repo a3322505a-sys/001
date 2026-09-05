@@ -127,6 +127,7 @@ data class LearnerState(
     val sessions: List<LearningSession> = emptyList(),
     val sessionId: String? = null,
     val soundEnabled: Boolean = true,
+    val themeId: String = "clear",
     val reviewMode: Boolean = false,
     val endedSummary: String? = null,
 )

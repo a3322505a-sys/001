@@ -8,6 +8,7 @@ import com.a3322505a.guitarlearning.audio.AndroidPitchPlayer
 import com.a3322505a.guitarlearning.audio.MidiPitch
 import com.a3322505a.guitarlearning.audio.PitchCue
 import com.a3322505a.guitarlearning.core.MusicFacts
+import com.a3322505a.guitarlearning.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,6 +81,7 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     fun next(taskId: String) = change { coordinator.next(it, taskId, System.currentTimeMillis()) }
     fun end(onDone: () -> Unit) = change(onDone) { coordinator.end(it, System.currentTimeMillis()) }
     fun sound(enabled: Boolean) = change { it.copy(soundEnabled = enabled) }
+    fun theme(id: String) = change { it.copy(themeId = AppTheme.fromId(id).id) }
     fun viewNode(nodeId: String, onDone: () -> Unit) = change(onDone) { state ->
         val ordinal = state.attempts.maxOfOrNull { it.ordinal } ?: 0
         state.copy(viewedPositions = state.viewedPositions + Curriculum.node(nodeId).positions.associate { it.id to ordinal })
