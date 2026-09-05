@@ -24,3 +24,10 @@ Validation: full curriculum simulations with saved-state reloads; semantic answe
 hint/preview exclusion; two-position mastery; Room close/reopen, duplicate writes,
 transaction rollback/retry, stale-revision rejection and backup validation.
 Device layout, audio and actual installation still require runtime verification.
+
+Verified on Android CI run 33979689190: 175 Debug unit tests and 175 Release unit tests
+passed. Android API 35 emulator installed build 18, seeded a real Room learning profile,
+updated to build 19 using adb install -r, launched the app and verified exact preservation
+of profile, attempts, node state, active task and sound preference. These two smoke builds
+share a CI test certificate; the delivered Release uses the separately pinned private key.
+Database schema 1.json is checked in as the baseline for future non-destructive migrations.
