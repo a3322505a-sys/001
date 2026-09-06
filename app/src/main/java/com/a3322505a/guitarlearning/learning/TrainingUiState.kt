@@ -21,6 +21,7 @@ data class FretboardUiState(
     val chord: ChordOverlayUiState? = null,
     val stringLabel: String? = null,
     val fretLabel: Pair<Int, String>? = null,
+    val answerPositions: Set<Coordinate> = interactivePositions,
 )
 data class PositionTapped(val viewId: String, val coordinate: Coordinate)
 

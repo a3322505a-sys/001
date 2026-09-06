@@ -5,19 +5,23 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 /** The only task-to-board adapter; hidden answer sets never cross the display boundary. */
 object TrainingUiAdapter {
     fun chordVisible(a: ActiveTask) = a.task.guided || a.hintLevel >= 2 || a.phase != Phase.ANSWERING
-    fun board(a: ActiveTask, mode: FingeringMode, busy: Boolean = false): FretboardUiState {
+    fun board(a: ActiveTask, mode: FingeringMode, busy: Boolean = false, displayLastFret: Int = a.task.range.lastFret): FretboardUiState {
         val t = a.task
         val reveal = t.guided || a.hintLevel >= 2 || a.phase in listOf(Phase.CORRECTING, Phase.CORRECTED)
         val answers = if (reveal) AnswerEvaluator.validPositions(t, a.sequenceIndex).toSet() else emptySet()
         val reference = t.coordinate.takeIf { t.direction == Direction.POSITION_TO_NOTE }
+        val positionLesson = t.direction in listOf(Direction.NOTE_TO_POSITION, Direction.POSITION_TO_NOTE) && t.coordinate != null
+        val teachingReferences = if (reveal && positionLesson) LessonExplanations.positionRoute(t.nodeId, requireNotNull(t.coordinate)) else emptyList()
+        val references = (t.referenceCoordinates + teachingReferences).toSet()
+        val display = PhysicalRange(0, maxOf(displayLastFret, t.range.lastFret, references.maxOfOrNull { it.fret } ?: 0))
         val mistake = a.inputs.lastOrNull { it.result == ClickResult.WRONG }?.coordinate
-        val marks = t.range.positions().mapNotNull { c ->
-            val target = c in answers || c == reference || c in t.referenceCoordinates
+        val marks = display.positions().mapNotNull { c ->
+            val target = c in answers || c == reference || c in references
             val correct = c in a.confirmed
             val wrong = c == mistake && !correct
             if (!target && !correct && !wrong) null else BoardMark(c,
-                if (wrong) MarkRole.WRONG else if (correct) MarkRole.CORRECT else if (c == reference || c in t.referenceCoordinates) MarkRole.REFERENCE else MarkRole.TARGET,
-                when { wrong -> "×"; correct -> "✓"; c == reference -> "?"; c in t.referenceCoordinates -> "参"; t.guided && t.coordinate == c -> t.constraint.symbol.orEmpty(); else -> "" },
+                if (wrong) MarkRole.WRONG else if (correct) MarkRole.CORRECT else if (c == reference || c in references && c !in answers) MarkRole.REFERENCE else MarkRole.TARGET,
+                when { wrong -> "×"; correct -> "✓"; c == reference -> "?"; c in references && c !in answers -> MusicFacts.note(c.string, c.fret); t.guided && t.coordinate == c -> t.constraint.symbol.orEmpty(); else -> "" },
                 target && !correct && !wrong && t.constraint.kind in listOf(ConstraintKind.STRING, ConstraintKind.FRET))
         }
         val chord = t.chord?.let { shape ->
@@ -40,9 +44,9 @@ object TrainingUiAdapter {
             t.constraint.kind == ConstraintKind.SYMBOL || busy || a.phase !in listOf(Phase.ANSWERING, Phase.CORRECTING) -> BoardInteraction.AUDITION
             else -> BoardInteraction.ANSWER
         }
-        return FretboardUiState(t.id, t.range.firstFret, t.range.lastFret, t.range.positions().toSet(), interaction, marks, chord,
+        return FretboardUiState(t.id, display.firstFret, display.lastFret, display.positions().toSet(), interaction, marks, chord,
             t.constraint.string?.takeIf { teaching && !t.hideStringLabels }?.let { "第${it}弦" },
-            t.constraint.fret?.takeIf { teaching && !t.hideFretLabels && t.constraint.string == null }?.let { it to if (it == 0) "空弦" else "${it}品" })
+            t.constraint.fret?.takeIf { teaching && !t.hideFretLabels && t.constraint.string == null }?.let { it to if (it == 0) "空弦" else "${it}品" }, answerPositions = t.range.positions().toSet())
     }
 
     fun training(s: LearnerState, busy: Boolean, audio: AudioUiState): TrainingUiState {
@@ -60,7 +64,7 @@ object TrainingUiAdapter {
             val lines = mutableListOf("参考音 ${r.referencePitches.joinToString(" / ") { pitchLabel(it) }}")
             if (t.completion == CompletionKind.SEQUENCE) lines += if (chordVisible(a)) r.targetPitches.mapIndexed { i, p -> (if (i == a.sequenceIndex) "▸" else "") + pitchLabel(p) }.joinToString("  ")
                 else "第${(a.sequenceIndex + 1).coerceAtMost(t.sequence.size)} / ${t.sequence.size}项 · 点击范围内正确音高"
-            else if (r.ear) lines += if (a.audioReady && !audio.playing) "已播放，可作答或重听" else "完整播放后作答"
+
             RelationUiState(lines, if (r.ear) null else "试听示范", !busy && !audio.playing && s.soundEnabled)
         }
         val rule = t.sequence.getOrNull(a.sequenceIndex)
@@ -68,7 +72,7 @@ object TrainingUiAdapter {
         val controls = if (t.chord != null && string != null) ChordControlsUiState(string, "${a.sequenceIndex + 1}/${t.sequence.size}", answerable, chordVisible(a) && s.soundEnabled && !busy) else null
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
         return TrainingUiState(t.id, (if (s.practice != null) "专项 · " else "") + t.prompt, busy = busy,
-            board = if (hasBoard) board(a, FingeringMode.fromId(s.fingeringMode), busy) else null,
+            board = if (hasBoard) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
             tab = t.coordinate.takeIf { t.showTab }, notation = t.notation, notationIndex = a.sequenceIndex,
             message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = relation, chordControls = controls,
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
@@ -76,6 +80,11 @@ object TrainingUiAdapter {
             canNext = a.phase == Phase.CORRECTED && !busy,
             autoNextDelayMs = if (a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio)
+    }
+    fun displayLast(s: LearnerState): Int {
+        val introduced = Curriculum.nodes.flatMap { it.positions }.filter { "position:${it.id}" in s.introductions }
+        val last = maxOf(s.active?.task?.range?.lastFret ?: 4, introduced.maxOfOrNull { it.fret } ?: 4)
+        return when { last <= 4 -> 4; last <= 8 -> 8; last <= 12 -> 12; else -> 15 }
     }
     private fun pitchLabel(midi: Int) = "${MusicFacts.noteNames[midi % 12]}${midi / 12 - 1}"
 }

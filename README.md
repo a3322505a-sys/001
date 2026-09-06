@@ -6,7 +6,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha12（versionCode 29）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
+- 当前应用版本：**2.0.0-alpha13（versionCode 30）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。
@@ -106,3 +106,5 @@ alpha12 将当前课程释义改为“具体音名与位置 → 距离或对应�
 CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha11 属功能版本，正式包使用原长期签名，versionCode 为 28；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
 
 R7 的可用范围明确为 C 大调、A 自然小调，C/A 根音下四类三和弦；音程识别覆盖 0–12 半音，听辨覆盖同度、大二度、小三度、大三度、纯四度、纯五度和八度。后续调性、完整节奏与实琴识别不在本批完成声明中。R7 历史交付过程中执行环境曾离线，现已从远端仓库与原长期签名备份恢复。正式 APK 继续核验包名、版本和原证书；交付结果见 PR。
+
+当前增量：指板连续展开、稳定板区、训练音频去噪和离线吉他采样，见 [统一施工记录](docs/unified-training-progress.md)。真实听感与小屏显示待用户验收。

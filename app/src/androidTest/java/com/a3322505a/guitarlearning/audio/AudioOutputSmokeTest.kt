@@ -27,7 +27,7 @@ class AudioOutputSmokeTest {
             assertEquals(AudioTrack.STATE_INITIALIZED, track.state)
         } finally { track.release() }
 
-        val output = AndroidPitchPlayer()
+        val output = AndroidPitchPlayer(androidx.test.core.app.ApplicationProvider.getApplicationContext())
         val events = CopyOnWriteArrayList<PlaybackEvent>()
         val started = CountDownLatch(1)
         val completed = CountDownLatch(1)

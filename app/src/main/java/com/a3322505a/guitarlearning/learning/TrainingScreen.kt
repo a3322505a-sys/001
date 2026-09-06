@@ -36,12 +36,13 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
         val messageHeight = (maxHeight * 0.24f).coerceIn(48.dp, 88.dp)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
                     Text("‹", fontSize = 28.sp)
                 }
-                Text(state.title + if (state.canReplay) "  ♫" else if (state.audio.playing) "  ♪" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                Text(state.title + if (state.soundEnabled) "  ♫" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp,
                     modifier = Modifier.weight(1f).clickable(enabled = state.canReplay, onClickLabel = "重听题目") { onEvent(TrainingEvent.Replay) })
                 state.tab?.let { TabPrompt(it, Modifier.width(144.dp)) }
                 if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
@@ -68,12 +69,6 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
             state.chordControls?.let { ChordInputControls(it, onEvent) }
             state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
             state.notation?.let { NotationView(it, state.notationIndex, Modifier.fillMaxWidth().height(86.dp)) }
-            if (!state.soundEnabled || state.audio.message != null || state.audio.playing) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (!state.soundEnabled) "声音已关闭" else state.audio.message ?: "播放中…", fontSize = 12.sp,
-                    color = if (state.audio.failed) colors.error.ink else colors.muted, modifier = Modifier.weight(1f).heightIn(max = 40.dp).verticalScroll(rememberScrollState()))
-                if (!state.soundEnabled) TextButton(onClick = { onEvent(TrainingEvent.EnableSound) }, enabled = !state.busy) { Text("开启声音") }
-                else if (state.audio.failed) TextButton(onClick = { onEvent(TrainingEvent.RetryAudio) }, enabled = !state.busy) { Text("重试") }
-            }
             if (state.message != null) {
                 val wrong = state.wrong
                 Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
@@ -86,8 +81,8 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
             }
             if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) },
                 Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
-            if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().weight(1f))
-            else Spacer(Modifier.weight(1f))
+          }
+            if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(maxHeight * 0.48f))
         }
     }
 }

@@ -33,15 +33,21 @@ object LessonExplanations {
             return "第${target.string}弦：${MusicFacts.label(open.string, 0)}（空弦）→ ${MusicFacts.label(target.string, 12)}（12品）\n" +
                 "空弦→12品：12品，升高一个八度；音名相同，音高不同。"
         }
+        val route = positionRoute(nodeId, target)
+        return sameString(route) + "\n本题：${location(target)}。" +
+            if (target == Coordinate(3, 4)) "与第2弦空弦B3同音高。" else ""
+    }
+
+    /** Shared ordered facts for explanatory text and visible teaching references. */
+    fun positionRoute(nodeId: String, target: Coordinate): List<Coordinate> {
+        if (target.fret == 12) return listOf(Coordinate(target.string, 0), target)
         // Refer only to this lesson and earlier lessons; do not introduce a later lesson's note names.
         val nodeIndex = Curriculum.nodes.indexOfFirst { it.id == nodeId }
         val candidates = (Curriculum.nodes.take(nodeIndex + 1).flatMap { it.positions } + target)
             .filter { it.string == target.string }.distinct().sortedBy { it.fret }
         val index = candidates.indexOf(target)
         val start = (index - 1).coerceAtLeast(0).coerceAtMost((candidates.size - 3).coerceAtLeast(0))
-        val route = candidates.drop(start).take(3)
-        return sameString(route) + "\n本题：${location(target)}。" +
-            if (target == Coordinate(3, 4)) "与第2弦空弦B3同音高。" else ""
+        return candidates.drop(start).take(3)
     }
 
     fun tab(c: Coordinate): String =

@@ -19,6 +19,7 @@ class AndroidPitchPlayer(
     private val context: Context? = null,
     private val onError: (Exception) -> Unit = {},
 ) : PitchPlayer, PlaybackOutput {
+    private val sampler = GuitarSampler { root -> requireNotNull(context) { "缺少音源上下文" }.assets.open("guitar/$root.pcm").use { it.readBytes() } }
     private val executor = Executors.newSingleThreadExecutor()
     private val lock = Any()
     private class Pending(val request: PlaybackRequest, val callback: (PlaybackEvent) -> Unit) {
@@ -143,18 +144,5 @@ class AndroidPitchPlayer(
         }
     }
 
-    private fun renderPcm(pitches: List<MidiPitch>, durationMs: Int): ShortArray {
-        val count = SAMPLE_RATE * durationMs / 1000
-        val attack = SAMPLE_RATE * 12 / 1000
-        val release = SAMPLE_RATE * 45 / 1000
-        return ShortArray(count) { i ->
-            val wave = pitches.sumOf { sin(2.0 * PI * it.frequencyHz * i / SAMPLE_RATE) } / pitches.size
-            val envelope = when {
-                i < attack -> i.toDouble() / attack
-                i >= count - release -> (count - i - 1).toDouble() / release
-                else -> 1.0
-            }.coerceIn(0.0, 1.0)
-            (wave * envelope * 0.24 * Short.MAX_VALUE).toInt().toShort()
-        }
-    }
+    private fun renderPcm(pitches: List<MidiPitch>, durationMs: Int): ShortArray = sampler.render(pitches, durationMs, SAMPLE_RATE)
 }
