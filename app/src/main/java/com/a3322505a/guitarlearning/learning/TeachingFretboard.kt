@@ -29,7 +29,7 @@ private val CorrectMint = Color(0xFF73F0BB)
 private val WrongPink = Color(0xFFFF668D)
 
 @Composable
-fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordinate) -> Unit, modifier: Modifier = Modifier) {
+fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordinate) -> Unit, modifier: Modifier = Modifier, fingeringMode: FingeringMode = FingeringMode.COLORS) {
     val task = active.task
     val geometry = remember(task.range.firstFret, task.range.lastFret) { TeachingGeometry(task.range.firstFret, task.range.lastFret) }
     val reveal = task.guided || active.hintLevel >= 2 || active.phase in listOf(Phase.CORRECTING, Phase.CORRECTED)
@@ -46,6 +46,7 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
+        if (task.chord != null) ChordOverlay(active, fingeringMode, geometry, boardLeft, boardTop, boardWidth, boardHeight)
         // Drawing, targets and accessibility share the same fret and string coordinates.
         // Numbers remain available to screen readers, never as a permanent visual answer grid.
         (1..6).forEach { s -> (geometry.first..geometry.last).forEach { f ->
@@ -57,7 +58,9 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
                 .width(boardWidth * (geometry.right(f) - geometry.left(f))).height(boardHeight / 6)
                 .semantics { contentDescription = "${s}弦${if (f == 0) "空弦" else "${f}品格"}${if (correct) "，已确认" else ""}" }
                 .clickable(enabled = enabled) { onPosition(c) }, contentAlignment = Alignment.Center) {
-                if (target || correct || wrong) {
+                if (task.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
+                    fontSize = 16.sp, modifier = Modifier.align(Alignment.TopEnd).padding(2.dp))
+                if (task.chord == null && (target || correct || wrong)) {
                     val color = if (wrong) WrongPink else if (correct) CorrectMint else TargetCyan
                     val band = target && !correct && !wrong && task.constraint.kind in listOf(ConstraintKind.STRING, ConstraintKind.FRET)
                     Canvas(Modifier.fillMaxSize().padding(2.dp)) {

@@ -91,6 +91,7 @@ fun LearningApp(model: TrainingViewModel) {
                     if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:") || page.startsWith("practice:")) "‹ 返回" else "‹ 首页") }
                     Text(if (page == "home") "吉他 · 一小步" else when {
                         page.startsWith("practice:") -> "专项练习"
+                        page == "chord-examples" -> "和弦指法示例"
                         page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
@@ -103,13 +104,14 @@ fun LearningApp(model: TrainingViewModel) {
                   Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when {
                         page == "home" -> HomeContent(s, start, { page = "group:${it.name}" }, { page = "tree" }, resume)
-                        page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail, practice)
+                        page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail, practice, { page = "chord-examples" })
                         page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, detail, practice)
                         page == "tree" -> TreeContent(s, detail, { page = "history" })
                         page.startsWith("node:") -> NodeContent(s, Curriculum.node(page.substringAfter(':')), start, practice)
                         page.startsWith("practice:") -> PracticeContent(s, page.substringAfter(':').split(','), busy) { selection ->
                             model.practice(selection) { returnPage = page; page = "training" }
                         }
+                        page == "chord-examples" -> ChordExamples(s, busy, model)
                         page == "history" -> HistoryContent(s, detail)
                         page == "settings" -> SettingsContent(s, busy, model)
                     }
@@ -141,7 +143,7 @@ private fun Panel(title: String, subtitle: String? = null, onClick: (() -> Unit)
 private enum class HomeGroup(val title: String, val description: String, val categories: Set<Category>) {
     INTRO("吉他入门", "认识吉他 · 基础认识 · 读谱入门", setOf(Category.GUITAR, Category.SYMBOL, Category.READING)),
     FRETBOARD("指板训练", "音位练习与复习", setOf(Category.FRETBOARD)),
-    ADVANCED("进阶应用", "音程、音阶与和弦 · 规划中", setOf(Category.ADVANCED)),
+    ADVANCED("进阶应用", "和弦指法与结构学习", setOf(Category.ADVANCED)),
 }
 
 @Composable
@@ -174,8 +176,9 @@ private fun HomeEntry(title: String, subtitle: String, onClick: () -> Unit, acti
 }
 
 @Composable
-private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit) {
+private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit, examples: () -> Unit) {
     val colors = LocalGuitarColors.current
+    if (group == HomeGroup.ADVANCED) OutlinedButton(onClick = examples) { Text("和弦指法示例") }
     group.categories.forEach { category ->
         if (group.categories.size > 1) Text(category.title, fontWeight = FontWeight.Bold, color = colors.accent,
             modifier = Modifier.padding(top = 6.dp))
@@ -295,6 +298,9 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
         if (Curriculum.available(s, node)) Button(onClick = { start(node.id) }) { Text(if (Curriculum.mastered(s, node.id)) "开始复习" else "开始 / 继续学习") }
     }
     if (PracticeLessons.eligible(s, node)) OutlinedButton(onClick = { practice(listOf(node.id)) }) { Text("专项练习") }
+    ChordLessons.shapes(node.id).forEach { shape -> Panel("${shape.title} · 逐弦证据", "每弦最近三次独立回答均正确；开放/不弹同样逐项记录。") {
+        Text((6 downTo 1).joinToString(" · ") { string -> "${string}弦 ${MemberEvidencePolicy.evidence(s, ChordLessons.skill(shape, string)).takeLast(3).count { it.firstCorrect }}/3" }, fontSize = 13.sp)
+    } }
     if (node.id == "mapping") Panel("映射证据", "各方向分别记录；固定唱名与 C 大调级数分别过关。") {
         MappingLessons.notes.forEach { note ->
             Text("$note · 唱名 ${MappingLessons.evidence(s, note, false).takeLast(6).count { it.firstCorrect == true }}/6 · 级数 ${MappingLessons.evidence(s, note, true).takeLast(6).count { it.firstCorrect == true }}/6")
@@ -316,6 +322,7 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
     }
     val attempts = s.attempts.filter { it.task.nodeId == node.id }
     Text("记录 ${attempts.size} 次 · 提示 ${attempts.count { it.hintLevel > 0 }} 次 · 预学习 ${attempts.count { it.task.source == TaskSource.PREVIEW }} 次", fontSize = 13.sp)
+    if (attempts.any { it.members.isNotEmpty() }) Text("已回答成员 ${attempts.sumOf { it.members.size }} 项 · 独立正确 ${attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }} 项", fontSize = 13.sp)
     val p = s.progress[node.id]
     if (p?.retainedOn != null) Text("${p.retainedOn}有隔日独立正确记录。", fontSize = 13.sp)
     attempts.takeLast(6).asReversed().forEach { a -> Text("${formatTime(a.at)} · ${a.task.prompt}\n${attemptLabel(a)}", fontSize = 13.sp, color = colors.muted) }
@@ -354,6 +361,7 @@ private fun SettingsContent(s: LearnerState, busy: Boolean, model: TrainingViewM
             ThemeChoice(theme, AppTheme.fromId(s.themeId) == theme, !busy) { model.theme(theme.id) }
         }
     }
+    Panel("指法") { FingeringSettings(s, busy, model) }
     Panel("声音") {
         Row(verticalAlignment = Alignment.CenterVertically) { Text("指板声音", Modifier.weight(1f)); Switch(s.soundEnabled, { model.sound(it) }, enabled = !busy) }
         Text("训练中方向保持稳定。界面跟随系统字号，正确、错误同时用符号区分。", fontSize = 13.sp)
@@ -384,7 +392,8 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
     }
     val task = a.task
     var menuOpen by remember(task.id) { mutableStateOf(false) }
-    val hasBoard = task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null
+    var legendOpen by rememberSaveable { mutableStateOf(false) }
+    val hasBoard = task.chord != null || task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null
     val message = trainingMessage(a)
     LaunchedEffect(task.id, a.phase, busy, foreground) {
         if (a.phase == Phase.CORRECT && !busy && foreground) { delay(if (task.guided) 1200 else 650); model.next(task.id) }
@@ -406,6 +415,10 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                         Text("⋯", fontSize = 26.sp)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (task.chord != null) {
+                            DropdownMenuItem(text = { Text("手指颜色说明") }, onClick = { legendOpen = true; menuOpen = false })
+                            FingeringMode.entries.forEach { mode -> DropdownMenuItem(text = { Text("指法：${mode.title}") }, onClick = { model.fingering(mode.id); menuOpen = false }) }
+                        }
                         if (a.phase == Phase.ANSWERING && !task.guided) DropdownMenuItem(
                             text = { Text(if (a.hintLevel == 0) "提示" else "看示范") }, enabled = !busy,
                             onClick = { menuOpen = false; model.hint() })
@@ -416,6 +429,8 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                     }
                 }
             }
+            if (task.chord != null && (!s.fingerLegendSeen || legendOpen)) FingerLegend { legendOpen = false; model.legendSeen() }
+            if (task.chord != null) ChordInputControls(a, busy, model)
             if (message != null) {
                 val wrong = a.firstCorrect == false
                 Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
@@ -430,7 +445,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                 Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
             if (hasBoard) TeachingFretboard(a,
                 task.constraint.kind != ConstraintKind.SYMBOL && !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
-                { model.answer(task.id, coordinate = it) }, Modifier.fillMaxWidth().weight(1f))
+                { model.answer(task.id, coordinate = it) }, Modifier.fillMaxWidth().weight(1f), FingeringMode.fromId(s.fingeringMode))
             else Spacer(Modifier.weight(1f))
         }
     }
