@@ -15,6 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -35,7 +38,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        val fixedBoardHeight = maxHeight * 0.48f
+        val fixedBoardHeight = minOf(maxHeight * 0.54f, 280.dp)
         // Reserve the same board area across prompt, hint and correction states.
         // Only the two information panes scroll; neither can push text under the neck.
         val split = maxWidth >= 560.dp
@@ -45,9 +48,13 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
                     Text("‹", fontSize = 28.sp)
                 }
-                Text(state.title + if (state.soundEnabled) "  ♫" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    modifier = Modifier.weight(1f).clickable(enabled = state.canReplay, onClickLabel = "重听题目") { onEvent(TrainingEvent.Replay) })
-                if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
+                Text(state.title, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                    modifier = Modifier.weight(1f).semantics { contentDescription = state.accessibilityPrompt })
+                Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) {
+                    if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
+                }
+                IconButton(onClick = { onEvent(TrainingEvent.Replay) }, enabled = state.canReplay,
+                    modifier = Modifier.semantics { contentDescription = "重听题目" }) { Text("♫", fontSize = 24.sp) }
                 if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "训练菜单" }) {
@@ -73,9 +80,8 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 state.chordControls?.let { ChordInputControls(it, onEvent) }
                 if (state.hasChord && (state.showLegend || legendOpen)) FingerLegend { legendOpen = false; onEvent(TrainingEvent.LegendSeen) }
                 state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-                if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
             }
-            val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null || state.options.isNotEmpty()
+            val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null
             key(state.taskId) {
             if (split && hasContent && state.message != null) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -92,6 +98,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 }
             }
             }
+            if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
             if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }
@@ -115,7 +122,11 @@ internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifi
 @Composable
 private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val width = with(density) { options.maxOf { measurer.measure(it.value + " ✓", TextStyle(fontSize = 19.sp)).size.width }.toDp() } + 28.dp
+    BoxWithConstraints(modifier) {
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { option ->
             val confirmed = option.role == MarkRole.CORRECT
             val wrong = option.role == MarkRole.WRONG
@@ -128,13 +139,14 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
             }
             OutlinedButton(onClick = { answer(option.value) },
                 enabled = option.enabled,
-                modifier = Modifier.widthIn(min = 64.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
+                modifier = Modifier.width(minOf(maxWidth, maxOf(64.dp, width))), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = optionColors.background, contentColor = optionColors.ink,
                     disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {
                 Text(option.value + if (wrong) " ×" else if (confirmed) " ✓" else "", fontSize = 19.sp)
             }
         }
+    }
     }
 }
 

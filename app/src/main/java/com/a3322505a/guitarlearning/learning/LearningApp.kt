@@ -131,6 +131,12 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
         PilotControlsUi(run.mode,run.bpm,pilotPlaying,ShortScorePilot.role(run.clip) == PilotRole.PRACTICE,
             run.mode == PilotMode.SLOW && s.active?.phase in listOf(Phase.CORRECT,Phase.CORRECTED),pilotLoop,pilotMetronome,pilotCompare)
     }) }
+    LaunchedEffect(ui.taskId, foreground) {
+        if (foreground && ui.taskId != null) {
+            withFrameNanos { }
+            model.taskDisplayed(ui.taskId)
+        }
+    }
     LaunchedEffect(ui.taskId, ui.autoNextDelayMs, foreground) {
         if (foreground && ui.autoNextDelayMs != null) { delay(ui.autoNextDelayMs); ui.taskId?.let(model::next) }
     }

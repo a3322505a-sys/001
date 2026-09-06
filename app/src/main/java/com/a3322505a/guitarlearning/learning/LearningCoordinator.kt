@@ -24,7 +24,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
             active = null, reviewMode = false, endedSummary = null)
         val task = scheduler.next(next, now)
-        return next.copy(active = ActiveTask(task), currentNode = task.nodeId)
+        return AdaptiveEvidence.present(next.copy(currentNode = task.nodeId), task, now)
     }
 
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
@@ -38,7 +38,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val next = state.copy(currentNode = nodeId, sessionId = session.id,
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
             active = null, reviewMode = Curriculum.mastered(state, nodeId), endedSummary = null, regionTraining = null, queuedRegion = null)
-        return next.copy(active = ActiveTask(scheduler.next(next, now)))
+        return AdaptiveEvidence.present(next, scheduler.next(next, now), now)
     }
 
     fun startPractice(state: LearnerState, selection: PracticePlan, now: Long): LearnerState {
@@ -52,7 +52,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             suspendedLesson = SuspendedLesson(base.currentNode, base.sessionId, base.active, base.reviewMode),
             currentNode = selection.nodeIds.first(), sessionId = session.id, sessions = base.sessions + session,
             active = null, reviewMode = false, endedSummary = null)
-        return next.copy(active = ActiveTask(scheduler.next(next, now)))
+        return AdaptiveEvidence.present(next, scheduler.next(next, now), now)
     }
 
     private fun endPractice(state: LearnerState, now: Long): LearnerState {
@@ -64,10 +64,10 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             endedSummary = "专项完成 $count 个任务，记录已保存。")
     }
 
-    fun hint(state: LearnerState): LearnerState {
+    fun hint(state: LearnerState, now: Long = System.currentTimeMillis()): LearnerState {
         val a = state.active ?: return state
         if (a.phase != Phase.ANSWERING) return state
-        return state.copy(active = a.copy(hintLevel = (a.hintLevel + 1).coerceAtMost(2), hintRequested = true,
+        return AdaptiveEvidence.expose(state, a.task, now, true).copy(active = a.copy(hintLevel = (a.hintLevel + 1).coerceAtMost(2), hintRequested = true,
             feedback = if (a.hintLevel > 0) a.task.explanation else if (a.task.relation != null) "先看参考音和题目语境；听觉题可重复播放。再次提示可查看关系。" else if (a.task.mappingNote != null) "先分清固定唱名还是调内级数；级数要先看主音。再次提示可查看对应关系。" else "先看琴弦粗细、弦枕和定位圆点；再点一次提示可查看答案。"))
     }
 
@@ -113,6 +113,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             // For sets/sequences the first wrong member keeps the whole attempt incorrect.
             firstCorrect = if (result == ClickResult.WRONG) false else firstCorrect,
             firstAnswerAt = active.firstAnswerAt ?: now,
+            firstUnassisted = active.firstUnassisted ?: (!active.task.guided && active.hintLevel == 0 && !active.hintRequested),
             inputs = active.inputs + record, confirmed = confirmed, sequenceIndex = sequenceIndex,
             feedback = when (result) {
                 ClickResult.WRONG -> AnswerEvaluator.wrongFeedback(active.task, coordinate, active.sequenceIndex)
@@ -123,16 +124,18 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val completed = phase in listOf(Phase.CORRECT, Phase.CORRECTED)
         val old = state.attempts.firstOrNull { it.task.id == active.task.id }
         val ordinal = old?.ordinal ?: (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
-        val independent = MasteryPolicy.independent(state, changed, ordinal) && active.task.completion == CompletionKind.SINGLE
+        val independent = MasteryPolicy.independent(state, changed, ordinal) && active.task.completion == CompletionKind.SINGLE && active.task.adaptive?.options?.isNotEmpty() != true
         val attempt = Attempt(active.task, requireNotNull(state.sessionId), ordinal, old?.at ?: now,
             old?.localDay ?: Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString(),
             changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent,
             curriculumVersion = if (active.task.nodeId in FurtherLessons.ids) 8 else 7, policyVersion = 2, audioPlayed = active.audioReady,
-            members = MemberEvidencePolicy.record(state, active, old, result, coordinate, now))
+            members = MemberEvidencePolicy.record(state, active, old, result, coordinate, now),
+            firstUnassisted = old?.firstUnassisted ?: changed.firstUnassisted)
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,
             introductions = if (completed && active.task.introductionId != null) state.introductions + active.task.introductionId else state.introductions)
-        return MasteryPolicy.update(updated, now, attempt.localDay)
+        val exposed = if (old == null || completed && !old.completed) AdaptiveEvidence.expose(updated, active.task, now, explanation = result == ClickResult.WRONG || active.task.guided) else updated
+        return AdaptiveMix.transition(AdaptiveTraining.transition(MasteryPolicy.update(exposed, now, attempt.localDay), now), now)
     }
 
     fun next(state: LearnerState, expectedTaskId: String, now: Long): LearnerState {
@@ -143,14 +146,14 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         if (state.practice == null && state.queuedRegion != null) return activateRegion(changed, state.queuedRegion, now)
         if (state.practice == null && state.regionTraining != null) {
             val task = scheduler.next(changed, now)
-            return changed.copy(active = ActiveTask(task), currentNode = task.nodeId)
+            return AdaptiveEvidence.present(changed.copy(currentNode = task.nodeId), task, now)
         }
         if (state.practice == null && !state.reviewMode && Curriculum.mastered(state, state.currentNode)) {
             val next = Curriculum.next(state)
             if (next == null) return end(changed, now, "首轮学习已完成。可以从知识树复习；后续课程会逐步补齐。")
             changed = changed.copy(currentNode = next.id)
         }
-        return changed.copy(active = ActiveTask(scheduler.next(changed, now)))
+        return AdaptiveEvidence.present(changed, scheduler.next(changed, now), now)
     }
 
     fun end(state: LearnerState, now: Long, summary: String? = null): LearnerState {

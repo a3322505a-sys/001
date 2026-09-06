@@ -22,7 +22,7 @@ internal object LearningPageAdapter {
         return NodeRowUi(n.id, n.title, status, current,
             if (status == NodeVisualState.MASTERED && n.id == "g00") "已认识" else if (current && s.practice != null) "专项练习中" else status.label,
             if (available) if (Curriculum.mastered(s, n.id)) "复习" else if (current) "继续" else "学习" else null,
-            n.prerequisites.joinToString("、") { Curriculum.node(it).title })
+            n.prerequisites.filterNot { Curriculum.mastered(s, it) }.joinToString("、") { Curriculum.node(it).title })
     }
     fun home(s: LearnerState): List<HomeEntryUi> {
         val current = if (s.sessionId != null) Curriculum.node(s.currentNode) else Curriculum.next(s)
@@ -30,7 +30,7 @@ internal object LearningPageAdapter {
             val active = current?.takeIf { it.category in group.categories }
             HomeEntryUi(group.name, group.title, active?.let { "当前：${it.title}" } ?: group.description,
                 if (s.regionTraining != null) "继续训练" else if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)
-        } + HomeEntryUi("tree", "知识树", "${s.progress.count { it.value.masteredAt != null }} 个节点已点亮")
+        } + HomeEntryUi("tree", "知识树", "按能力查看学习进展")
     }
     fun catalog(s: LearnerState, categories: Set<Category>, examples: Boolean = false) = CatalogUiState(categories.map { category ->
         if (category == Category.FRETBOARD) CatalogSectionUi(null, regions = FretboardRegion.entries.map { region ->
@@ -39,35 +39,26 @@ internal object LearningPageAdapter {
                 if (RegionTraining.available(s, region.name)) if (RegionSessions.active(s) && s.regionTraining?.regionId == region.name && s.active != null || s.pausedRegions[region.name]?.active != null) "继续" else "开始" else null)
         }) else CatalogSectionUi(category.title.takeIf { categories.size > 1 }, Curriculum.nodes.filter { it.category == category }.map { row(s, it) })
     }, examples)
-    fun tree(s: LearnerState) = Curriculum.nodes.map { row(s, it) }
+    fun tree(s: LearnerState) = CapabilityGroups.all().map { capabilityRow(s, it) }
+    private fun capabilityRow(s: LearnerState, group: CapabilityGroup): NodeRowUi {
+        val node = CapabilityGroups.next(s, group)
+        val base = row(s, node)
+        val available = group.nodeIds.any { Curriculum.available(s, Curriculum.node(it)) }
+        val historical = group.nodeIds.all { Curriculum.mastered(s, it) }
+        val region = group.region
+        return base.copy(title = group.title,
+            status = if (!available) NodeVisualState.LOCKED else if (base.current) NodeVisualState.CURRENT else if (historical && region == null) NodeVisualState.MASTERED else NodeVisualState.AVAILABLE,
+            statusLabel = region?.progressLabel(s) ?: if (historical) "已学过 · 可复习" else base.statusLabel,
+            prerequisites = node.prerequisites.filterNot { Curriculum.mastered(s, it) }.map { CapabilityGroups.forNode(it).title }.distinct().joinToString("、"))
+    }
     fun node(s: LearnerState, n: CurriculumNode): NodeDetailUiState {
-        val panels = mutableListOf<InfoPanelUi>()
-        ChordLessons.shapes(n.id).forEach { shape -> panels += InfoPanelUi("${shape.title} · 逐弦证据", "每弦最近三次独立回答均正确；开放/不弹同样逐项记录。",
-            listOf((6 downTo 1).joinToString(" · ") { string -> "${string}弦 ${MemberEvidencePolicy.evidence(s, ChordLessons.skill(shape, string)).takeLast(3).count { it.firstCorrect }}/3" })) }
-        if (n.id == "mapping") panels += InfoPanelUi("映射证据", "各方向分别记录；固定唱名与 C 大调级数分别过关。",
-            MappingLessons.notes.map { note -> "$note · 唱名 ${MappingLessons.evidence(s, note, false).takeLast(6).count { it.firstCorrect == true }}/6 · 级数 ${MappingLessons.evidence(s, note, true).takeLast(6).count { it.firstCorrect == true }}/6" } +
-                MappingLessons.directions.map { direction -> "${MappingLessons.directionLabel(direction)}：独立正确 ${s.attempts.count { it.independent && it.firstCorrect == true && it.task.direction == direction }} 次" })
-        if (n.id in ReadingLessons.ids || n.id in StructureLessons.ids) {
-            val keys = if (n.id in ReadingLessons.ids) ReadingLessons.skills(n.id) else StructureLessons.keys(n.id)
-            panels += InfoPanelUi("掌握依据", "各项目最近三次有效独立回答均正确；提示和示范不计入。",
-                listOf("已达标 ${keys.count { StructureLessons.keyPassed(s, it) }} / ${keys.size} 项；顺序成员分别记录。") +
-                    if (n.id.startsWith("ear-")) listOf("仅完整播放后接受作答；回放不透露选项答案，提示仍按辅助记录。") else emptyList())
-        }
-        n.positions.forEach { c ->
-            val recent = MasteryPolicy.positionEvidence(s, c).takeLast(6)
-            panels += InfoPanelUi("${c.label} · ${MusicFacts.label(c.string, c.fret)}", lines = listOf(
-                "有效独立回答 ${recent.size}/6，最近正确 ${recent.count { it.firstCorrect == true }}/${recent.size}",
-                "找位置 ${recent.count { it.task.direction == Direction.NOTE_TO_POSITION }} 次 · 看位置认音 ${recent.count { it.task.direction == Direction.POSITION_TO_NOTE }} 次",
-                if (MasteryPolicy.positionPassed(s, c)) "该音位达到初步掌握条件" else "需要两个方向都独立作答；示范、提示和预学习不用于过关。"))
-        }
-        val attempts = s.attempts.filter { it.task.nodeId == n.id }
-        val records = mutableListOf("记录 ${attempts.size} 次 · 提示 ${attempts.count { it.hintLevel > 0 }} 次 · 预学习 ${attempts.count { it.task.source == TaskSource.PREVIEW }} 次")
-        if (attempts.any { it.members.isNotEmpty() }) records += "已回答成员 ${attempts.sumOf { it.members.size }} 项 · 独立正确 ${attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }} 项"
-        s.progress[n.id]?.retainedOn?.let { records += "${it}有隔日独立正确记录。" }
-        records += attempts.takeLast(6).asReversed().map { "${formatTime(it.at)} · ${it.task.prompt}\n${attemptLabel(it)}" }
-        return NodeDetailUiState(row(s, n), n.description,
-            if (Curriculum.available(s, n)) if (RegionTraining.owner(n.id) != null) "进入${RegionTraining.owner(n.id)!!.title}训练" else if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
-            RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records + s.physicalReports.filter { it.lessonId == n.id }.takeLast(4).map { "实琴自评 · ${it.exerciseId} · ${it.rating}" }, PhysicalPractice.exercises(n.id))
+        val group = CapabilityGroups.forNode(n.id)
+        val next = CapabilityGroups.next(s, group)
+        val history = InfoPanelUi("历史课程", lines = listOf("已通过 ${group.nodeIds.count { Curriculum.mastered(s, it) }}/${group.nodeIds.size}"))
+        return NodeDetailUiState(capabilityRow(s, group), group.description,
+            if (Curriculum.available(s, next)) if (group.region != null) "进入${group.region.title}训练" else if (Curriculum.mastered(s, next.id)) "开始复习" else "开始 / 继续学习" else null,
+            false, listOf(history),
+            s.physicalReports.filter { it.lessonId == n.id }.takeLast(1).map { "上次实琴自评：${it.rating}" }, PhysicalPractice.exercises(n.id))
     }
     fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null || s.pausedTraining?.pilot != null,
         PilotMode.entries.associateWith { ShortScorePilot.nextClip(s) },

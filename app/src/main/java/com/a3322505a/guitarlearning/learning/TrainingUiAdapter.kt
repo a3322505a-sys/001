@@ -79,7 +79,8 @@ object TrainingUiAdapter {
         val string = rule?.coordinate?.string ?: rule?.string
         val controls = if (t.chord != null && string != null) ChordControlsUiState(string, "${a.sequenceIndex + 1}/${t.sequence.size}", answerable, chordVisible(a) && s.soundEnabled && !busy) else null
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
-        return TrainingUiState(t.id, (if (s.practice != null) "专项 · " else "") + t.prompt, busy = busy,
+        val plainRecognition = t.direction == Direction.POSITION_TO_NOTE && !t.guided && t.tonicPitchClass == null
+        return TrainingUiState(t.id, if (plainRecognition) "" else t.prompt, busy = busy,
             board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
             tab = t.coordinate.takeIf { t.showTab }, notation = t.notation ?: t.referenceScore?.notation(NotationKind.TAB), notationIndex = if(t.referenceScore != null) -1 else a.sequenceIndex,
             message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = extraRelation, chordControls = controls,
@@ -87,7 +88,8 @@ object TrainingUiAdapter {
             canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
             canNext = (a.phase == Phase.CORRECTED || t.creationDurations.isNotEmpty() && a.phase == Phase.CORRECT) && !busy,
             autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
-            soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio)
+            soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio,
+            accessibilityPrompt = if (t.adaptive?.options?.isNotEmpty() == true) (if (t.tonicPitchClass != null) "${t.prompt}：" else "") + "选择亮起位置对应的音，选项可能使用音名、固定唱名或调内级数" else t.prompt)
     }
     fun displayLast(s: LearnerState): Int {
         val introduced = Curriculum.nodes.flatMap { it.positions }.filter { "position:${it.id}" in s.introductions }

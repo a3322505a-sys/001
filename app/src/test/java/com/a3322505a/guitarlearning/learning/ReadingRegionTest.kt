@@ -36,7 +36,7 @@ class ReadingRegionTest {
         } }
         assertTrue(Curriculum.mastered(s, "middle"))
         assertFalse(Curriculum.mastered(s, "m02"))
-        assertEquals("1/8 已掌握", FretboardRegion.MIDDLE.progressLabel(s))
+        assertEquals("音位熟练度 · 评估中", FretboardRegion.MIDDLE.progressLabel(s))
     }
 
     @Test fun staffUsesActualPitchAndTabRequiresItsCoordinateAtEveryStep() {

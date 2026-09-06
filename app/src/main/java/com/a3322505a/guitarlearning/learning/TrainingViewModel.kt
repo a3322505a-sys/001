@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.a3322505a.guitarlearning.audio.*
 import com.a3322505a.guitarlearning.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -53,6 +55,8 @@ class TrainingViewModel @JvmOverloads constructor(
     private var page = "home"
     private var lastAudio: Pair<String, TaskAudio>? = null
     private var retryAction: (() -> Unit)? = null
+    private var displayedTaskId: String? = null
+    private var pendingAuto: Job? = null
 
     init { reload() }
 
@@ -102,15 +106,17 @@ class TrainingViewModel @JvmOverloads constructor(
     fun start(nodeId: String, onDone: () -> Unit) = change(onDone) { coordinator.start(it, nodeId, System.currentTimeMillis()) }
     fun region(id: String, onDone: () -> Unit) = change(onDone) { coordinator.startRegion(it, id, System.currentTimeMillis()) }
     fun practice(selection: PracticePlan, onDone: () -> Unit) = change(onDone) { coordinator.startPractice(it, selection, System.currentTimeMillis()) }
-    fun hint() = change { coordinator.hint(it) }
+    fun hint() { cancelAuto(); change { coordinator.hint(it) } }
     fun answer(taskId: String, coordinate: Coordinate? = null, symbol: String? = null) {
         if (_busy.value || !trainingVisible() || _state.value?.active?.task?.id != taskId) return
         if (_state.value?.active?.task?.relation?.ear == true && _audio.value.playing) return
-        change { if (it.active?.task?.id != taskId) it else coordinator.answer(it, coordinate, symbol, System.currentTimeMillis()) }
+        cancelAuto()
+        val inputAt = System.currentTimeMillis()
+        change { if (it.active?.task?.id != taskId) it else coordinator.answer(it, coordinate, symbol, inputAt) }
     }
     fun next(taskId: String) { if (trainingVisible()) change { coordinator.next(it, taskId, System.currentTimeMillis()) } }
     fun end(onDone: () -> Unit) { stopAudio(); change(onDone) { coordinator.end(it, System.currentTimeMillis()) } }
-    fun sound(enabled: Boolean) { if (!enabled) pausePilot(); change { it.copy(soundEnabled = enabled) } }
+    fun sound(enabled: Boolean) { if (!enabled) { cancelAuto(); pausePilot() }; change { it.copy(soundEnabled = enabled) } }
     fun fingering(id: String) = change { it.copy(fingeringMode = FingeringMode.fromId(id).id) }
     fun legendSeen() = change { it.copy(fingerLegendSeen = true) }
     fun viewChord(id: String) = change { it.copy(viewedSkills = it.viewedSkills + ("chord:$id" to (it.attempts.maxOfOrNull { a -> a.ordinal } ?: 0))) }
@@ -139,13 +145,26 @@ class TrainingViewModel @JvmOverloads constructor(
         val s = _state.value
         val owner = if (page == "training") s?.active?.task?.id else if (page == "chord-examples") "chord-examples" else null
         if (audioSession.bind(owner, _foreground.value && owner != null, s?.soundEnabled == true)) {
+            pendingAuto?.cancel(); pendingAuto = null
             player.stop(); _audio.value = AudioUiState(); _playing.value = false; lastAudio = null
         }
         val active = s?.active ?: return
-        if (!trainingVisible() || _busy.value || active.phase != Phase.ANSWERING) return
+        if (!trainingVisible() || _busy.value || active.phase != Phase.ANSWERING || displayedTaskId != active.task.id) return
         val spec = TaskAudioPolicy.prompt(active) ?: return
-        if (audioSession.claimAuto(active.task.id)) startPlayback(spec)
+        if (audioSession.claimAuto(active.task.id)) pendingAuto = viewModelScope.launch {
+            delay(400)
+            pendingAuto = null
+            val current = _state.value?.active
+            if (trainingVisible() && !_busy.value && _state.value?.soundEnabled == true && current?.task?.id == active.task.id && current.phase == Phase.ANSWERING)
+                startPlayback(spec)
+        }
     }
+    fun taskDisplayed(taskId: String) {
+        if (!trainingVisible() || _state.value?.active?.task?.id != taskId) return
+        displayedTaskId = taskId
+        syncAudio()
+    }
+    private fun cancelAuto() { pendingAuto?.cancel(); pendingAuto = null; _state.value?.active?.task?.id?.let { audioSession.markPrompt(it) } }
     fun positionTapped(tap: PositionTapped) {
         val s = _state.value ?: return
         val a = s.active?.takeIf { it.task.id == tap.viewId && trainingVisible() } ?: return
@@ -179,6 +198,7 @@ class TrainingViewModel @JvmOverloads constructor(
         startPlayback(previous.second)
     }
     private fun startPlayback(spec: TaskAudio) {
+        cancelAuto()
         if (!audioSession.visible || !audioSession.enabled) return
         val owner = audioSession.owner ?: return
         val id = audioSession.begin() ?: return
@@ -227,7 +247,7 @@ class TrainingViewModel @JvmOverloads constructor(
             }
         }
     }
-    fun stopAudio() { audioSession.invalidate(); player.stop(); _audio.value = AudioUiState(); _playing.value = false }
+    fun stopAudio() { cancelAuto(); audioSession.invalidate(); player.stop(); _audio.value = AudioUiState(); _playing.value = false }
     fun foreground(active: Boolean) {
         capturePilotTime(); _foreground.value = active
         if (!active) pausePilot()
@@ -346,5 +366,5 @@ class TrainingViewModel @JvmOverloads constructor(
         }
     }
 
-    override fun onCleared() { pilotPlayer.release(); audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
+    override fun onCleared() { pendingAuto?.cancel(); pilotPlayer.release(); audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
 }

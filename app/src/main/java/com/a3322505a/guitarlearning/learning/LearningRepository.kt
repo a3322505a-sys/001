@@ -58,6 +58,10 @@ object LearningCodec {
         require(state.sessions.map { it.id }.distinct().size == state.sessions.size)
         require(state.attempts.all { a -> a.ordinal > 0 && state.sessions.any { it.id == a.sessionId } })
         require(state.pilotResults.map { it.mode to it.clip }.distinct().size == state.pilotResults.size)
+        require(state.knowledgeExposures.distinct().size == state.knowledgeExposures.size)
+        require(state.knowledgeExposures.all { it.taskId.isNotBlank() && it.target.isNotBlank() && it.at >= 0 })
+        require(state.weakPoints.all { (key, point) -> key == point.unit && point.target.isNotBlank() && point.observedAt >= 0 &&
+            (point.confirmedAt == null || point.confirmedAt >= point.observedAt) && (point.resolvedAt == null || point.resolvedAt >= point.observedAt) })
         val paused = listOfNotNull(state.pausedTraining) + state.pausedRegions.values
         require(state.pausedRegions.all { (id, p) -> id in FretboardRegion.entries.map { it.name } && p.regionTraining?.regionId == id && p.practice == null && p.pilot == null })
         val contexts = listOf(state) + paused.map { RegionSessions.restore(state, it) }
@@ -84,6 +88,28 @@ object LearningCodec {
             }
             require(task.targetSkillIds.isEmpty() || task.targetSkillIds.size == task.sequence.size)
             require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
+            require(task.evidenceVersion >= 0)
+            task.adaptive?.let { adaptive ->
+                require(adaptive.stage in 0..3 && adaptive.config.isNotBlank())
+                if (adaptive.options.isNotEmpty()) {
+                    require(task.direction == Direction.POSITION_TO_NOTE && task.coordinate != null && task.completion == CompletionKind.SINGLE)
+                    require(adaptive.options.map { it.label } == task.options)
+                    require(adaptive.options.map { it.pitchClass }.distinct().size == adaptive.options.size && adaptive.options.size >= 2)
+                    require(adaptive.options.map { it.label }.distinct().size == adaptive.options.size)
+                    require(adaptive.options.all { it.pitchClass in 0..11 })
+                    require(adaptive.options.all { option ->
+                        val note = com.a3322505a.guitarlearning.core.MusicFacts.noteNames[option.pitchClass]
+                        option.label == when (option.representation) {
+                            AnswerRepresentation.NOTE -> note
+                            AnswerRepresentation.FIXED -> com.a3322505a.guitarlearning.core.MusicFacts.fixedSolfege[note]
+                            AnswerRepresentation.DEGREE -> task.tonicPitchClass?.let { com.a3322505a.guitarlearning.core.MusicFacts.majorDegree(option.pitchClass, it)?.toString() }
+                        }
+                    })
+                    val answer = adaptive.options.single { it.pitchClass == com.a3322505a.guitarlearning.core.MusicFacts.midi(task.coordinate.string, task.coordinate.fret) % 12 }
+                    require(task.constraint.symbol == answer.label && adaptive.correctRepresentation == answer.representation)
+                    require(adaptive.options.none { it.representation == AnswerRepresentation.DEGREE } || task.tonicPitchClass != null && task.tonalMode == "major")
+                }
+            }
             if (task.direction in MappingLessons.directions) {
                 require(task.mappingNote in MappingLessons.notes)
                 if (task.direction in MappingLessons.degreeDirections) require(task.tonicPitchClass != null && task.tonalMode == "major")
@@ -91,6 +117,7 @@ object LearningCodec {
         }
         state.attempts.forEach { a ->
             require(a.task.relation?.ear != true || !a.independent || a.audioPlayed)
+            require(a.task.relation?.ear != true || a.firstUnassisted != true || a.audioPlayed)
             require(a.members.map { it.index }.distinct().size == a.members.size)
             require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
         }
@@ -113,6 +140,11 @@ object LearningCodec {
         }
         state.regionTraining?.let { run ->
             require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
+            require(run.adaptive.generation >= 0 && run.adaptive.sinceOrdinal >= 0 && run.adaptive.diagnosisSince >= 0 && run.adaptive.mixStage in 0..3)
+            require(AnswerRepresentation.NOTE !in run.adaptive.excluded)
+            require(run.adaptive.representatives.distinct().size == run.adaptive.representatives.size && run.adaptive.representatives.all { it.fret <= 4 })
+            require(run.adaptive.focus.distinct().size == run.adaptive.focus.size)
+            require(run.adaptive.representationTrials.values.all { it > 0 })
         }
         require(state.queuedRegion == null || state.queuedRegion in FretboardRegion.entries.map { it.name })
         state.practice?.let { plan ->

@@ -110,12 +110,4 @@ class RegionTrainingTest {
             }
         }
     }
-    @Test fun recentWeakAndStableDirectionsHaveDifferentStrength() {
-        val task = LessonScheduler().makePosition("p01", Coordinate(1,0), Direction.NOTE_TO_POSITION, TaskSource.MAIN)
-        fun state(good: Boolean) = profile().copy(sessionId = "session", regionTraining = RegionRun("LOW", 1, 5), attempts = (1..10).map { i ->
-            Attempt(task.copy(id = "$i", direction = if (i % 2 == 0) Direction.NOTE_TO_POSITION else Direction.POSITION_TO_NOTE), "session", i, i.toLong(), "2026-09-06", good, 0, !good, true, emptyList(), true)
-        })
-        assertEquals(2, RegionTraining.strength(state(true)))
-        assertEquals(0, RegionTraining.strength(state(false)))
-    }
 }

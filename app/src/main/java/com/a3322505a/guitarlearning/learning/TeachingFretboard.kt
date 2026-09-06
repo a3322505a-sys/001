@@ -7,9 +7,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -23,6 +27,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.DpSize
 import kotlin.math.sin
 
 private val TargetCyan = Color(0xFF45DEFF)
@@ -33,13 +38,18 @@ private val WrongPink = Color(0xFFFF668D)
 @Composable
 fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> Unit, modifier: Modifier = Modifier) {
     val geometry = remember(state.firstFret, state.lastFret) { TeachingGeometry(state.firstFret, state.lastFret) }
+    val inherited = LocalViewConfiguration.current
+    val hitConfiguration = remember(inherited) { object : ViewConfiguration by inherited {
+        override val minimumTouchTargetSize = DpSize.Zero
+    } }
+    CompositionLocalProvider(LocalViewConfiguration provides hitConfiguration) {
     BoxWithConstraints(modifier) {
         val availableWidth = maxWidth
         val availableHeight = maxHeight
-        val boardLeft = if (geometry.first == 0) 72.dp else 0.dp
+        val boardLeft = if (geometry.first == 0) minOf(96.dp, availableHeight * 0.48f) else 0.dp
         val minimumWidth = 40.dp / (geometry.right(geometry.last) - geometry.left(geometry.last))
         val boardWidth = maxOf(availableWidth - boardLeft, minimumWidth)
-        val boardHeight = minOf(144.dp, availableHeight * 0.78f)
+        val boardHeight = availableHeight * 0.88f
         val boardTop = (availableHeight - boardHeight) / 2
         // One continuous viewport: never scroll to a hidden answer when a task changes.
         Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
@@ -70,14 +80,14 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
                             drawRect(color.copy(alpha = 0.32f))
                             drawRect(color, style = Stroke(2.dp.toPx()))
                         } else {
-                            val radius = (minOf(size.width, size.height) * 0.40f).coerceAtMost(15.dp.toPx())
+                            val radius = (minOf(size.width, size.height) * 0.43f).coerceAtMost(20.dp.toPx())
                             drawCircle(Color.Black.copy(alpha = 0.6f), radius + 3.dp.toPx())
                             drawCircle(Color.White, radius + 1.5.dp.toPx())
                             drawCircle(color, radius)
                         }
                     }
                     val symbol = mark?.label.orEmpty()
-                    if (symbol.isNotEmpty()) Text(symbol, color = MarkerInk, fontSize = 15.sp)
+                    if (symbol.isNotEmpty()) Text(symbol, color = MarkerInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
         } }
@@ -91,6 +101,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
     }
     }
   }
+  }
 }
 
 /** A native drawing, so wood, hardware and interactive marks scale together without bitmap blur. */
@@ -103,7 +114,7 @@ private fun DrawScope.drawInstrument(g: TeachingGeometry, left: Float, top: Floa
     drawRect(Color.Black.copy(alpha = 0.17f), Offset(nut, top + 4.dp.toPx()), Size(end - nut, height))
     drawRect(Color(0xFFC59D62), Offset(nut, top - 2.dp.toPx()), Size(end - nut, height + 4.dp.toPx()))
     drawPath(board, Brush.verticalGradient(listOf(Color(0xFF35251F), Color(0xFF51352A), Color(0xFF30221E)), top, bottom))
-    clipPath(board) { woodGrain(nut, top, end - nut, height, Color(0xFFC48D57).copy(alpha = 0.15f)) }
+    clipPath(board) { woodGrain(nut, top, end - nut, height, Color(0xFFC48D57).copy(alpha = 0.08f)) }
     drawLine(Color(0xFF977A51), Offset(nut, top), Offset(end, top), 1.dp.toPx())
     drawLine(Color(0xFF211812), Offset(nut, bottom), Offset(end, bottom), 2.dp.toPx())
 
@@ -148,7 +159,7 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
     val bottom = top + height
     val head = Path().apply {
         moveTo(nut, top)
-        cubicTo(nut * 0.85f, top, nut * 0.81f, top - height * 0.12f, nut * 0.68f, top - height * 0.10f)
+        cubicTo(nut * 0.85f, top, nut * 0.81f, top - height * 0.05f, nut * 0.68f, top - height * 0.04f)
         cubicTo(nut * 0.46f, top + height * 0.10f, nut * 0.20f, top + height * 0.40f, nut * 0.07f, top + height * 0.69f)
         cubicTo(nut * -0.02f, bottom, nut * 0.14f, bottom + height * 0.06f, nut * 0.28f, bottom)
         cubicTo(nut * 0.50f, bottom - height * 0.10f, nut * 0.63f, bottom - height * 0.02f, nut * 0.76f, bottom)
@@ -156,13 +167,13 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
         close()
     }
     drawPath(head, Brush.verticalGradient(listOf(Color(0xFFE5C48D), Color(0xFFC49555), Color(0xFFE3BD7B)), top, bottom))
-    clipPath(head) { woodGrain(0f, top, nut, height, Color(0xFF795027).copy(alpha = 0.25f)) }
+    clipPath(head) { woodGrain(0f, top, nut, height, Color(0xFF795027).copy(alpha = 0.12f)) }
     drawPath(head, Color(0xFF916337), style = Stroke(1.4.dp.toPx()))
     val postRadius = minOf(5.5.dp.toPx(), height / 28, nut / 24)
     (1..6).forEach { s ->
-        val x = nut * (0.14f + (6 - s) * 0.112f)
+        val x = left * (0.18f + (6 - s) * 0.125f)
         val y = top + height * (s - 0.5f) / 6
-        val keyX = x - nut * 0.10f
+        val keyX = maxOf(postRadius * 1.7f, x - left * 0.10f)
         val keyY = y - height * 0.075f
         val metal = Brush.linearGradient(listOf(Color(0xFF70787A), Color(0xFFF1F4F4), Color(0xFF8B959B)), Offset(keyX - postRadius, keyY), Offset(keyX + postRadius, y))
         drawLine(Color(0xFF71797D), Offset(keyX, keyY), Offset(x, y), postRadius * 1.1f)
@@ -178,11 +189,11 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
 }
 
 private fun DrawScope.woodGrain(left: Float, top: Float, width: Float, height: Float, color: Color) {
-    repeat(28) { row ->
+    repeat(16) { row ->
         val path = Path()
         repeat(25) { step ->
             val x = left + width * step / 24
-            val y = top + height * (row + 0.5f) / 28 + sin(step * 0.45f + row * 1.7f) * height * 0.008f
+            val y = top + height * (row + 0.5f) / 16 + sin(step * 0.45f + row * 1.7f) * height * 0.008f
             if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         drawPath(path, color, style = Stroke(if (row % 4 == 0) 0.9.dp.toPx() else 0.45.dp.toPx()))

@@ -24,6 +24,12 @@ object AnswerEvaluator {
 
     fun evaluate(active: ActiveTask, coordinate: Coordinate?, symbol: String?): ClickResult {
         val task = active.task
+        if (task.adaptive?.options?.isNotEmpty() == true && symbol != null) {
+            val selected = task.adaptive.options.firstOrNull { it.label == symbol } ?: return ClickResult.OUTSIDE
+            val target = requireNotNull(task.coordinate)
+            if (selected.pitchClass != MusicFacts.midi(target.string, target.fret) % 12) return ClickResult.WRONG
+            return if (active.phase == Phase.CORRECTING) ClickResult.CORRECTION else ClickResult.CORRECT
+        }
         if (coordinate != null && !task.range.contains(coordinate)) return ClickResult.OUTSIDE
         if (coordinate != null && task.completion == CompletionKind.SET && coordinate in active.confirmed) return ClickResult.REPEATED
         val rule = if (task.completion == CompletionKind.SEQUENCE) task.sequence.getOrNull(active.sequenceIndex) ?: return ClickResult.REPEATED else task.constraint

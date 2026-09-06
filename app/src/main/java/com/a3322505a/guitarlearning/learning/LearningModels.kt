@@ -80,6 +80,8 @@ data class LearningTask(
     val chordProgression: List<List<Int>> = emptyList(),
     val auditoryScore: ShortScore? = null,
     val referenceScore: ShortScore? = null,
+    val evidenceVersion: Int = 0,
+    val adaptive: AdaptiveTask? = null,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -106,6 +108,7 @@ data class ActiveTask(
     val feedback: String = "",
     val hintRequested: Boolean = false,
     val audioReady: Boolean = false,
+    val firstUnassisted: Boolean? = null,
 )
 
 @Serializable
@@ -125,6 +128,7 @@ data class Attempt(
     val policyVersion: Int = 1,
     val members: List<TargetEvidence> = emptyList(),
     val audioPlayed: Boolean = false,
+    val firstUnassisted: Boolean? = null,
 )
 
 @Serializable
@@ -144,7 +148,7 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 @Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
 @Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)
 
-@Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int)
+@Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int, val adaptive: AdaptiveRun = AdaptiveRun())
 
 /** Paused task context only; attempts, progress and material exposure remain in the one profile. */
 @Serializable data class PausedTraining(
@@ -184,6 +188,8 @@ data class LearnerState(
     val physicalReports: List<PhysicalReport> = emptyList(),
     val pausedTraining: PausedTraining? = null,
     val pausedRegions: Map<String, PausedTraining> = emptyMap(),
+    val knowledgeExposures: List<KnowledgeExposure> = emptyList(),
+    val weakPoints: Map<String, WeakPoint> = emptyMap(),
 )
 
 data class CurriculumNode(
