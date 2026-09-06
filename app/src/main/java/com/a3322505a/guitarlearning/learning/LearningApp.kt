@@ -78,6 +78,7 @@ fun LearningApp(model: TrainingViewModel) {
                     if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:") || page.startsWith("practice:")) "‹ 返回" else "‹ 首页") }
                     Text(if (page == "home") "吉他 · 一小步" else when {
                         page.startsWith("practice:") -> "专项练习"
+                        page == "score-pilot" -> "短谱试用"
                         page == "chord-examples" -> "和弦指法示例"
                         page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
@@ -89,7 +90,9 @@ fun LearningApp(model: TrainingViewModel) {
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 pageStates.SaveableStateProvider(page) {
                   Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (page in listOf("group:INTRO","category:READING")) OutlinedButton(onClick = { page = "score-pilot" }) { Text("短谱试用 · 8段") }
                     when {
+                        page == "score-pilot" -> PilotMenu(LearningPageAdapter.pilot(s)) { mode -> model.startPilot(mode) { returnPage = "score-pilot"; page = "training" } }
                         page == "home" -> HomeContent(LearningPageAdapter.home(s), { page = if (it == "tree") "tree" else "group:$it" }, start, resume)
                         page.startsWith("group:") -> CatalogContent(LearningPageAdapter.catalog(s, HomeGroup.valueOf(page.substringAfter(':')).categories, page == "group:ADVANCED"), start, detail, practice, { page = "chord-examples" })
                         page.startsWith("category:") -> CatalogContent(LearningPageAdapter.catalog(s, setOf(Category.valueOf(page.substringAfter(':')))), start, detail, practice, { page = "chord-examples" })
@@ -120,7 +123,14 @@ fun LearningApp(model: TrainingViewModel) {
 private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewModel, onBack: () -> Unit, onEnd: () -> Unit) {
     val foreground by model.foreground.collectAsState()
     val audio by model.audio.collectAsState()
-    val ui = TrainingUiAdapter.training(s, busy, audio)
+    val pilotPlaying by model.pilotPlaying.collectAsState()
+    val pilotLoop by model.pilotLoop.collectAsState()
+    val pilotCompare by model.pilotCompare.collectAsState()
+    val pilotMetronome by model.pilotMetronome.collectAsState()
+    val ui = TrainingUiAdapter.training(s, busy, audio).let { base -> base.copy(pilot = s.pilot?.let { run ->
+        PilotControlsUi(run.mode,run.bpm,pilotPlaying,ShortScorePilot.role(run.clip) == PilotRole.PRACTICE,
+            run.mode == PilotMode.SLOW && s.active?.phase in listOf(Phase.CORRECT,Phase.CORRECTED),pilotLoop,pilotMetronome,pilotCompare)
+    }) }
     LaunchedEffect(ui.taskId, ui.autoNextDelayMs, foreground) {
         if (foreground && ui.autoNextDelayMs != null) { delay(ui.autoNextDelayMs); ui.taskId?.let(model::next) }
     }
@@ -132,6 +142,12 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
             is TrainingEvent.Position -> model.positionTapped(event.tap)
             is TrainingEvent.Answer -> model.answer(id, symbol = event.symbol)
             is TrainingEvent.Fingering -> model.fingering(event.id)
+            TrainingEvent.PilotPlay -> model.playPilot()
+            is TrainingEvent.PilotFinish -> model.finishPilot(event.rating,event.comment,onBack)
+            is TrainingEvent.PilotTempo -> model.pilotTempo(event.bpm)
+            TrainingEvent.PilotLoop -> model.togglePilotLoop()
+            TrainingEvent.PilotCompare -> model.togglePilotCompare()
+            TrainingEvent.PilotMetronome -> model.togglePilotMetronome()
             TrainingEvent.Replay -> model.replay(id)
             TrainingEvent.RetryAudio -> model.retryAudio(id)
             TrainingEvent.Demonstrate -> model.demonstrate(id)

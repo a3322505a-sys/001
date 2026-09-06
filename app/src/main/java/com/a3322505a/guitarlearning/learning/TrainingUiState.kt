@@ -52,11 +52,18 @@ data class TrainingUiState(
     val soundEnabled: Boolean = true,
     val canReplay: Boolean = false,
     val audio: AudioUiState = AudioUiState(),
+    val pilot: PilotControlsUi? = null,
 )
 sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
     data class Answer(val symbol: String) : TrainingEvent
     data class Fingering(val id: String) : TrainingEvent
+    data object PilotPlay : TrainingEvent
+    data class PilotFinish(val rating: String?, val comment: String) : TrainingEvent
+    data class PilotTempo(val bpm: Int) : TrainingEvent
+    data object PilotLoop : TrainingEvent
+    data object PilotCompare : TrainingEvent
+    data object PilotMetronome : TrainingEvent
     data object RetryAudio : TrainingEvent
     data object Replay : TrainingEvent
     data object Demonstrate : TrainingEvent

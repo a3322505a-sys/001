@@ -55,6 +55,22 @@ class AndroidPitchPlayer(
                     if (!isCurrent(work)) return@execute
                     val manager = context?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
                     check(manager == null || manager.getStreamVolume(AudioManager.STREAM_MUSIC) > 0) { "媒体音量为 0，请调节媒体音量后重试" }
+                    if (request.events.isNotEmpty()) {
+                        val endMs = request.events.maxOf { it.onsetMs + it.durationMs }
+                        require(request.startAtMs < endMs)
+                        val whole = IntArray((SAMPLE_RATE.toLong() * endMs / 1000).toInt())
+                        request.events.filter { it.pitches.isNotEmpty() }.forEach { event ->
+                            val pcm = sampler.render(event.pitches.map(::MidiPitch), event.durationMs)
+                            val offset = (SAMPLE_RATE.toLong() * event.onsetMs / 1000).toInt()
+                            pcm.forEachIndexed { i, value -> if (offset + i < whole.size) whole[offset + i] += value.toInt() }
+                        }
+                        val peak = whole.maxOf { kotlin.math.abs(it) }.coerceAtLeast(1)
+                        val gain = minOf(1.0, 30146.0 / peak)
+                        val first = (SAMPLE_RATE.toLong() * request.startAtMs / 1000).toInt()
+                        val pcm = ShortArray(whole.size - first) { (whole[it + first] * gain).toInt().toShort() }
+                        if (playBuffer(pcm, work, endMs - request.startAtMs)) synchronized(lock) { if (isCurrent(work)) finish(work, PlaybackStatus.COMPLETED) }
+                        return@execute
+                    }
                     val tones = request.cues.flatMap { cue ->
                         if (cue.style == PitchPlaybackStyle.CHORD) listOf(cue.pitches) else cue.pitches.map { listOf(it) }
                     }
@@ -72,6 +88,8 @@ class AndroidPitchPlayer(
             }
         }
     }
+
+    override fun positionMs(): Int = synchronized(lock) { (pending?.request?.startAtMs ?: 0) + ((activeTrack?.playbackHeadPosition?.toLong()?.and(0xffffffffL) ?: 0L) * 1000 / SAMPLE_RATE).toInt() }
 
     override fun stop() { synchronized(lock) { cancelCurrent() } }
     override fun release() {
@@ -100,6 +118,9 @@ class AndroidPitchPlayer(
     private fun playTone(pitches: List<MidiPitch>, work: Pending): Boolean {
         if (!isCurrent(work)) return false
         val pcm = renderPcm(pitches, work.request.toneDurationMs)
+        return playBuffer(pcm, work, work.request.toneDurationMs)
+    }
+    private fun playBuffer(pcm: ShortArray, work: Pending, durationMs: Int): Boolean {
         val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
@@ -125,7 +146,7 @@ class AndroidPitchPlayer(
             val start = SystemClock.elapsedRealtime()
             while (isCurrent(work)) {
                 val frames = track.playbackHeadPosition.toLong() and 0xffffffffL
-                when (playbackProgress(frames, pcm.size, SystemClock.elapsedRealtime() - start, work.request.toneDurationMs + 2500L)) {
+                when (playbackProgress(frames, pcm.size, SystemClock.elapsedRealtime() - start, durationMs + 2500L)) {
                     PlaybackStatus.COMPLETED -> {
                         Log.d("GuitarAudio", "request=${work.request.requestId} frames=$frames/${pcm.size} route=${track.routedDevice?.type}")
                         return isCurrent(work)

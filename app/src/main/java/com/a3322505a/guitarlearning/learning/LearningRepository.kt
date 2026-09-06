@@ -60,6 +60,16 @@ object LearningCodec {
         require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
         require(state.active == null || state.sessionId != null)
         require((state.practice == null) == (state.suspendedLesson == null))
+        require((state.pilot == null) == (state.pilotSuspended == null))
+        state.pilot?.let { run ->
+            require(run.clip in 0..7 && run.bpm in 40..80 && run.elapsedMs >= 0 && run.playbackMs >= 0)
+            require(state.active?.task?.notation?.score == run.score)
+        }
+        require(state.pilotResults.map { it.mode to it.clip }.distinct().size == state.pilotResults.size)
+        state.pilotSuspended?.let { old ->
+            require(Curriculum.nodes.any { it.id == old.currentNode })
+            require(old.sessionId == null || state.sessions.any { it.id == old.sessionId && it.endedAt == null })
+        }
         state.regionTraining?.let { run ->
             require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
         }
@@ -73,7 +83,7 @@ object LearningCodec {
             require(lesson.sessionId == null || state.sessions.any { it.id == lesson.sessionId && it.endedAt == null })
             require(lesson.active == null || lesson.sessionId != null)
         }
-        (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task)).forEach { task ->
+        (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task, state.pilotSuspended?.active?.task)).forEach { task ->
             task.relation?.let { relation ->
                 require((task.direction == Direction.REFERENCE_EAR) == relation.ear)
                 if (task.completion == CompletionKind.SEQUENCE) require(task.sequence.map { it.midi } == relation.targetPitches)

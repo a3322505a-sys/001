@@ -69,6 +69,11 @@ internal object LearningPageAdapter {
             if (Curriculum.available(s, n)) if (RegionTraining.owner(n.id) != null) "进入${RegionTraining.owner(n.id)!!.title}训练" else if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
             RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records)
     }
+    fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null,
+        PilotMode.entries.associateWith { ShortScorePilot.nextClip(s,it) },
+        PilotMode.entries.associateWith { mode -> ShortScorePilot.nextClip(s,mode)?.let { ShortScorePilot.available(s,it) } == true },
+        s.pilotResults.map { r -> "${r.mode.title} · ${r.kind} · 第${r.clip+1}段 · ${r.elapsedMs/1000}秒 · " +
+            if(r.mode == PilotMode.GUITAR) "自评：${r.rating}" else "首次正确 ${r.firstCorrect}/${r.notes}" + if(r.assisted) "（含辅助）" else "" })
     fun history(s: LearnerState) = s.sessions.asReversed().map { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }
         InfoPanelUi(formatTime(session.startedAt), (if (session.mode == "practice") "专项 · " else "学习 · ") + if (session.endedAt == null) "进行中 / 已暂停" else "已结束",

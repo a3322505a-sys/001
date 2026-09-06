@@ -37,6 +37,19 @@ class TrainingViewModel @JvmOverloads constructor(
     private val audioSession = TrainingAudioSession()
     private val _audio = MutableStateFlow(AudioUiState())
     val audio = _audio.asStateFlow()
+    private val pilotPlayer: PlaybackOutput = AndroidPitchPlayer(application)
+    private val _pilotPlaying = MutableStateFlow(false)
+    val pilotPlaying = _pilotPlaying.asStateFlow()
+    private val _pilotLoop = MutableStateFlow(false)
+    val pilotLoop = _pilotLoop.asStateFlow()
+    private val _pilotCompare = MutableStateFlow(false)
+    val pilotCompare = _pilotCompare.asStateFlow()
+    private val _pilotMetronome = MutableStateFlow(false)
+    val pilotMetronome = _pilotMetronome.asStateFlow()
+    private var pilotRequest: String? = null
+    private var pilotClock: Long? = null
+    private var pendingPilotMs = 0L
+    private var pendingPilotPlayback: Int? = null
     private var page = "home"
     private var lastAudio: Pair<String, TaskAudio>? = null
     private var retryAction: (() -> Unit)? = null
@@ -63,11 +76,17 @@ class TrainingViewModel @JvmOverloads constructor(
         viewModelScope.launch {
             try {
                 val previous = requireNotNull(_state.value)
-                val next = operation(previous)
+                capturePilotTime()
+                val elapsed = pendingPilotMs
+                val playback = pendingPilotPlayback
+                val timed = previous.copy(pilot = previous.pilot?.let { it.copy(elapsedMs = it.elapsedMs + elapsed, playbackMs = playback ?: it.playbackMs) })
+                val next = operation(timed)
                 val saved = withContext(Dispatchers.IO) {
                     if (next == previous) previous else repository.commit(previous, next)
                 }
                 _state.value = saved
+                pendingPilotMs = (pendingPilotMs - elapsed).coerceAtLeast(0)
+                if (pendingPilotPlayback == playback) pendingPilotPlayback = null
                 _error.value = null
                 retryAction = null
                 onDone()
@@ -91,7 +110,7 @@ class TrainingViewModel @JvmOverloads constructor(
     }
     fun next(taskId: String) { if (trainingVisible()) change { coordinator.next(it, taskId, System.currentTimeMillis()) } }
     fun end(onDone: () -> Unit) { stopAudio(); change(onDone) { coordinator.end(it, System.currentTimeMillis()) } }
-    fun sound(enabled: Boolean) = change { it.copy(soundEnabled = enabled) }
+    fun sound(enabled: Boolean) { if (!enabled) pausePilot(); change { it.copy(soundEnabled = enabled) } }
     fun fingering(id: String) = change { it.copy(fingeringMode = FingeringMode.fromId(id).id) }
     fun legendSeen() = change { it.copy(fingerLegendSeen = true) }
     fun viewChord(id: String) = change { it.copy(viewedSkills = it.viewedSkills + ("chord:$id" to (it.attempts.maxOfOrNull { a -> a.ordinal } ?: 0))) }
@@ -106,7 +125,12 @@ class TrainingViewModel @JvmOverloads constructor(
     }
     fun clearSummary() = change { it.copy(endedSummary = null) }
     private fun trainingVisible() = page == "training" && _foreground.value
-    fun pageVisible(value: String) { page = value; syncAudio() }
+    fun pageVisible(value: String) {
+        capturePilotTime(); page = value
+        if (!trainingVisible()) pausePilot()
+        syncPilotClock(); syncAudio()
+        if (pendingPilotMs > 0 || pendingPilotPlayback != null) flushPilotTime()
+    }
     private fun syncAudio() {
         val s = _state.value
         val owner = if (page == "training") s?.active?.task?.id else if (page == "chord-examples") "chord-examples" else null
@@ -194,7 +218,76 @@ class TrainingViewModel @JvmOverloads constructor(
         }
     }
     fun stopAudio() { audioSession.invalidate(); player.stop(); _audio.value = AudioUiState(); _playing.value = false }
-    fun foreground(active: Boolean) { _foreground.value = active; syncAudio() }
+    fun foreground(active: Boolean) {
+        capturePilotTime(); _foreground.value = active
+        if (!active) pausePilot()
+        syncPilotClock(); syncAudio()
+        if (pendingPilotMs > 0 || pendingPilotPlayback != null) flushPilotTime()
+    }
+
+    private fun capturePilotTime() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        pilotClock?.let { pendingPilotMs += (now - it).coerceAtLeast(0) }
+        pilotClock = if (trainingVisible() && _state.value?.pilot != null) now else null
+    }
+    private fun syncPilotClock() { pilotClock = if (trainingVisible() && _state.value?.pilot != null) android.os.SystemClock.elapsedRealtime() else null }
+    private fun flushPilotTime() { viewModelScope.launch { _busy.first { !it }; if (pendingPilotMs > 0 || pendingPilotPlayback != null) change { it } } }
+    fun startPilot(mode: PilotMode, onDone: () -> Unit) = change({ syncPilotClock(); onDone() }) { ShortScorePilot.begin(it,mode,System.currentTimeMillis()) }
+    fun finishPilot(rating: String?, comment: String, onDone: () -> Unit) {
+        pausePilot()
+        change({ _pilotCompare.value = false; _pilotLoop.value = false; pilotClock = null; onDone() }) { ShortScorePilot.finish(it,System.currentTimeMillis(),rating,comment) }
+    }
+    fun pilotTempo(bpm: Int) { pausePilot(); change { s -> s.copy(pilot = s.pilot?.copy(bpm = bpm.coerceIn(40,80),playbackMs = 0)) } }
+    fun togglePilotLoop() { _pilotLoop.value = !_pilotLoop.value }
+    fun togglePilotCompare() {
+        val run = _state.value?.pilot ?: return
+        if (ShortScorePilot.role(run.clip) != PilotRole.PRACTICE) return
+        if (_pilotCompare.value) _pilotCompare.value = false else change({ _pilotCompare.value = true }) { s -> s.copy(pilot = s.pilot?.copy(assisted = true),active = s.active?.copy(hintLevel = maxOf(1,s.active.hintLevel))) }
+    }
+    private fun pausePilot() {
+        if (pilotRequest == null) return
+        val at = if (_pilotPlaying.value) pilotPlayer.positionMs() else 0
+        val wasMelody = _pilotPlaying.value
+        pilotRequest = null; pilotPlayer.stop(); _pilotPlaying.value = false; _pilotMetronome.value = false
+        if (wasMelody) pendingPilotPlayback = at
+    }
+    fun playPilot() {
+        val run = _state.value?.pilot ?: return
+        if (_busy.value || !trainingVisible() || !_state.value!!.soundEnabled || ShortScorePilot.role(run.clip) != PilotRole.PRACTICE) return
+        if (_pilotPlaying.value) { pausePilot(); flushPilotTime(); return }
+        pausePilot(); stopAudio()
+        change({ outputPilot(false) }) { s -> s.copy(pilot = s.pilot?.copy(assisted = true),active = s.active?.copy(hintLevel = maxOf(1,s.active.hintLevel))) }
+    }
+    fun togglePilotMetronome() {
+        if (_pilotMetronome.value) { pausePilot(); return }
+        if (!trainingVisible() || _state.value?.soundEnabled != true || _busy.value) return
+        pausePilot(); outputPilot(true)
+    }
+    private fun outputPilot(metronome: Boolean) {
+        val run = _state.value?.pilot ?: return
+        if (!trainingVisible() || _state.value?.soundEnabled != true) return
+        val id = "pilot:${newId()}"; pilotRequest = id
+        _pilotPlaying.value = !metronome; _pilotMetronome.value = metronome
+        val beat = 60000 / run.bpm
+        val events = if (metronome) (0..3).flatMap { i -> listOf(TimedPitchEvent(i*beat,50,listOf(if(i==0)85 else 80)),TimedPitchEvent(i*beat+50,beat-50,emptyList())) }
+            else run.score.playback(run.bpm)
+        val end = events.maxOf { it.onsetMs + it.durationMs }
+        val offset = if (metronome || run.playbackMs >= end) 0 else run.playbackMs
+        pilotPlayer.play(PlaybackRequest(id,emptyList(),events=events,startAtMs=offset)) { event -> viewModelScope.launch {
+            if (pilotRequest != id) return@launch
+            when (event.status) {
+                PlaybackStatus.COMPLETED -> {
+                    pilotRequest = null; _pilotPlaying.value = false
+                    if (metronome) outputPilot(true) else {
+                        _busy.first { !it }
+                        change({ if (_pilotLoop.value) outputPilot(false) }) { s -> s.copy(pilot = s.pilot?.copy(playbackMs=0)) }
+                    }
+                }
+                PlaybackStatus.FAILED, PlaybackStatus.CANCELLED -> { pilotRequest = null; _pilotPlaying.value = false; _pilotMetronome.value = false }
+                else -> Unit
+            }
+        } }
+    }
 
     fun export(uri: Uri) {
         val snapshot = _state.value ?: return
@@ -243,5 +336,5 @@ class TrainingViewModel @JvmOverloads constructor(
         }
     }
 
-    override fun onCleared() { audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
+    override fun onCleared() { pilotPlayer.release(); audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
 }
