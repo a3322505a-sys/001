@@ -70,8 +70,8 @@ internal object LearningPageAdapter {
             RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records + s.physicalReports.filter { it.lessonId == n.id }.takeLast(4).map { "实琴自评 · ${it.exerciseId} · ${it.rating}" }, PhysicalPractice.exercises(n.id))
     }
     fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null,
-        PilotMode.entries.associateWith { ShortScorePilot.nextClip(s,it) },
-        PilotMode.entries.associateWith { mode -> ShortScorePilot.nextClip(s,mode)?.let { ShortScorePilot.available(s,it) } == true },
+        PilotMode.entries.associateWith { ShortScorePilot.nextClip(s) },
+        PilotMode.entries.associateWith { mode -> ShortScorePilot.nextClip(s)?.let { ShortScorePilot.available(s,it) && ShortScorePilot.modeAvailable(s,it,mode) } == true },
         s.pilotResults.map { r -> "${r.mode.title} · ${if(r.kind==NotationKind.TAB) "TAB" else "五线谱"} · ${when(r.role){PilotRole.BASELINE->"基线";PilotRole.PRACTICE->"练习";PilotRole.RETEST->"复测"}} 第${r.clip+1}段 · ${r.elapsedMs/1000}秒 · " +
             (if(r.mode == PilotMode.GUITAR) "自评：${r.rating}" else "首次正确 ${r.firstCorrect}/${r.notes}") + (if(r.assisted) "（含辅助）" else "") +
             (if(r.comment.isBlank()) "" else "\n备注：${r.comment}") }, s.pilot?.mode)

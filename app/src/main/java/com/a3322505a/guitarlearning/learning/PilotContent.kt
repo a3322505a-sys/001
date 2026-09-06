@@ -16,13 +16,13 @@ data class PilotMenuUi(val resume: Boolean, val next: Map<PilotMode, Int?>, val 
 @Composable
 internal fun PilotMenu(state: PilotMenuUi, start: (PilotMode) -> Unit) {
     Panel("短谱试用", "每次5–10分钟，分3–5次完成；先测读，再练习，最后读陌生谱。") {
-        Text("五线谱与TAB使用同一份音符。先四分音符，再练二分音符和休止。")
+        Text("共8段，跨练法也不重复测读素材。复测沿用同谱式基线的练法；练习段可自由选择。")
         (if(state.resume) listOf(state.resumeMode ?: PilotMode.SLOW) else PilotMode.entries).forEach { mode ->
             val next = state.next[mode]
             Button(onClick = { start(mode) }, enabled = state.resume || state.enabled[mode] == true) {
                 Text(if (state.resume) "继续${mode.title}" else if (next == null) "${mode.title} · 已完成" else "${mode.title} · 第${next + 1}/8段")
             }
-            if (!state.resume && next != null && state.enabled[mode] != true) Text("先完成 TAB 入门；五线谱段还需看过吉他记谱八度说明。")
+            if (!state.resume && next != null && state.enabled[mode] != true) Text("需满足读谱前置；复测须沿用同谱式基线的练法。")
         }
     }
     if (state.results.isNotEmpty()) Panel("试用记录") { state.results.forEach { Text(it) } }

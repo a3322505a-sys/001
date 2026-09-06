@@ -46,11 +46,14 @@ object ShortScorePilot {
         listOf(0,1,2,1,0,2,1,0), listOf(2,0,1,2,1,0,2,0),
         listOf(0,1,0,2,1,2,1,0), listOf(0,2,1,2,0,1),
         listOf(0,1,-1,2,1,-1,0,2), listOf(2,1,0,-1,1,2,0),
-        listOf(1,2,0,1,2,0,1,0), listOf(0,2,1,0,1,2,0,2))
+        listOf(1,2,0,1,2,0,1,0), listOf(0,1,2,0,2,1,2,1))
     private val lengths = listOf(List(8){4},List(8){4},List(8){4},listOf(4,4,8,4,4,8),List(8){4},listOf(4,4,4,4,4,4,8),List(8){4},List(8){4})
     fun role(clip: Int) = when (clip) { 0,1 -> PilotRole.BASELINE; 6,7 -> PilotRole.RETEST; else -> PilotRole.PRACTICE }
     fun kind(clip: Int) = if (clip % 2 == 0) NotationKind.TAB else NotationKind.STAFF
-    fun nextClip(s: LearnerState, mode: PilotMode) = (0..7).firstOrNull { clip -> s.pilotResults.none { it.mode == mode && it.clip == clip } }
+    // Exposure belongs to the material, across both modes. A second mode cannot make a seen score unfamiliar again.
+    fun nextClip(s: LearnerState) = (0..7).firstOrNull { clip -> s.pilotResults.none { it.clip == clip } }
+    fun modeAvailable(s: LearnerState, clip: Int, mode: PilotMode): Boolean = role(clip) != PilotRole.RETEST ||
+        s.pilotResults.firstOrNull { it.role == PilotRole.BASELINE && it.kind == kind(clip) }?.mode == mode
     fun pool(s: LearnerState): List<Coordinate> = listOf(Coordinate(1,0), Coordinate(1,1), Coordinate(1,3))
         .filter { "position:${it.id}" in s.introductions || MasteryPolicy.positionPassed(s, it) }
     fun available(s: LearnerState, clip: Int): Boolean = pool(s).size >= 2 && Curriculum.mastered(s,"tab01") &&
@@ -62,7 +65,7 @@ object ShortScorePilot {
             val c = if (n < 0) null else pool[n % pool.size]
             ScoreEvent(tick, lengths[clip][i], c?.let { MusicFacts.midi(it.string,it.fret) }, c).also { tick += it.duration }
         }
-        return ShortScore("pilot-${clip + 1}-pool-${pool.joinToString("_"){it.id}}", events = events)
+        return ShortScore("pilot-${clip + 1}-pool-${pool.joinToString("_"){it.id}}", version = 2, events = events)
     }
     fun task(run: PilotRun): LearningTask {
         val notation = run.score.notation(run.kind)
@@ -77,8 +80,8 @@ object ShortScorePilot {
     }
     fun begin(s: LearnerState, mode: PilotMode, now: Long): LearnerState {
         if (s.pilot != null) return s
-        val clip = nextClip(s, mode) ?: return s
-        require(available(s, clip)) { "先完成 TAB 与对应的五线谱八度说明。" }
+        val clip = nextClip(s) ?: return s
+        require(available(s, clip) && modeAvailable(s,clip,mode)) { "先完成读谱前置；复测沿用同谱式基线的练习方式。" }
         // Freeze the pitch pool at baseline, so retests use matched difficulty.
         val pool = s.pilotPool.ifEmpty { pool(s) }
         val run = PilotRun(clip, mode, score(clip,pool), kind(clip))
