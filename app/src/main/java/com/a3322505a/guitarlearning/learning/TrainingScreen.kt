@@ -34,6 +34,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        val fixedBoardHeight = maxHeight * 0.48f
         val messageHeight = (maxHeight * 0.24f).coerceIn(48.dp, 88.dp)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -82,7 +83,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
             if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) },
                 Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
           }
-            if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(maxHeight * 0.48f))
+            if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }
 }
