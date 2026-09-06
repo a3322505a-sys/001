@@ -29,15 +29,8 @@ private val CorrectMint = Color(0xFF73F0BB)
 private val WrongPink = Color(0xFFFF668D)
 
 @Composable
-fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordinate) -> Unit, modifier: Modifier = Modifier, fingeringMode: FingeringMode = FingeringMode.COLORS) {
-    val task = active.task
-    val geometry = remember(task.range.firstFret, task.range.lastFret) { TeachingGeometry(task.range.firstFret, task.range.lastFret) }
-    val reveal = task.guided || active.hintLevel >= 2 || active.phase in listOf(Phase.CORRECTING, Phase.CORRECTED)
-    val answers = if (reveal) AnswerEvaluator.validPositions(task, active.sequenceIndex).toSet() else emptySet()
-    val reference = task.coordinate.takeIf { task.direction == Direction.POSITION_TO_NOTE }
-    val mistake = active.inputs.lastOrNull { it.result == ClickResult.WRONG }?.coordinate
-    // Apply at render time: even a task saved by alpha01 must no longer show coordinate rulers.
-    val teachingLabel = task.nodeId == "g00" && task.source == TaskSource.DEMONSTRATION && active.phase == Phase.ANSWERING
+fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> Unit, modifier: Modifier = Modifier) {
+    val geometry = remember(state.firstFret, state.lastFret) { TeachingGeometry(state.firstFret, state.lastFret) }
     BoxWithConstraints(modifier) {
         val boardLeft = if (geometry.first == 0) maxWidth * 0.18f else 0.dp
         val boardWidth = maxWidth - boardLeft
@@ -46,23 +39,24 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
-        if (task.chord != null) ChordOverlay(active, fingeringMode, geometry, boardLeft, boardTop, boardWidth, boardHeight)
+        state.chord?.let { ChordOverlay(it, geometry, boardLeft, boardTop, boardWidth, boardHeight) }
         // Drawing, targets and accessibility share the same fret and string coordinates.
         // Numbers remain available to screen readers, never as a permanent visual answer grid.
         (1..6).forEach { s -> (geometry.first..geometry.last).forEach { f ->
             val c = Coordinate(s, f)
-            val target = c in answers || c == reference || c in task.referenceCoordinates
-            val correct = c in active.confirmed
-            val wrong = c == mistake && !correct
+            val mark = state.marks.firstOrNull { it.coordinate == c }
+            val target = mark?.role in listOf(MarkRole.TARGET, MarkRole.REFERENCE)
+            val correct = mark?.role == MarkRole.CORRECT
+            val wrong = mark?.role == MarkRole.WRONG
             Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(f), y = boardTop + boardHeight * ((s - 1) / 6f))
                 .width(boardWidth * (geometry.right(f) - geometry.left(f))).height(boardHeight / 6)
                 .semantics { contentDescription = "${s}弦${if (f == 0) "空弦" else "${f}品格"}${if (correct) "，已确认" else ""}" }
-                .clickable(enabled = enabled) { onPosition(c) }, contentAlignment = Alignment.Center) {
-                if (task.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
+                .clickable(enabled = state.interaction != BoardInteraction.DISABLED && c in state.interactivePositions) { onPosition(PositionTapped(state.viewId, c)) }, contentAlignment = Alignment.Center) {
+                if (state.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
                     fontSize = 16.sp, modifier = Modifier.align(Alignment.TopEnd).padding(2.dp))
-                if (task.chord == null && (target || correct || wrong)) {
+                if (state.chord == null && (target || correct || wrong)) {
                     val color = if (wrong) WrongPink else if (correct) CorrectMint else TargetCyan
-                    val band = target && !correct && !wrong && task.constraint.kind in listOf(ConstraintKind.STRING, ConstraintKind.FRET)
+                    val band = mark?.band == true
                     Canvas(Modifier.fillMaxSize().padding(2.dp)) {
                         if (band) {
                             drawRect(color.copy(alpha = 0.32f))
@@ -74,30 +68,16 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
                             drawCircle(color, radius)
                         }
                     }
-                    val symbol = when {
-                        wrong -> "×"
-                        correct -> "✓"
-                        c == reference -> "?"
-                        c in task.referenceCoordinates -> "参"
-                        task.guided && task.coordinate == c -> task.constraint.symbol.orEmpty()
-                        else -> ""
-                    }
+                    val symbol = mark?.label.orEmpty()
                     if (symbol.isNotEmpty()) Text(symbol, color = MarkerInk, fontSize = 15.sp)
                 }
             }
         } }
-        // Only the current beginner demonstration gets one temporary label.
-        if (teachingLabel) {
-            val string = task.constraint.string
-            val fret = task.constraint.fret
-            if (string != null && !task.hideStringLabels) {
-                Text("第${string}弦", color = MarkerInk, fontSize = 12.sp,
-                    modifier = Modifier.align(Alignment.TopEnd))
-            } else if (fret != null && !task.hideFretLabels) {
-                Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(fret))
-                    .width(boardWidth * (geometry.right(fret) - geometry.left(fret))).height(boardTop), contentAlignment = Alignment.Center) {
-                    Text(if (fret == 0) "空弦" else "${fret}品", fontSize = 12.sp, color = MarkerInk)
-                }
+        state.stringLabel?.let { Text(it, color = MarkerInk, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd)) }
+        state.fretLabel?.let { (fret, label) ->
+            Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(fret))
+                .width(boardWidth * (geometry.right(fret) - geometry.left(fret))).height(boardTop), contentAlignment = Alignment.Center) {
+                Text(label, fontSize = 12.sp, color = MarkerInk)
             }
         }
     }
