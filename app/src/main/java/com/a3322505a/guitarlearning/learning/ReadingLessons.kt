@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
 @Serializable enum class NotationKind { TAB, STAFF }
-@Serializable data class NotationPrompt(val kind: NotationKind, val pitches: List<Int>, val coordinates: List<Coordinate> = emptyList()) {
+@Serializable data class NotationPrompt(val kind: NotationKind, val pitches: List<Int>, val coordinates: List<Coordinate> = emptyList(), val score: ShortScore? = null) {
     init {
         require(pitches.isNotEmpty() && pitches.all { it in 40..88 })
         require(kind != NotationKind.TAB || coordinates.size == pitches.size && coordinates.map { MusicFacts.midi(it.string, it.fret) } == pitches)

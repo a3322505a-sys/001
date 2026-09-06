@@ -11,6 +11,7 @@ internal object TaskAudioPolicy {
     fun position(c: Coordinate) = TaskAudio(listOf(cue(listOf(MusicFacts.midi(c.string, c.fret)))), AudioPurpose.AUDITION)
     fun prompt(a: ActiveTask): TaskAudio? {
         val t = a.task
+        if (t.notation?.score?.id?.startsWith("pilot-") == true) return null
         t.relation?.let { r ->
             if (r.ear) return relation(r, AudioPurpose.EAR)
             if (t.guided) return relation(r, AudioPurpose.FULL_DEMONSTRATION)

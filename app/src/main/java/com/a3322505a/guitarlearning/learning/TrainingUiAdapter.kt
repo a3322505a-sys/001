@@ -40,6 +40,7 @@ object TrainingUiAdapter {
         }
         val teaching = t.nodeId == "g00" && t.source == TaskSource.DEMONSTRATION && a.phase == Phase.ANSWERING
         val interaction = when {
+            t.notation?.score?.id?.startsWith("pilot-") == true && a.phase in listOf(Phase.CORRECT, Phase.CORRECTED) -> BoardInteraction.DISABLED
             t.relation?.ear == true -> BoardInteraction.DISABLED
             t.constraint.kind == ConstraintKind.SYMBOL || busy || a.phase !in listOf(Phase.ANSWERING, Phase.CORRECTING) -> BoardInteraction.AUDITION
             else -> BoardInteraction.ANSWER
@@ -72,13 +73,13 @@ object TrainingUiAdapter {
         val controls = if (t.chord != null && string != null) ChordControlsUiState(string, "${a.sequenceIndex + 1}/${t.sequence.size}", answerable, chordVisible(a) && s.soundEnabled && !busy) else null
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
         return TrainingUiState(t.id, (if (s.practice != null) "专项 · " else "") + t.prompt, busy = busy,
-            board = if (hasBoard) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
+            board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
             tab = t.coordinate.takeIf { t.showTab }, notation = t.notation, notationIndex = a.sequenceIndex,
             message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = relation, chordControls = controls,
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
-            canHint = a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
+            canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
             canNext = a.phase == Phase.CORRECTED && !busy,
-            autoNextDelayMs = if (a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
+            autoNextDelayMs = if (s.pilot == null && a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio)
     }
     fun displayLast(s: LearnerState): Int {

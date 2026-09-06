@@ -6,6 +6,7 @@ import java.time.ZoneId
 /** Pure state transitions. The caller must commit the returned state before exposing it. */
 class LearningCoordinator(private val scheduler: LessonScheduler = LessonScheduler()) {
     fun startRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
+        if (state.pilot != null) return state
         require(RegionTraining.available(state, regionId)) { "请先完成该区域前置内容。" }
         if (state.regionTraining?.regionId == regionId && state.active != null) return state
         // Restore any already displayed task first, including legacy practice and suspended lessons.
@@ -25,6 +26,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
+        if (state.pilot != null) return state
         if (state.practice != null) return start(endPractice(state, now), nodeId, now)
         val node = Curriculum.node(nodeId)
         require(Curriculum.available(state, node)) { "请先完成前置内容。" }
@@ -37,6 +39,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun startPractice(state: LearnerState, selection: PracticePlan, now: Long): LearnerState {
+        if (state.pilot != null) return state
         PracticeLessons.validateSelection(state, selection)
         if (state.practice == selection && state.active != null) return state
         val base = if (state.practice != null) endPractice(state, now) else state
@@ -77,6 +80,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun answer(state: LearnerState, coordinate: Coordinate? = null, symbol: String? = null, now: Long, zone: ZoneId = ZoneId.systemDefault()): LearnerState {
+        if (state.pilot?.mode == PilotMode.GUITAR) return state
         val active = state.active ?: return state
         if (active.phase in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
         if (active.task.relation?.ear == true && !active.audioReady) return state
@@ -127,6 +131,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun next(state: LearnerState, expectedTaskId: String, now: Long): LearnerState {
+        if (state.pilot != null) return state
         val a = state.active ?: return state
         if (a.task.id != expectedTaskId || a.phase !in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
         var changed = state.copy(active = null)

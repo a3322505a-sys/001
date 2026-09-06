@@ -163,6 +163,10 @@ data class LearnerState(
     val viewedSkills: Map<String, Int> = emptyMap(),
     val regionTraining: RegionRun? = null,
     val queuedRegion: String? = null,
+    val pilot: PilotRun? = null,
+    val pilotPool: List<Coordinate> = emptyList(),
+    val pilotResults: List<PilotResult> = emptyList(),
+    val pilotSuspended: SuspendedLesson? = null,
 )
 
 data class CurriculumNode(

@@ -23,6 +23,7 @@ import com.a3322505a.guitarlearning.ui.theme.*
 
 @Composable
 fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
+    if (state.pilot != null) { PilotTrainingScreen(state, onEvent); return }
     val colors = LocalGuitarColors.current
     if (state.taskId == null) {
         Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.Center) {

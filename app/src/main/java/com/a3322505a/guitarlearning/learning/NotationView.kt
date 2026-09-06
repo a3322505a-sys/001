@@ -22,7 +22,7 @@ fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modi
     Canvas(modifier.semantics { contentDescription = if (notation.kind == NotationKind.TAB) "TAB，依次读取第${index + 1}个弦品数字" else "高音谱号吉他谱，实际发声低八度，第${index + 1}个音" }) {
         val gap = size.height / 7.8f
         val top = gap * 1.6f
-        val left = 58.dp.toPx()
+        val left = if (notation.score != null) 76.dp.toPx() else 58.dp.toPx()
         val right = size.width - 12.dp.toPx()
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors.ink.toArgb(); textAlign = Paint.Align.CENTER; textSize = 18.dp.toPx() }
         val count = if (notation.kind == NotationKind.TAB) 6 else 5
@@ -48,13 +48,38 @@ fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modi
             drawPath(clef, colors.ink, style = Stroke(2.dp.toPx()))
             drawCircle(colors.ink, 2.3.dp.toPx(), Offset(px(-0.7f), py(2.1f)))
         }
+        notation.score?.let { score ->
+            paint.textSize = 16.dp.toPx()
+            drawContext.canvas.nativeCanvas.drawText("4", 56.dp.toPx(), top + 1.8f * gap, paint)
+            drawContext.canvas.nativeCanvas.drawText("4", 56.dp.toPx(), top + 3.7f * gap, paint)
+            (1..score.bars).forEach { bar ->
+                val x = left + (right-left) * bar / score.bars
+                drawLine(colors.ink,Offset(x,top),Offset(x,top+(count-1)*gap),1.dp.toPx())
+            }
+            score.events.filter { it.midi == null }.forEach { e ->
+                val x = left + (right-left) * (e.tick + 1f) / (score.bars * 16)
+                val y = top + 2*gap
+                // Quarter rest zigzag; half rest rests above the middle staff line.
+                if(e.duration == 8) drawRect(colors.ink,Offset(x-5.dp.toPx(),y-4.dp.toPx()),Size(10.dp.toPx(),4.dp.toPx()))
+                else drawPath(Path().apply { moveTo(x-3.dp.toPx(),y-gap); lineTo(x+3.dp.toPx(),y-gap/2); lineTo(x-3.dp.toPx(),y); lineTo(x+3.dp.toPx(),y+gap/2); quadraticBezierTo(x-7.dp.toPx(),y+gap/3,x-2.dp.toPx(),y+gap) },colors.ink,style=Stroke(2.dp.toPx()))
+            }
+        }
         notation.pitches.indices.forEach { i ->
-            val x = left + (right - left) * (i + 0.5f) / notation.pitches.size
+            val event = notation.score?.notes?.get(i)
+            val x = if (event != null) left + (right-left) * (event.tick + 1f) / (notation.score!!.bars * 16)
+                else left + (right - left) * (i + 0.5f) / notation.pitches.size
             if (i == index) drawCircle(colors.accent, 3.dp.toPx(), Offset(x, 4.dp.toPx()))
             if (notation.kind == NotationKind.TAB) {
                 val c = notation.coordinates[i]; val y = top + (c.string - 1) * gap
                 drawRect(colors.background, Offset(x - 12.dp.toPx(), y - 10.dp.toPx()), Size(24.dp.toPx(), 20.dp.toPx()))
                 drawContext.canvas.nativeCanvas.drawText(c.fret.toString(), x, y + 6.dp.toPx(), paint)
+                if(event != null) {
+                    val stemY = top + 5.7f * gap
+                    drawLine(colors.ink,Offset(x,stemY),Offset(x,stemY+gap),1.dp.toPx())
+                    if(event.duration == 8) drawOval(colors.ink,Offset(x-4.dp.toPx(),stemY-2.dp.toPx()),Size(8.dp.toPx(),4.dp.toPx()),style=Stroke(1.dp.toPx()))
+                    else drawOval(colors.ink,Offset(x-4.dp.toPx(),stemY-2.dp.toPx()),Size(8.dp.toPx(),4.dp.toPx()))
+                    if(event.duration == 2) drawLine(colors.ink,Offset(x,stemY+gap),Offset(x+5.dp.toPx(),stemY+gap/2),2.dp.toPx())
+                }
             } else {
                 val written = notation.writtenPitches[i]
                 val step = staffStep(written)
@@ -63,7 +88,15 @@ fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modi
                 if (step < 0) for (ledger in -2 downTo step step 2) drawLine(colors.ink, Offset(x - 12.dp.toPx(), bottom - ledger * gap / 2), Offset(x + 12.dp.toPx(), bottom - ledger * gap / 2), 1.dp.toPx())
                 if (step > 8) for (ledger in 10..step step 2) drawLine(colors.ink, Offset(x - 12.dp.toPx(), bottom - ledger * gap / 2), Offset(x + 12.dp.toPx(), bottom - ledger * gap / 2), 1.dp.toPx())
                 // Stemless noteheads intentionally communicate pitch and order, without invented durations.
-                drawOval(colors.ink, Offset(x - 6.dp.toPx(), y - 3.8.dp.toPx()), Size(12.dp.toPx(), 7.6.dp.toPx()))
+                if(event?.duration == 8) drawOval(colors.ink, Offset(x - 6.dp.toPx(), y - 3.8.dp.toPx()), Size(12.dp.toPx(), 7.6.dp.toPx()),style=Stroke(1.5.dp.toPx()))
+                else drawOval(colors.ink, Offset(x - 6.dp.toPx(), y - 3.8.dp.toPx()), Size(12.dp.toPx(), 7.6.dp.toPx()))
+                if(event != null) {
+                    val down = step >= 4
+                    val stemX = x + if(down) -5.dp.toPx() else 5.dp.toPx()
+                    val endY = y + if(down) 2.7f*gap else -2.7f*gap
+                    drawLine(colors.ink,Offset(stemX,y),Offset(stemX,endY),1.3.dp.toPx())
+                    if(event.duration == 2) drawLine(colors.ink,Offset(stemX,endY),Offset(stemX+6.dp.toPx(),endY+if(down) -gap else gap),2.dp.toPx())
+                }
             }
         }
     }
