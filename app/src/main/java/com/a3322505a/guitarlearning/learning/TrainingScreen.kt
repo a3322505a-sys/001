@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.a3322505a.guitarlearning.ui.theme.*
 
@@ -38,7 +39,14 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        val fixedBoardHeight = minOf(maxHeight * 0.54f, 280.dp)
+        val answerWidth = if (state.options.isEmpty()) 0.dp else minOf(maxWidth, answerOptionWidth(state.options))
+        val columns = ((maxWidth + 8.dp) / (answerWidth + 8.dp)).toInt().coerceAtLeast(1)
+        val answerRows = (state.options.size + columns - 1) / columns
+        val answerHeight = answerRows * 48.dp + (answerRows - 1).coerceAtLeast(0) * 4.dp
+        // Keep one readable feedback line even on the 640 × 320 landscape preview.
+        // The allowance is reserved before feedback exists, so the board never moves on an answer.
+        val boardAllowance = maxHeight - 48.dp - 48.dp - answerHeight - if (answerRows > 0) 24.dp else 16.dp
+        val fixedBoardHeight = minOf(maxHeight * 0.54f, 280.dp, boardAllowance.coerceAtLeast(96.dp))
         // Reserve the same board area across prompt, hint and correction states.
         // Only the two information panes scroll; neither can push text under the neck.
         val split = maxWidth >= 560.dp
@@ -122,10 +130,8 @@ internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifi
 @Composable
 private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
     val optionStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 19.sp)
-    val width = with(density) { options.maxOf { measurer.measure(it.value, optionStyle).size.width }.toDp() } + 30.dp
+    val width = answerOptionWidth(options)
     BoxWithConstraints(modifier) {
     val optionWidth = minOf(maxWidth, maxOf(64.dp, width))
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -155,6 +161,14 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
         }
     }
     }
+}
+
+@Composable
+private fun answerOptionWidth(options: List<AnswerOptionUi>): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val style = MaterialTheme.typography.labelLarge.copy(fontSize = 19.sp)
+    return maxOf(64.dp, with(density) { options.maxOf { measurer.measure(it.value, style).size.width }.toDp() } + 30.dp)
 }
 
 @Composable
