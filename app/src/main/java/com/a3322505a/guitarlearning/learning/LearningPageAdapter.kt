@@ -36,7 +36,7 @@ internal object LearningPageAdapter {
         if (category == Category.FRETBOARD) CatalogSectionUi(null, regions = FretboardRegion.entries.map { region ->
             RegionUi(region.name, "${region.title} · ${region.rangeLabel}", region.progressLabel(s), emptyList(), emptyList(),
                 if (RegionTraining.available(s, region.name)) null else "完成前置内容后开始",
-                if (RegionTraining.available(s, region.name)) if (s.active != null && (s.regionTraining?.regionId == region.name || RegionTraining.owner(s.currentNode) == region)) "继续" else "开始" else null)
+                if (RegionTraining.available(s, region.name)) if (RegionSessions.active(s) && s.regionTraining?.regionId == region.name && s.active != null || s.pausedRegions[region.name]?.active != null) "继续" else "开始" else null)
         }) else CatalogSectionUi(category.title.takeIf { categories.size > 1 }, Curriculum.nodes.filter { it.category == category }.map { row(s, it) })
     }, examples)
     fun tree(s: LearnerState) = Curriculum.nodes.map { row(s, it) }

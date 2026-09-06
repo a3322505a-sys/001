@@ -29,19 +29,69 @@ class RegionTrainingTest {
         val restored = LearningCodec.decode(LearningCodec.encode(s))
         assertEquals(s, co.startRegion(restored, "LOW", 200))
     }
-    @Test fun oldPracticeAndSuspendedOriginalArePreservedAtUpgradeBoundary() {
+    @Test fun regionEntryImmediatelyStartsPositionsAndPreservesOldPracticeAndOriginal() {
         var s = co.start(profile(), "p04", 10)
         val original = s.active
-        s = co.startPractice(s, PracticePlan(listOf("p01"), PracticeKind.POSITION_MIXED), 20)
+        val plan = PracticePlan(listOf("p01"), PracticeKind.POSITION_MIXED)
+        s = co.startPractice(s, plan, 20)
         val practice = s.active
         val requested = co.startRegion(s, "LOW", 30)
-        assertEquals(practice, requested.active)
-        assertEquals(original, requested.suspendedLesson!!.active)
-        val restored = co.end(LearningCodec.decode(LearningCodec.encode(requested)), 40)
-        assertEquals(original, restored.active)
-        val next = finish(restored)
-        assertEquals("LOW", next.regionTraining!!.regionId)
-        assertNull(next.practice)
+        assertNull(requested.practice)
+        assertEquals("LOW", requested.regionTraining!!.regionId)
+        assertNotEquals(practice, requested.active)
+        val paused = requireNotNull(requested.pausedTraining)
+        assertEquals(practice, paused.active)
+        assertEquals(original, paused.suspendedLesson!!.active)
+        val restored = co.startPractice(LearningCodec.decode(LearningCodec.encode(requested)), plan, 40)
+        assertEquals(practice, restored.active)
+        assertEquals(original, co.end(restored, 50).active)
+        assertEquals(requested.active, co.startRegion(restored, "LOW", 60).active)
+    }
+    @Test fun tabAndChordPartialAnswersSurviveRegionRoundTripWithoutForcingAnOldQuestion() {
+        val base = profile().copy(progress = Curriculum.nodes.associate { it.id to NodeProgress(1) })
+        for (node in listOf("tab02", "chord-am")) {
+            val started = co.start(base, node, 10)
+            val task = started.active!!.task
+            val partial = co.answer(started, coordinate = Coordinate(6, 4), now = 20)
+            val region = co.startRegion(partial, "LOW", 30)
+            val regionTask = requireNotNull(region.active).task
+            assertTrue(regionTask.direction in RegionTraining.directions)
+            assertNull(regionTask.notation)
+            assertNull(regionTask.chord)
+            assertEquals(partial.attempts, region.attempts)
+            val resumed = co.start(LearningCodec.decode(LearningCodec.encode(region)), node, 40)
+            assertEquals(task.id, resumed.active!!.task.id)
+            assertEquals(partial.active, resumed.active)
+            assertEquals(partial.sessionId, resumed.sessionId)
+            assertEquals(partial.attempts, resumed.attempts)
+        }
+    }
+    @Test fun lowMiddleFullAndButtonLabelsResumeOnlyTheirOwnRegion() {
+        val base = profile().copy(progress = Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions = FretboardRegion.entries.flatMap { it.nodes }.flatMap { it.positions }.map { "position:${it.id}" }.toSet())
+        var s = base
+        val tasks = mutableMapOf<String, ActiveTask>()
+        for (region in FretboardRegion.entries) {
+            s = co.startRegion(s, region.name, 10)
+            tasks[region.name] = s.active!!
+        }
+        s = LearningCodec.decode(LearningCodec.encode(s))
+        for (region in FretboardRegion.entries) {
+            s = co.startRegion(s, region.name, 20)
+            assertEquals(tasks[region.name], s.active)
+            assertNull(s.queuedRegion)
+        }
+        assertEquals(base.attempts, s.attempts)
+    }
+    @Test fun pausedPilotKeepsMaterialAndElapsedTimeWhenEnteringRegion() {
+        val base = profile().copy(progress = profile().progress + ("tab01" to NodeProgress(1)))
+        val pilot = ShortScorePilot.begin(base, PilotMode.SLOW, 10).let { it.copy(pilot = it.pilot!!.copy(elapsedMs = 1200)) }
+        val region = co.startRegion(pilot, "LOW", 20)
+        assertNull(region.pilot)
+        val resumed = ShortScorePilot.begin(LearningCodec.decode(LearningCodec.encode(region)), PilotMode.SLOW, 30)
+        assertEquals(pilot.active, resumed.active)
+        assertEquals(pilot.pilot, resumed.pilot)
+        assertEquals(pilot.pilotResults, resumed.pilotResults)
     }
     @Test fun allRegionsUseSameFlowAndRespectPrerequisites() {
         for (region in FretboardRegion.entries) {
@@ -60,7 +110,7 @@ class RegionTrainingTest {
     }
     @Test fun recentWeakAndStableDirectionsHaveDifferentStrength() {
         val task = LessonScheduler().makePosition("p01", Coordinate(1,0), Direction.NOTE_TO_POSITION, TaskSource.MAIN)
-        fun state(good: Boolean) = profile().copy(regionTraining = RegionRun("LOW", 1, 5), attempts = (1..10).map { i ->
+        fun state(good: Boolean) = profile().copy(sessionId = "session", regionTraining = RegionRun("LOW", 1, 5), attempts = (1..10).map { i ->
             Attempt(task.copy(id = "$i", direction = if (i % 2 == 0) Direction.NOTE_TO_POSITION else Direction.POSITION_TO_NOTE), "session", i, i.toLong(), "2026-09-06", good, 0, !good, true, emptyList(), true)
         })
         assertEquals(2, RegionTraining.strength(state(true)))

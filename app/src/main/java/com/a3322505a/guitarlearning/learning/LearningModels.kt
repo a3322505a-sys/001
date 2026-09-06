@@ -146,6 +146,13 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 
 @Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int)
 
+/** Paused task context only; attempts, progress and material exposure remain in the one profile. */
+@Serializable data class PausedTraining(
+    val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean,
+    val practice: PracticePlan? = null, val suspendedLesson: SuspendedLesson? = null,
+    val regionTraining: RegionRun? = null, val pilot: PilotRun? = null, val pilotSuspended: SuspendedLesson? = null,
+)
+
 @Serializable
 data class LearnerState(
     val schemaVersion: Int = 1,
@@ -175,6 +182,8 @@ data class LearnerState(
     val pilotResults: List<PilotResult> = emptyList(),
     val pilotSuspended: SuspendedLesson? = null,
     val physicalReports: List<PhysicalReport> = emptyList(),
+    val pausedTraining: PausedTraining? = null,
+    val pausedRegions: Map<String, PausedTraining> = emptyMap(),
 )
 
 data class CurriculumNode(

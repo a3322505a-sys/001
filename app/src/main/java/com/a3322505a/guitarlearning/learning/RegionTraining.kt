@@ -14,7 +14,7 @@ object RegionTraining {
         .flatMap { n -> PracticeLessons.introducedPositions(s, n).map { n.id to it } }
     fun history(s: LearnerState): List<Attempt> {
         val run = s.regionTraining ?: return emptyList()
-        return s.attempts.filter { it.ordinal >= run.startOrdinal && it.completed && it.task.direction in directions }
+        return s.attempts.filter { it.sessionId == s.sessionId && it.ordinal >= run.startOrdinal && it.completed && it.task.direction in directions }
     }
     val directions = listOf(Direction.NOTE_TO_POSITION, Direction.POSITION_TO_NOTE)
 

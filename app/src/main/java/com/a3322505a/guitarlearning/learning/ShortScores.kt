@@ -79,6 +79,7 @@ object ShortScorePilot {
             targetSkillIds = rules.indices.map { "pilot:${run.score.id}:$it" }, notation = notation)
     }
     fun begin(s: LearnerState, mode: PilotMode, now: Long): LearnerState {
+        if (RegionSessions.active(s) || s.pausedTraining != null) return begin(RegionSessions.leave(s), mode, now)
         if (s.pilot != null) return s
         val clip = nextClip(s) ?: return s
         require(available(s, clip) && modeAvailable(s,clip,mode)) { "先完成读谱前置；复测沿用同谱式基线的练习方式。" }

@@ -2,6 +2,9 @@ package com.a3322505a.guitarlearning.learning
 
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -15,7 +18,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 
-/** Position-only notation: no barlines, time signature or claim of a rhythmic measure. */
+/** Short prompts keep readable note spacing instead of stretching three notes across a phone. */
+@Composable
+internal fun CompactNotation(notation: NotationPrompt, index: Int, modifier: Modifier = Modifier) {
+    val width = if (notation.score != null) (88 + notation.score.bars * 184).dp
+        else (76 + notation.pitches.size * 52).dp
+    Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        NotationView(notation, index, Modifier.width(width).height(if (notation.score != null) 112.dp else 92.dp))
+    }
+}
+
+/** Pitch-only prompts omit rhythm; timed scores preserve their bars and event spacing. */
 @Composable
 fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
