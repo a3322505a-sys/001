@@ -1,6 +1,8 @@
 package com.a3322505a.guitarlearning.learning
 
 import android.graphics.Bitmap
+import android.content.pm.ActivityInfo
+import androidx.compose.runtime.SideEffect
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -25,11 +27,14 @@ class UiPreviewTest {
             "pilot-staff" to TrainingUiState("preview","短谱练习 · 6/8",notation=score.notation(NotationKind.STAFF),pilot=PilotControlsUi(PilotMode.GUITAR,50,false,true,false,false,false,false))
         )
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            instrumentation.waitForIdleSync()
+            Thread.sleep(800)
             for(theme in listOf("clear","midnight")) for((name,state) in states) {
-                scenario.onActivity { activity -> activity.setContent { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } }
+                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } }
                 instrumentation.waitForIdleSync()
-                Thread.sleep(600)
+                Thread.sleep(1000)
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
+                check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
