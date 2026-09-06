@@ -34,11 +34,11 @@ object ReadingLessons {
     fun next(state: LearnerState, id: String, source: TaskSource, random: Random): LearningTask {
         require(id in ids)
         if (id == "staff" && "reading:staff:clef" !in state.introductions) return LearningTask(nodeId = id, skillId = "reading:staff:clef",
-            prompt = "先认识高音谱号", explanation = "左侧是高音谱号。五线从下往上数；高音谱号围绕第2线的 G。吉他常用高音谱号记谱。选出谱号名称。",
+            prompt = "先认识高音谱号", explanation = "五线从下往上数：第1线 → 第2线（谱面 G4）。\n左侧卷曲符号围绕第2线，它叫高音谱号；本题选“高音谱号”。",
             constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "高音谱号"), options = listOf("高音谱号", "低音谱号"),
             source = TaskSource.DEMONSTRATION, introductionId = "reading:staff:clef", notation = NotationPrompt(NotationKind.STAFF, listOf(55)))
         if (id == "staff" && "reading:staff:octave" !in state.introductions) return LearningTask(nodeId = id, skillId = "reading:staff:octave",
-            prompt = "吉他谱上的音与实际发声", explanation = "吉他实际发声比谱面低一个八度：谱面 E5，实际是1弦空弦 E4。这里按实际音高定位。",
+            prompt = "吉他谱上的音与实际发声", explanation = "谱面 E5 → 实际 E4 → 第1弦空弦。\n吉他实际发声比谱面低一个八度，定位时看实际音高。",
             constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "低一个八度"), options = listOf("低一个八度", "完全同高", "高一个八度"),
             source = TaskSource.DEMONSTRATION, introductionId = "reading:staff:octave", notation = NotationPrompt(NotationKind.STAFF, listOf(64)))
         val intro = !eligible(state, id)
@@ -60,7 +60,7 @@ object ReadingLessons {
     fun single(c: Coordinate, source: TaskSource): LearningTask {
         val midi = MusicFacts.midi(c.string, c.fret)
         return LearningTask(nodeId = "staff", skillId = skill("staff", c), direction = Direction.STAFF_TO_POSITION,
-            prompt = "读五线谱，找到这个音高", explanation = "谱面音比实际发声高八度。本音实际为${MusicFacts.label(c.string, c.fret)}；题目范围内同音高的位置都成立。",
+            prompt = "读五线谱，找到这个音高", explanation = "谱面 ${LessonExplanations.pitch(midi + 12)} → 实际 ${LessonExplanations.pitch(midi)} → 例如第${c.string}弦${LessonExplanations.fret(c.fret)}。\n实际发声比谱面低一个八度；范围内其他同音高位置也可选。",
             constraint = AnswerConstraint(ConstraintKind.PITCH, midi = midi), source = source,
             notation = NotationPrompt(NotationKind.STAFF, listOf(midi)))
     }
@@ -72,7 +72,8 @@ object ReadingLessons {
         val values = coordinates.map { MusicFacts.midi(it.string, it.fret) }
         return LearningTask(nodeId = id, skillId = "reading:$id:phrase", direction = if (tab) Direction.TAB_TO_POSITION else Direction.STAFF_TO_POSITION,
             prompt = if (tab) "从左到右读 TAB 短句" else "从左到右读五线谱短句",
-            explanation = if (tab) "依次点击每个数字所在的弦与品。指示点标出当前一项；同音高不能替代 TAB 指定的坐标。" else "按实际发声依次定位；同音高的等价位置都接受。吉他实际发声比谱面低八度。",
+            explanation = if (tab) "从左到右：${coordinates.joinToString(" → ") { "第${it.string}弦${LessonExplanations.fret(it.fret)}" }}。\n线表示弦，数字表示品，0表示空弦；跟着当前指示点，逐项点指定位置。"
+                else "谱面：${values.joinToString(" → ") { LessonExplanations.pitch(it + 12) }}。\n实际：${values.joinToString(" → ") { LessonExplanations.pitch(it) }}。\n每个音降低一个八度后定位；范围内同音高位置都接受。",
             constraint = rules.first(), sequence = rules, completion = CompletionKind.SEQUENCE, targetSkillIds = coordinates.map { skill(id, it) }, source = source,
             notation = NotationPrompt(if (tab) NotationKind.TAB else NotationKind.STAFF, values, if (tab) coordinates else emptyList()))
     }

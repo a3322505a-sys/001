@@ -80,8 +80,8 @@ object MappingLessons {
         }
         return LearningTask(nodeId = "mapping", skillId = "mapping:${if (degrees) "major:$tonic" else "fixed"}:$note:${direction.name}",
             direction = direction, prompt = prompt,
-            explanation = if (degrees) "$key 的主音是${MusicFacts.noteNames[tonic]}；$note 在这个调里是第 $degree 级。换调后级数会改变。"
-                else "$note 是音名，固定唱名是 $solfege。固定唱名跟音名对应，和调内级数分开。",
+            explanation = if (degrees) "$key：主音 ${MusicFacts.noteNames[tonic]}（第1级）→ $note（第${degree}级）。\n从主音起，按本调音阶数到 $note，就是第${degree}级；换调后要重新数。"
+                else "音名 $note ↔ 固定唱名 $solfege。\n${notes.joinToString(" → ") { "$it（${MusicFacts.fixedSolfege.getValue(it)}）" }}。\n本题记住 $note 与 $solfege 的对应；固定唱名不随调改变。",
             constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = target), source = source,
             options = if (reverse) notes else if (degrees) (1..7).map { it.toString() } else notes.map { MusicFacts.fixedSolfege.getValue(it) },
             mappingNote = note, tonicPitchClass = if (degrees) tonic else null, tonalMode = if (degrees) "major" else null)
