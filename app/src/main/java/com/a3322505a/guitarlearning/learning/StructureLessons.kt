@@ -35,9 +35,12 @@ object StructureLessons {
                 val options = listOf(answer) + pool.filter { it != answer }.shuffled(Random(distance)).take(3)
                 val direction = if (distance == 0) "同一高度" else if (down) "从高音向低音" else "从低音向高音"
                 val range = PhysicalRange(0, 12)
+                val spelled = intervalSpellings[distance].split(" / ").let { if (down) it.reversed() else it }
                 choice(id, "$distance:$down",
                     if (ear) "先听参考音，再判断第二音的距离" else "${intervalSpellings[distance]} · $direction，相隔什么音程？",
-                    "两个实际音高相差 $distance 个半音，是$answer。$direction。名称按题面拼写；六半音称三全音，具体可拼成增四度或减五度。听辨不要求无参照报音名。",
+                    "${spelled.joinToString(" → ")}：$direction。\n相差${distance}个半音 → $answer。" +
+                        (if (distance == 6) "题面 C–F♯ 拼作增四度；相同距离拼作 C–G♭ 时是减五度，都属于三全音。" else "") +
+                        (if (ear) "先听参照，再比较第二音；不用凭空猜音名。" else ""),
                     answer, options, listOf(first), listOf(second), ear = ear,
                     board = if (ear) emptyList() else locations(listOf(first, second), range), range = range)
             }
@@ -49,13 +52,14 @@ object StructureLessons {
             val distance = MusicRelations.semitones(midi(a), midi(b))
             val answer = if (distance == 1) "半音" else "全音"
             choice(id, "${a.id}:${b.id}", "${a.label}到${b.label}相差多少？",
-                "${MusicFacts.label(a.string, a.fret)}到${MusicFacts.label(b.string, b.fret)}相差 $distance 品：$answer。相邻一品是半音，两品是全音。",
+                LessonExplanations.sameString(if (a.string == 1) listOf(Coordinate(1, 0), Coordinate(1, 1), Coordinate(1, 3)) else listOf(Coordinate(2, 0), Coordinate(2, 1), Coordinate(2, 3))) + "\n本题比较 ${MusicFacts.note(a.string, a.fret)}→${MusicFacts.note(b.string, b.fret)}：$answer。",
                 answer, listOf("半音", "全音"), listOf(midi(a)), listOf(midi(b)), board = listOf(a, b))
         }
         "pitch-relations" -> listOf(Coordinate(2, 0) to Coordinate(3, 4), Coordinate(1, 0) to Coordinate(4, 2),
             Coordinate(1, 0) to Coordinate(6, 0), Coordinate(1, 0) to Coordinate(1, 1)).map { (a, b) ->
             choice(id, "${a.id}:${b.id}", "${a.label}与${b.label}是什么关系？",
-                "${MusicFacts.label(a.string, a.fret)} / ${MusicFacts.label(b.string, b.fret)}：${MusicRelations.pitchRelation(midi(a), midi(b))}。同音名可跨八度，同音高连八度也相同。",
+                "${LessonExplanations.location(a)} ↔ ${LessonExplanations.location(b)}。\n" +
+                    "相差${MusicRelations.semitones(midi(a), midi(b))}个半音 → ${MusicRelations.pitchRelation(midi(a), midi(b))}。\n比较实际音高，不能只看音名字母；跨弦不能只减品号。",
                 MusicRelations.pitchRelation(midi(a), midi(b)), listOf("同音高", "相差一个八度", "同音名，跨多个八度", "不同音名"),
                 listOf(midi(a)), listOf(midi(b)), board = listOf(a, b))
         }
@@ -67,8 +71,11 @@ object StructureLessons {
             val offsets = if (major) MusicRelations.major else MusicRelations.naturalMinor
             val title = if (major) "C 大调" else "A 自然小调"
             val pattern = if (major) "全全半全全全半" else "全半全全半全全"
-            val names = if (major) "C–D–E–F–G–A–B–C" else "A–B–C–D–E–F–G–A"
-            listOf(choice(id, "pattern", "$title 的相邻步距", "$title：$names；$pattern。级数以本调主音为参照。",
+            val names = if (major) listOf("C", "D", "E", "F", "G", "A", "B", "C") else listOf("A", "B", "C", "D", "E", "F", "G", "A")
+            val steps = names.zipWithNext().mapIndexed { index, (a, b) ->
+                "$a→$b：${if (offsets[index + 1] - offsets[index] == 1) "半音" else "全音"}"
+            }.joinToString("；")
+            listOf(choice(id, "pattern", "$title 的相邻步距", "$title：${names.joinToString(" → ")}。\n$steps。\n连起来：$pattern；${names.first()}是本调主音。",
                 pattern, listOf("全全半全全全半", "全半全全半全全"), listOf(root), MusicRelations.pitches(root, offsets))) +
                 (1..2).map { route ->
                     val order = if (route == 1) offsets else offsets.reversed()
@@ -76,7 +83,9 @@ object StructureLessons {
                     val rules = pitches.map { AnswerConstraint(ConstraintKind.PITCH, midi = it) }
                     LearningTask(nodeId = id, skillId = key(id, "route:$route"), direction = Direction.STRUCTURE,
                         prompt = "$title · ${if (route == 1) "上行" else "下行"}八个音",
-                        explanation = "依次定位实际音高 ${if (major) "C4–C5" else "A3–A4"}；0–12品内等价位置都接受，不指定单一手型。",
+                        explanation = "实际音高：${pitches.joinToString(" → ") { LessonExplanations.pitch(it) }}。\n" +
+                            "相邻步距：${pitches.zipWithNext().joinToString(" → ") { (a, b) -> if (MusicRelations.semitones(a, b) == 1) "半音" else "全音" }}。\n" +
+                            "按这个顺序逐音定位；0–12品内同音高位置都接受。",
                         constraint = rules.first(), range = PhysicalRange(0, 12), completion = CompletionKind.SEQUENCE, sequence = rules,
                         targetSkillIds = order.map { key(id, "degree:${offsets.indexOf(it) + 1}:$route") }, relation = RelationPrompt(listOf(root), pitches))
                 }
@@ -87,23 +96,31 @@ object StructureLessons {
                 else when (quality) { "大三和弦" -> "A–C♯–E"; "小三和弦" -> "A–C–E"; "减三和弦" -> "A–C–E♭"; else -> "A–C♯–E♯" }
             val ear = id == "ear-triads"
             choice(id, "$root:$quality", if (ear) "先听根音，再判断和弦性质" else "根音 $rootLabel，$names 构成什么三和弦？",
-                "根音 $rootLabel：根音、三音、五音相对根音半音数为 ${offsets.joinToString(" / ")}，是$quality。和弦根音不等于曲调主音。",
+                "${names.replace("–", " → ")}：根音 → 三音 → 五音。\n" +
+                    "根音→三音：${offsets[1]}个半音；三音→五音：${offsets[2] - offsets[1]}个半音 → $quality。\n" +
+                    "以 $rootLabel 为0，三个音相距根音 ${offsets.joinToString(" / ")} 个半音；和弦根音不一定是曲调主音。",
                 quality, MusicRelations.triads.keys.toList(), listOf(root), MusicRelations.pitches(root, offsets), chord = true, ear = ear)
         } }
         "power-structure" -> listOf(ChordShapes.g5Two, ChordShapes.g5Three).flatMap { shape ->
             val components = if (shape == ChordShapes.g5Two) "根音 / 纯五度" else "根音 / 纯五度 / 根音八度"
+            val explanation = shape.sounding().joinToString(" → ") { LessonExplanations.location(it) } + "。\n" +
+                "G2→D3：7个半音，是纯五度。" +
+                (if (shape == ChordShapes.g5Three) "G2→G3：12个半音，是八度；多的是高八度根音。" else "这个形态只弹 G2、D3。") +
+                "\n组成是$components；没有三音，所以不分大、小。"
             listOf(choice(id, "${shape.id}:quality", "${shape.title}为什么不分大、小？",
-                "G5 只有 G 与 D；三音形态多一个 G 八度，没有三音，不能据此称 G 大或 G 小。", "没有三音",
+                explanation, "没有三音",
                 listOf("没有三音", "多八度就是大调", "三个音必是三和弦"), listOf(43), shape.pitches(), chord = true, board = shape.sounding(), range = PhysicalRange(0, 5)),
-                choice(id, "${shape.id}:members", "${shape.title}如何相对根音 G 构成？", "G2 是根音，D3 是其纯五度，G3 是根音八度。$components。",
+                choice(id, "${shape.id}:members", "${shape.title}如何相对根音 G 构成？", explanation,
                     components, listOf("根音 / 纯五度", "根音 / 纯五度 / 根音八度", "根音 / 大三度 / 纯五度"),
                     listOf(43), shape.pitches(), chord = true, board = shape.sounding(), range = PhysicalRange(0, 5)))
         }
         "cross-position" -> listOf(64, 67, 59, 60, 62, 57).map { pitch ->
             val reference = locations(listOf(pitch), PhysicalRange()).first()
+            val equivalents = PhysicalRange(5, 12).positions().filter { midi(it) == pitch }
             LearningTask(nodeId = id, skillId = key(id, "pitch:$pitch"), direction = Direction.RELATION,
                 prompt = "跨把位找同音高：${MusicFacts.label(reference.string, reference.fret)}",
-                explanation = "参照是${reference.label}；在5–12品找实际同高的音，范围内所有等价位置都接受。另一个八度不算同音高。",
+                explanation = "${LessonExplanations.location(reference)} = ${equivalents.joinToString(" = ") { LessonExplanations.location(it) }}。\n" +
+                    "位置不同，实际音高都为${LessonExplanations.pitch(pitch)}，相差0个半音；在5–12品选其中任一位置。另一个八度不算同音高。",
                 constraint = AnswerConstraint(ConstraintKind.PITCH, midi = pitch), range = PhysicalRange(5, 12),
                 relation = RelationPrompt(listOf(pitch), listOf(pitch)))
         }
