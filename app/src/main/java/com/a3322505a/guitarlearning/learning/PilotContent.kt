@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 
 data class PilotControlsUi(val mode: PilotMode, val bpm: Int, val playing: Boolean, val canPlay: Boolean,
@@ -33,18 +34,16 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
     var comment by remember(state.taskId) { mutableStateOf("") }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(8.dp)) {
         val boardHeight = maxHeight * 0.43f
-        val scoreHeight = if (pilot.mode == PilotMode.GUITAR) maxHeight * 0.55f else 120.dp
+        val scoreHeight = if (pilot.mode == PilotMode.GUITAR) maxHeight * 0.55f else (maxHeight * 0.32f).coerceIn(80.dp,120.dp)
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Row(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { onEvent(TrainingEvent.Back) }) { Text("‹ 返回") }
                     Text(state.title, Modifier.weight(1f))
                     if (pilot.completed) Button(onClick = { onEvent(TrainingEvent.PilotFinish(null, comment)) }, enabled = !state.busy) { Text("完成此段") }
-                }
-                Row {
-                    Text("4/4 · ${pilot.bpm} BPM", Modifier.weight(1f))
-                    TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm - 5).coerceAtLeast(40))) }, enabled = !pilot.playing) { Text("−") }
-                    TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm + 5).coerceAtMost(80))) }, enabled = !pilot.playing) { Text("＋") }
+                    Text("${pilot.bpm} BPM")
+                    TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm - 5).coerceAtLeast(40))) }, enabled = !pilot.playing, modifier = Modifier.width(40.dp), contentPadding = PaddingValues(0.dp)) { Text("−") }
+                    TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm + 5).coerceAtMost(80))) }, enabled = !pilot.playing, modifier = Modifier.width(40.dp), contentPadding = PaddingValues(0.dp)) { Text("＋") }
                     if (pilot.canPlay) TextButton(onClick = { onEvent(TrainingEvent.PilotPlay) }) { Text(if (pilot.playing) "暂停" else "试听 / 继续") }
                 }
                 state.notation?.let { NotationView(it, if (pilot.mode == PilotMode.GUITAR) -1 else state.notationIndex, Modifier.fillMaxWidth().height(scoreHeight)) }

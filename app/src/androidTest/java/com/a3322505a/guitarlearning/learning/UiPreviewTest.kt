@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.learning
 
 import android.graphics.Bitmap
 import android.content.pm.ActivityInfo
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.SideEffect
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,9 @@ class UiPreviewTest {
                 scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
+                instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(250)
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
