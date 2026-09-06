@@ -16,19 +16,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.a3322505a.guitarlearning.core.MusicFacts
 
 val FingerColors = listOf(Color(0xFF60D5FA), Color(0xFFFFD373), Color(0xFFC3A3FF), Color(0xFFFF9EC5))
 
-fun chordVisible(a: ActiveTask): Boolean = a.task.guided || a.hintLevel >= 2 || a.phase != Phase.ANSWERING
-
 @Composable
-fun ChordOverlay(active: ActiveTask, mode: FingeringMode, g: TeachingGeometry, left: Dp, top: Dp, width: Dp, height: Dp) {
-    val shape = active.task.chord ?: return
-    val visible = chordVisible(active)
-    if (visible) Canvas(Modifier.fillMaxSize()) {
+fun ChordOverlay(state: ChordOverlayUiState, g: TeachingGeometry, left: Dp, top: Dp, width: Dp, height: Dp) {
+    Canvas(Modifier.fillMaxSize()) {
         val gap = height.toPx() / 6
-        if (mode != FingeringMode.NOTES) shape.fingers.forEach { finger ->
+        state.fingers.forEach { finger ->
             val x = left.toPx() + width.toPx() * g.center(finger.fret)
             val y = top.toPx() + gap * (finger.firstString - 0.5f)
             val w = width.toPx() * (g.right(finger.fret) - g.left(finger.fret)) * 0.55f
@@ -37,28 +32,24 @@ fun ChordOverlay(active: ActiveTask, mode: FingeringMode, g: TeachingGeometry, l
             drawRoundRect(Color.Black.copy(alpha = 0.7f), start, Size(w, h), CornerRadius(3.dp.toPx()), style = Stroke(6.dp.toPx()))
             drawRoundRect(FingerColors[finger.finger - 1], start, Size(w, h), CornerRadius(3.dp.toPx()), style = Stroke(3.dp.toPx()))
         }
-        shape.sounding().filter { it.fret > 0 }.forEach { c ->
+        state.tones.forEach { tone ->
+            val c = tone.coordinate
             val center = Offset(left.toPx() + width.toPx() * g.center(c.fret), top.toPx() + gap * (c.string - 0.5f))
-            if (mode == FingeringMode.COLORS) drawCircle(Color.White, 2.dp.toPx(), center)
-            if (mode == FingeringMode.NOTES && MusicFacts.midi(c.string, c.fret) % 12 == shape.root)
-                drawCircle(Color.White, 12.dp.toPx(), center, style = Stroke(1.5.dp.toPx()))
+            if (tone.dot) drawCircle(Color.White, 2.dp.toPx(), center)
+            if (tone.rootRing) drawCircle(Color.White, 12.dp.toPx(), center, style = Stroke(1.5.dp.toPx()))
         }
     }
-    (1..6).forEach { string ->
-        val fret = shape.fret(string)
-        val confirmedMute = active.inputs.any { input -> input.symbol == "X" && input.result != ClickResult.WRONG &&
-            input.targetIndex?.let { active.task.sequence.getOrNull(it)?.string } == string }
-        if ((visible || confirmedMute || Coordinate(string, 0) in active.confirmed) && (fret == null || fret == 0))
-            Text(if (fret == null) "X" else "O", color = Color.White, fontSize = 14.sp,
-                modifier = Modifier.absoluteOffset(x = 2.dp, y = top + height * ((string - 1) / 6f))
-                    .background(Color.Black.copy(alpha = 0.8f)).padding(horizontal = 4.dp))
-        if (visible && fret != null && fret > 0 && mode != FingeringMode.COLORS) {
-            val c = Coordinate(string, fret)
-            Box(Modifier.absoluteOffset(x = left + width * g.left(fret), y = top + height * ((string - 1) / 6f))
-                .width(width * (g.right(fret) - g.left(fret))).height(height / 6), contentAlignment = Alignment.Center) {
-                Text(if (mode == FingeringMode.NUMBERS) shape.fingerAt(c)?.toString().orEmpty() else MusicFacts.note(string, fret),
-                    color = Color.White, fontSize = 13.sp, modifier = Modifier.background(Color.Black.copy(alpha = 0.75f)).padding(horizontal = 2.dp))
-            }
+    state.openMutedLabels.forEach { (string, label) ->
+        Text(label, color = Color.White, fontSize = 14.sp,
+            modifier = Modifier.absoluteOffset(x = 2.dp, y = top + height * ((string - 1) / 6f))
+                .background(Color.Black.copy(alpha = 0.8f)).padding(horizontal = 4.dp))
+    }
+    state.tones.filter { it.label.isNotEmpty() }.forEach { tone ->
+        val c = tone.coordinate
+        Box(Modifier.absoluteOffset(x = left + width * g.left(c.fret), y = top + height * ((c.string - 1) / 6f))
+            .width(width * (g.right(c.fret) - g.left(c.fret))).height(height / 6), contentAlignment = Alignment.Center) {
+            Text(tone.label, color = Color.White, fontSize = 13.sp,
+                modifier = Modifier.background(Color.Black.copy(alpha = 0.75f)).padding(horizontal = 2.dp))
         }
     }
 }
@@ -77,42 +68,36 @@ fun FingerLegend(onClose: () -> Unit) {
 }
 
 @Composable
-fun FingeringSettings(state: LearnerState, busy: Boolean, model: TrainingViewModel) {
+fun FingeringSettings(selectedId: String, busy: Boolean, select: (String) -> Unit) {
     Text("指法显示")
     FingeringMode.entries.forEach { mode ->
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = FingeringMode.fromId(state.fingeringMode) == mode, onClick = { model.fingering(mode.id) }, enabled = !busy)
+            RadioButton(selected = selectedId == mode.id, onClick = { select(mode.id) }, enabled = !busy)
             Text(mode.title)
         }
     }
 }
 
 @Composable
-fun ChordExamples(state: LearnerState, busy: Boolean, model: TrainingViewModel) {
-    var shapeId by rememberSaveable { mutableStateOf(ChordShapes.am.id) }
-    val shape = ChordShapes.get(shapeId)
-    LaunchedEffect(shapeId) { model.viewChord(shapeId) }
-    ChordShapes.all.chunked(2).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        row.forEach { item -> OutlinedButton(onClick = { shapeId = item.id }, enabled = !busy, modifier = Modifier.weight(1f)) { Text(item.title, fontSize = 13.sp) } }
+fun ChordExamples(state: ChordExamplesUiState, select: (String) -> Unit, play: () -> Unit, fingering: (String) -> Unit) {
+    state.choices.chunked(2).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        row.forEach { item -> OutlinedButton(onClick = { select(item.id) }, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text(item.title, fontSize = 13.sp) } }
     } }
-    Text("${shape.title} · O 空弦 / X 不弹；这里查看的是推荐形态。", fontSize = 13.sp)
+    Text("${state.title} · O 空弦 / X 不弹；这里查看的是推荐形态。", fontSize = 13.sp)
     Text("青蓝 1 食指 · 金黄 2 中指\n浅紫 3 无名指 · 粉色 4 小指", fontSize = 13.sp)
-    val task = remember(shapeId) { ChordLessons.make(shape, "chord-am", TaskSource.DEMONSTRATION) }
-    TeachingFretboard(ActiveTask(task), false, {}, Modifier.fillMaxWidth().height(250.dp), FingeringMode.fromId(state.fingeringMode))
-    Button(onClick = { model.playShape(shape) }, enabled = state.soundEnabled) { Text("试听形态") }
-    FingeringSettings(state, busy, model)
+    TeachingFretboard(state.board, {}, Modifier.fillMaxWidth().height(250.dp))
+    Button(onClick = play, enabled = state.soundEnabled) { Text("试听形态") }
+    state.audio.message?.let { Text(it, fontSize = 13.sp) }
+    FingeringSettings(state.fingeringMode, state.busy, fingering)
     Text("颜色与手指固定对应；音名视图的白环表示根音。屏幕逐点操作不识别真实手指或按弦力度。", fontSize = 13.sp)
 }
 
 @Composable
-fun ChordInputControls(active: ActiveTask, busy: Boolean, model: TrainingViewModel) {
-    val rule = active.task.sequence.getOrNull(active.sequenceIndex) ?: return
-    val string = rule.coordinate?.string ?: rule.string ?: return
-    val enabled = !busy && active.phase in listOf(Phase.ANSWERING, Phase.CORRECTING)
+fun ChordInputControls(state: ChordControlsUiState, onEvent: (TrainingEvent) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("第 $string 弦 · ${active.sequenceIndex + 1}/${active.task.sequence.size}", fontSize = 14.sp)
-        OutlinedButton(onClick = { model.answer(active.task.id, coordinate = Coordinate(string, 0)) }, enabled = enabled) { Text("空弦 O") }
-        OutlinedButton(onClick = { model.answer(active.task.id, symbol = "X") }, enabled = enabled) { Text("不弹 X") }
-        if (chordVisible(active)) TextButton(onClick = { active.task.chord?.let(model::playShape) }) { Text("试听形态") }
+        Text("第 ${state.string} 弦 · ${state.progress}", fontSize = 14.sp)
+        OutlinedButton(onClick = { onEvent(TrainingEvent.OpenString) }, enabled = state.enabled) { Text("空弦 O") }
+        OutlinedButton(onClick = { onEvent(TrainingEvent.MuteString) }, enabled = state.enabled) { Text("不弹 X") }
+        if (state.canDemonstrate) TextButton(onClick = { onEvent(TrainingEvent.Demonstrate) }) { Text("试听形态") }
     }
 }
