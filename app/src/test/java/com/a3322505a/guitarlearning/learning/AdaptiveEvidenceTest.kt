@@ -181,6 +181,17 @@ class AdaptiveEvidenceTest {
         assertEquals(1, AdaptiveTraining.completedScorable(s, view).size)
     }
 
+    @Test fun newlyTaughtTargetsCanBuildIndependentEvidenceByInterleavingWithoutACircularWait() {
+        val tasks = listOf(Coordinate(1, 0), Coordinate(1, 1), Coordinate(1, 3)).map { position(it, Direction.POSITION_TO_NOTE) }
+        var s = profile(); var now = 100L
+        for (task in tasks) {
+            s = AdaptiveEvidence.expose(s, task, now, help = true, explanation = false)
+            now += 100
+        }
+        for (task in tasks + tasks.take(2)) { s = answer(s, task, true, now); now += 100 }
+        assertEquals(listOf("position:s1:f3", "position:s1:f0", "position:s1:f1"), AdaptiveEvidence.View(s, now).samples.map { it.target })
+    }
+
     @Test fun mappingFailureExitsOnlyItsRepresentationAndCanReenterWithANewTrialWindow() {
         var s = profile(); var now = 1000L
         fun respond(task: LearningTask, good: Boolean) {
