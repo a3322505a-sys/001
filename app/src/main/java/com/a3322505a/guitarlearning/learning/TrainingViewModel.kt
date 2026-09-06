@@ -12,6 +12,7 @@ import com.a3322505a.guitarlearning.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -29,7 +30,10 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     val error = _error.asStateFlow()
     private val _notice = MutableStateFlow<String?>(null)
     val notice = _notice.asStateFlow()
-    private val player = AndroidPitchPlayer { _notice.value = "声音暂时不可用，仍可继续练习。" }
+    private var relationPlaybackSerial = 0
+    private val _playing = MutableStateFlow(false)
+    val playing = _playing.asStateFlow()
+    private val player = AndroidPitchPlayer { _playing.value = false; _notice.value = "声音暂时不可用。听辨题请重试播放；也可返回继续其他课程。" }
     private var retryAction: (() -> Unit)? = null
 
     init { reload() }
@@ -101,8 +105,30 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
         try { player.play(PitchCue(listOf(MidiPitch(MusicFacts.midi(coordinate.string, coordinate.fret))))) }
         catch (_: Exception) { _notice.value = "声音暂时不可用，仍可继续练习。" }
     }
-    fun stopAudio() = player.stop()
-    fun foreground(active: Boolean) { _foreground.value = active; if (!active) player.stop() }
+    fun playRelation(taskId: String) {
+        val current = _state.value ?: return
+        val active = current.active?.takeIf { it.task.id == taskId } ?: return
+        val relation = active.task.relation ?: return
+        if (!current.soundEnabled) { _notice.value = "请先开启声音，再播放参考音与目标。"; return }
+        if (_busy.value || _playing.value) return
+        val cues = listOf(PitchCue(relation.referencePitches.map(::MidiPitch)),
+            PitchCue(relation.targetPitches.map(::MidiPitch), if (relation.chord) com.a3322505a.guitarlearning.audio.PitchPlaybackStyle.CHORD else com.a3322505a.guitarlearning.audio.PitchPlaybackStyle.SEQUENCE))
+        change(onDone = {
+            val serial = ++relationPlaybackSerial
+            _playing.value = true
+            _notice.value = null
+            try { player.playSequence(cues) {
+                viewModelScope.launch {
+                    _busy.first { !it }
+                    if (serial != relationPlaybackSerial) return@launch
+                    _playing.value = false
+                    if (_foreground.value) change { coordinator.playbackCompleted(it, taskId) }
+                }
+            } } catch (_: Exception) { _playing.value = false; _notice.value = "播放失败，请重试。" }
+        }) { coordinator.playbackStarted(it, taskId) }
+    }
+    fun stopAudio() { relationPlaybackSerial++; player.stop(); _playing.value = false }
+    fun foreground(active: Boolean) { _foreground.value = active; if (!active) stopAudio() }
 
     fun export(uri: Uri) {
         val snapshot = _state.value ?: return

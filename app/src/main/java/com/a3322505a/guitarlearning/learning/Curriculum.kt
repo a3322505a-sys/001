@@ -37,7 +37,16 @@ object Curriculum {
         CurriculumNode("chord-am", "Am 开放和弦形态", Category.ADVANCED, "学习推荐形态、开放弦与不弹弦；手机逐点定位不代表实琴按奏能力。", listOf("p07")),
         CurriculumNode("chord-g5", "G5 两音与三音形态", Category.ADVANCED, "根音加五音，再加根音高八度；不含大小三度。", listOf("p09")),
         CurriculumNode("chord-f", "F 横按形态", Category.ADVANCED, "区分食指覆盖与各弦最终发音，逐点设置六根弦。", listOf("chord-am", "chord-g5")),
-        CurriculumNode("structure", "音程、音阶与和弦", Category.ADVANCED, "关系、结构与带参照的听觉练习。", listOf("p03"), implemented = false),
+        CurriculumNode("structure", "半音与全音", Category.ADVANCED, "同弦相邻品的距离；先看关系，再独立辨认。", listOf("p03")),
+        CurriculumNode("pitch-relations", "同音名、同音高与八度", Category.ADVANCED, "区分字母相同、实际同高与一个或多个八度。", listOf("p09", "structure")),
+        CurriculumNode("intervals", "音程与高低方向", Category.ADVANCED, "按实际音高距离与题面拼写识别一八度内的音程。", listOf("structure", "p03")),
+        CurriculumNode("scale-major", "大调音阶结构", Category.ADVANCED, "C大调步距及上下行音高序列，允许等价位置。", listOf("intervals", "mapping", "p09")),
+        CurriculumNode("scale-minor", "自然小调音阶结构", Category.ADVANCED, "A自然小调步距与上下行，以A为主音。", listOf("scale-major")),
+        CurriculumNode("triads", "三和弦的根音、三音与五音", Category.ADVANCED, "大、小、减、增三和弦，区分和弦根音与调性主音。", listOf("intervals", "mapping")),
+        CurriculumNode("power-structure", "强力和弦结构", Category.ADVANCED, "根音、纯五度与八度，增加发音数不等于加入三音。", listOf("chord-g5", "intervals")),
+        CurriculumNode("cross-position", "跨把位的同音高", Category.ADVANCED, "用低把位作参照，到5–12品找同高的等价位置。", listOf("h07", "pitch-relations")),
+        CurriculumNode("ear-intervals", "有参照的音程听辨", Category.ADVANCED, "先听参考音再听目标音，不要求绝对音高识别。", listOf("intervals")),
+        CurriculumNode("ear-triads", "有根音的和弦听辨", Category.ADVANCED, "先听根音，再听和弦，辨别大、小、减、增。", listOf("triads")),
     )
     fun positionSuccessor(id: String): CurriculumNode? = nodes.firstOrNull {
         it.category == Category.FRETBOARD && it.positions.isNotEmpty() && it.implemented && id in it.prerequisites

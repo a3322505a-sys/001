@@ -22,29 +22,34 @@ class AndroidPitchPlayer(private val onError: (Exception) -> Unit = {}) : PitchP
     private var activeTrack: AudioTrack? = null
     private var released = false
 
-    override fun play(cue: PitchCue) {
-        val token =
-            synchronized(lock) {
-                if (released) return
-                generation += 1
-                stopActiveTrack()
-                generation
-            }
+    override fun play(cue: PitchCue) = playSequence(listOf(cue))
+
+    /** Reports only a full cue duration without cancellation or an output error. */
+    fun playSequence(cues: List<PitchCue>, onComplete: () -> Unit = {}) {
+        require(cues.isNotEmpty())
+        val token = synchronized(lock) {
+            if (released) return
+            generation += 1
+            stopActiveTrack()
+            generation
+        }
         executor.execute {
-            try { when (cue.style) {
-                PitchPlaybackStyle.SEQUENCE ->
-                    cue.pitches.forEachIndexed { index, pitch ->
-                        if (!isCurrent(token)) return@execute
-                        playTone(listOf(pitch), token)
-                        if (index < cue.pitches.lastIndex && isCurrent(token)) {
-                            Thread.sleep(SEQUENCE_GAP_MS)
+            try {
+                cues.forEachIndexed { cueIndex, cue ->
+                    when (cue.style) {
+                        PitchPlaybackStyle.SEQUENCE -> cue.pitches.forEachIndexed { index, pitch ->
+                            if (!playTone(listOf(pitch), token)) return@execute
+                            if (index < cue.pitches.lastIndex && isCurrent(token)) Thread.sleep(SEQUENCE_GAP_MS)
                         }
+                        PitchPlaybackStyle.CHORD -> if (!playTone(cue.pitches, token)) return@execute
                     }
-                PitchPlaybackStyle.CHORD -> playTone(cue.pitches, token)
-            } } catch (_: InterruptedException) {
+                    if (cueIndex < cues.lastIndex && isCurrent(token)) Thread.sleep(SEQUENCE_GAP_MS)
+                }
+                if (isCurrent(token)) onComplete()
+            } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             } catch (error: Exception) {
-                onError(error)
+                if (isCurrent(token)) onError(error)
             }
         }
     }
@@ -69,8 +74,8 @@ class AndroidPitchPlayer(private val onError: (Exception) -> Unit = {}) : PitchP
     private fun playTone(
         pitches: List<MidiPitch>,
         token: Int,
-    ) {
-        if (!isCurrent(token)) return
+    ): Boolean {
+        if (!isCurrent(token)) return false
         val pcm = renderPcm(pitches)
         val track =
             AudioTrack
@@ -94,24 +99,29 @@ class AndroidPitchPlayer(private val onError: (Exception) -> Unit = {}) : PitchP
         synchronized(lock) {
             if (!isCurrent(token)) {
                 track.release()
-                return
+                return false
             }
             activeTrack = track
         }
         try {
-            track.write(pcm, 0, pcm.size)
+            check(track.state == AudioTrack.STATE_INITIALIZED) { "Audio output was not initialized" }
+            check(track.write(pcm, 0, pcm.size) == pcm.size) { "Audio output rejected samples" }
             track.play()
+            check(track.playState == AudioTrack.PLAYSTATE_PLAYING) { "Audio output did not start" }
             Thread.sleep(TONE_DURATION_MS.toLong())
-        } catch (_: IllegalStateException) {
-            // A rapid replay or page change may release the active track while it is playing.
+        } catch (error: IllegalStateException) {
+            if (isCurrent(token)) throw error
+            return false
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
+            return false
         } finally {
             synchronized(lock) {
                 if (activeTrack === track) activeTrack = null
             }
             safelyRelease(track)
         }
+        return isCurrent(token)
     }
 
     private fun renderPcm(pitches: List<MidiPitch>): ShortArray {

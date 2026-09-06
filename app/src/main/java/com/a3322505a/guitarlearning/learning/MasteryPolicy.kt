@@ -3,12 +3,13 @@ package com.a3322505a.guitarlearning.learning
 object MasteryPolicy {
     fun independent(state: LearnerState, active: ActiveTask, ordinal: Int): Boolean {
         val t = active.task
+        if (t.relation?.ear == true && !active.audioReady) return false
         if (t.guided || active.hintLevel > 0 || active.firstCorrect == null) return false
         val viewedAt = t.coordinate?.let { state.viewedPositions[it.id] }
         if (viewedAt != null && ordinal - viewedAt < 3) return false
         // An answer shown immediately beforehand is exposure, not independent recall.
         val previous = state.attempts.lastOrNull { a -> a.task.id != t.id && (
-            a.task.skillId == t.skillId || (MappingLessons.sameFact(a.task, t) && (a.task.guided || a.hintLevel > 0)) || (t.coordinate != null && a.task.coordinate == t.coordinate && (a.task.guided || a.hintLevel > 0))) }
+            a.task.skillId == t.skillId || (StructureLessons.sameFact(a.task, t) && (a.task.guided || a.hintLevel > 0)) || (MappingLessons.sameFact(a.task, t) && (a.task.guided || a.hintLevel > 0)) || (t.coordinate != null && a.task.coordinate == t.coordinate && (a.task.guided || a.hintLevel > 0))) }
         if (t.nodeId in listOf("g00", "n00", "tab01")) return previous == null || !previous.task.guided || ordinal - previous.ordinal >= 2
         return previous == null || ordinal - previous.ordinal >= 3
     }
@@ -28,6 +29,7 @@ object MasteryPolicy {
 
     fun passed(state: LearnerState, node: CurriculumNode): Boolean {
         val good = state.attempts.filter { it.task.nodeId == node.id && it.independent && it.firstCorrect == true }
+        if (node.id in StructureLessons.ids) return StructureLessons.passed(state, node.id)
         return when (node.id) {
             "chord-am", "chord-g5", "chord-f" -> ChordLessons.passed(state, node.id)
             "tab02", "staff", "staff02" -> ReadingLessons.passed(state, node.id)
@@ -51,6 +53,7 @@ object MasteryPolicy {
             val initialDay = state.attempts.lastOrNull { it.at <= (old.masteredAt ?: now) }?.localDay
             val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay &&
                 (if (node.id == "mapping") MappingLessons.retained(state, day, old.masteredAt)
+                else if (node.id in StructureLessons.ids) StructureLessons.retained(state, node.id, day, old.masteredAt)
                 else if (node.id in ReadingLessons.ids) ReadingLessons.retained(state, node.id, day, old.masteredAt)
                 else if (ChordLessons.shapes(node.id).isNotEmpty()) MemberEvidencePolicy.retained(state,
                     ChordLessons.shapes(node.id).flatMap { shape -> (1..6).map { ChordLessons.skill(shape, it) } }, day, old.masteredAt) else

@@ -15,8 +15,8 @@ android {
         applicationId = "com.a3322505a.guitarlearning"
         minSdk = 26
         targetSdk = 35
-        versionCode = providers.gradleProperty("appVersionCode").orElse("26").get().toInt()
-        versionName = "2.0.0-alpha09"
+        versionCode = providers.gradleProperty("appVersionCode").orElse("27").get().toInt()
+        versionName = "2.0.0-alpha10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
