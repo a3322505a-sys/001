@@ -72,6 +72,7 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     fun retry() { retryAction?.invoke() }
     fun dismissError() { _error.value = null }
     fun start(nodeId: String, onDone: () -> Unit) = change(onDone) { coordinator.start(it, nodeId, System.currentTimeMillis()) }
+    fun practice(selection: PracticePlan, onDone: () -> Unit) = change(onDone) { coordinator.startPractice(it, selection, System.currentTimeMillis()) }
     fun hint() = change { coordinator.hint(it) }
     fun answer(taskId: String, coordinate: Coordinate? = null, symbol: String? = null) {
         if (_busy.value) return

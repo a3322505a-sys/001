@@ -134,4 +134,33 @@ class LearningRepositoryTest {
         assertEquals(1, db.learningDao().attemptCount())
         db.close(); context.deleteDatabase(name)
     }
+
+    @Test fun practiceAndSuspendedLessonCommitTogetherOrBothRollBack() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val student = initial.copy(progress = listOf("g00", "n00").associateWith { NodeProgress(masteredAt = 1) },
+            introductions = setOf("position:s1:f0", "position:s1:f1"))
+        val lesson = repo.commit(initial, co.start(student, "p01", 10))
+        val practice = co.startPractice(lesson, PracticePlan(listOf("p01"), PracticeKind.POSITION_MIXED), 11)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_practice BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(lesson, practice) }
+        assertEquals(lesson, repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_practice")
+        val saved = repo.commit(lesson, practice)
+        db.close()
+        db = openTest(context, name)
+        repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        val restored = repo.restore(saved, LearningCodec.encode(saved))
+        val ended = repo.commit(restored, co.end(restored, 20))
+        assertEquals(lesson.active, ended.active)
+        assertEquals(lesson.sessionId, ended.sessionId)
+        assertNull(ended.practice)
+        assertEquals(0, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
 }

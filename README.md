@@ -6,12 +6,13 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha06（versionCode 23）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
+- 当前应用版本：**2.0.0-alpha07（versionCode 24）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。
 - 指板训练按低把位 0–4 品、中把位 5–8 品、全指板 0–12 品折叠；默认全收起、一次展开一个，返回保留位置。低把位进度按 P01–P09 共九个节点计数。
 - 设置 → 外观提供清爽青白、暖纸森林、午夜蓝、石墨紫；主题保存后立即生效。已掌握、可学习、未解锁、需复习与规划中采用一致的颜色、符号和文字。
+- 区域展开和已接触节点详情提供专项练习：可选范围和方向，连续练习、暂停恢复，共用学习档案；结束专项后恢复原课的未完成任务。
 - 训练以题目和指板为主，必要说明及错误反馈集中在上方；答对自动前进，答错纠正后手动下一题。训练页横屏沉浸，退出恢复系统栏。
 
 ## 已开放与规划中的课程
@@ -47,6 +48,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | 区域展示分组及节点视觉状态 | `learning/LearningPresentation.kt`；不改课程依赖 |
 | 课程开放及先修关系 | `learning/Curriculum.kt` |
 | 出题、复习、预学习 | `learning/LessonScheduler.kt` |
+| 专项范围、方向与入口 | `learning/PracticeLessons.kt`、`PracticeContent.kt`；共用协调器与 Room |
 | 判题、纠正、推进、掌握度 | `learning/AnswerEvaluator.kt`、`learning/LearningCoordinator.kt`、`learning/MasteryPolicy.kt` |
 | 当前教学指板与点击几何 | `learning/TeachingFretboard.kt`、`learning/TeachingGeometry.kt` |
 | 页面状态、学习档案与备份恢复 | `learning/TrainingViewModel.kt`、`learning/LearningRepository.kt` |
@@ -84,4 +86,4 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 ./gradlew test assembleDebug assembleRelease
 ```
 
-CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha06 属功能版本，正式包使用原长期签名，versionCode 为 23；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
+CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha07 属功能版本，正式包使用原长期签名，versionCode 为 24；不交付 CI 为升级检查临时生成的更高版本 Debug 包。

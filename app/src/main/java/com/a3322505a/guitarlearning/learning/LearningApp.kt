@@ -52,6 +52,7 @@ fun LearningApp(model: TrainingViewModel) {
     var page by rememberSaveable { mutableStateOf("home") }
     var returnPage by rememberSaveable { mutableStateOf("home") }
     var nodeReturnPage by rememberSaveable { mutableStateOf("home") }
+    var practiceReturnPage by rememberSaveable { mutableStateOf("home") }
     val pageStates = rememberSaveableStateHolder()
     val activity = LocalContext.current as MainActivity
     DisposableEffect(activity, page == "training") {
@@ -62,10 +63,13 @@ fun LearningApp(model: TrainingViewModel) {
     val back: () -> Unit = { page = when {
         page == "training" -> returnPage
         page.startsWith("node:") -> nodeReturnPage
+        page.startsWith("practice:") -> practiceReturnPage
         else -> "home"
     } }
     BackHandler(page != "home", onBack = back)
     val start: (String) -> Unit = { id -> model.start(id) { returnPage = page; page = "training" } }
+    val resume: () -> Unit = { if (!busy) { returnPage = page; page = "training" } }
+    val practice: (List<String>) -> Unit = { ids -> practiceReturnPage = page; page = "practice:${ids.joinToString(",")}" }
     val detail: (String) -> Unit = { id ->
         val origin = page
         model.viewNode(id) { nodeReturnPage = origin; page = "node:$id" }
@@ -84,8 +88,9 @@ fun LearningApp(model: TrainingViewModel) {
         } else {
             Column(Modifier.safeDrawingPadding().fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:")) "‹ 返回" else "‹ 首页") }
+                    if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:") || page.startsWith("practice:")) "‹ 返回" else "‹ 首页") }
                     Text(if (page == "home") "吉他 · 一小步" else when {
+                        page.startsWith("practice:") -> "专项练习"
                         page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
@@ -97,11 +102,14 @@ fun LearningApp(model: TrainingViewModel) {
                 pageStates.SaveableStateProvider(page) {
                   Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when {
-                        page == "home" -> HomeContent(s, start, { page = "group:${it.name}" }, { page = "tree" })
-                        page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail)
-                        page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, detail)
+                        page == "home" -> HomeContent(s, start, { page = "group:${it.name}" }, { page = "tree" }, resume)
+                        page.startsWith("group:") -> GroupContent(s, HomeGroup.valueOf(page.substringAfter(':')), start, detail, practice)
+                        page.startsWith("category:") -> CategoryContent(s, Category.valueOf(page.substringAfter(':')), start, detail, practice)
                         page == "tree" -> TreeContent(s, detail, { page = "history" })
-                        page.startsWith("node:") -> NodeContent(s, Curriculum.node(page.substringAfter(':')), start)
+                        page.startsWith("node:") -> NodeContent(s, Curriculum.node(page.substringAfter(':')), start, practice)
+                        page.startsWith("practice:") -> PracticeContent(s, page.substringAfter(':').split(','), busy) { selection ->
+                            model.practice(selection) { returnPage = page; page = "training" }
+                        }
                         page == "history" -> HistoryContent(s, detail)
                         page == "settings" -> SettingsContent(s, busy, model)
                     }
@@ -137,13 +145,13 @@ private enum class HomeGroup(val title: String, val description: String, val cat
 }
 
 @Composable
-private fun HomeContent(s: LearnerState, start: (String) -> Unit, group: (HomeGroup) -> Unit, tree: () -> Unit) {
+private fun HomeContent(s: LearnerState, start: (String) -> Unit, group: (HomeGroup) -> Unit, tree: () -> Unit, resume: () -> Unit) {
     val current = if (s.sessionId != null) Curriculum.node(s.currentNode) else Curriculum.next(s)
     HomeGroup.entries.forEach { item ->
         val active = current?.takeIf { it.category in item.categories }
         HomeEntry(item.title, active?.let { "当前：${it.title}" } ?: item.description,
-            onClick = { group(item) }, action = active?.let { { start(it.id) } },
-            actionLabel = if (s.sessionId != null) "继续学习" else "开始学习")
+            onClick = { group(item) }, action = active?.let { { if (s.sessionId != null) resume() else start(it.id) } },
+            actionLabel = if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习")
     }
     HomeEntry("知识树", "${s.progress.count { it.value.masteredAt != null }} 个节点已点亮", onClick = tree)
 }
@@ -166,25 +174,25 @@ private fun HomeEntry(title: String, subtitle: String, onClick: () -> Unit, acti
 }
 
 @Composable
-private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit) {
+private fun GroupContent(s: LearnerState, group: HomeGroup, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit) {
     val colors = LocalGuitarColors.current
     group.categories.forEach { category ->
         if (group.categories.size > 1) Text(category.title, fontWeight = FontWeight.Bold, color = colors.accent,
             modifier = Modifier.padding(top = 6.dp))
-        CategoryContent(s, category, start, detail)
+        CategoryContent(s, category, start, detail, practice)
     }
 }
 
 @Composable
-private fun CategoryContent(s: LearnerState, category: Category, start: (String) -> Unit, detail: (String) -> Unit) {
-    if (category == Category.FRETBOARD) FretboardRegions(s, start, detail)
+private fun CategoryContent(s: LearnerState, category: Category, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit) {
+    if (category == Category.FRETBOARD) FretboardRegions(s, start, detail, practice)
     else Curriculum.nodes.filter { it.category == category }.forEach { node ->
         NodeRow(s, node, onClick = { detail(node.id) }, start = { start(node.id) })
     }
 }
 
 @Composable
-private fun FretboardRegions(s: LearnerState, start: (String) -> Unit, detail: (String) -> Unit) {
+private fun FretboardRegions(s: LearnerState, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit) {
     val colors = LocalGuitarColors.current
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     FretboardRegion.entries.forEach { region ->
@@ -206,6 +214,7 @@ private fun FretboardRegions(s: LearnerState, start: (String) -> Unit, detail: (
             region.nodes.forEach { node ->
                 NodeRow(s, node, onClick = { detail(node.id) }, start = { start(node.id) })
             }
+            if (region.nodes.any { PracticeLessons.eligible(s, it) }) OutlinedButton(onClick = { practice(region.nodeIds) }) { Text("专项练习") }
         }
     }
 }
@@ -237,7 +246,7 @@ private fun NodeRow(s: LearnerState, node: CurriculumNode, onClick: (() -> Unit)
             if (status == NodeVisualState.REVIEW) {
                 Text("需复习 · 已掌握", color = colors.review.ink, fontSize = 12.sp,
                     modifier = Modifier.background(colors.review.background).padding(horizontal = 6.dp, vertical = 3.dp))
-            } else Text(if (status == NodeVisualState.MASTERED && node.id == "g00") "已认识" else status.label,
+            } else Text(if (status == NodeVisualState.MASTERED && node.id == "g00") "已认识" else if (current && s.practice != null) "专项练习中" else status.label,
                 color = pair.ink, fontSize = 12.sp)
             if (current && status != NodeVisualState.CURRENT) Text("正在复习", color = pair.ink, fontSize = 12.sp)
         }
@@ -278,13 +287,14 @@ private fun TreeContent(s: LearnerState, detail: (String) -> Unit, history: () -
 }
 
 @Composable
-private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -> Unit) {
+private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -> Unit, practice: (List<String>) -> Unit) {
     val colors = LocalGuitarColors.current
     NodeRow(s, node)
     Panel("学习内容", node.description) {
         if (node.prerequisites.isNotEmpty()) Text("先修：${node.prerequisites.joinToString("、") { Curriculum.node(it).title }}")
         if (Curriculum.available(s, node)) Button(onClick = { start(node.id) }) { Text(if (Curriculum.mastered(s, node.id)) "开始复习" else "开始 / 继续学习") }
     }
+    if (PracticeLessons.eligible(s, node)) OutlinedButton(onClick = { practice(listOf(node.id)) }) { Text("专项练习") }
     if (node.id == "mapping") Panel("映射证据", "各方向分别记录；固定唱名与 C 大调级数分别过关。") {
         MappingLessons.notes.forEach { note ->
             Text("$note · 唱名 ${MappingLessons.evidence(s, note, false).takeLast(6).count { it.firstCorrect == true }}/6 · 级数 ${MappingLessons.evidence(s, note, true).takeLast(6).count { it.firstCorrect == true }}/6")
@@ -325,7 +335,7 @@ private fun HistoryContent(s: LearnerState, detail: (String) -> Unit) {
     if (s.sessions.isEmpty()) Text("开始第一课后，这里会留下真实练习记录。")
     s.sessions.asReversed().forEach { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }
-        Panel(formatTime(session.startedAt), if (session.endedAt == null) "进行中 / 已暂停" else "已结束") {
+        Panel(formatTime(session.startedAt), (if (session.mode == "practice") "专项 · " else "学习 · ") + if (session.endedAt == null) "进行中 / 已暂停" else "已结束") {
             Text("完成${attempts.count { it.completed }}个任务 · 独立回答${attempts.count { it.independent }}次")
             attempts.map { it.task.nodeId }.distinct().forEach { id -> TextButton(onClick = { detail(id) }) { Text(Curriculum.node(id).title) } }
         }
@@ -387,7 +397,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                 IconButton(onClick = onBack, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
                     Text("‹", fontSize = 28.sp)
                 }
-                Text(task.prompt, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.weight(1f))
+                Text((if (s.practice != null) "专项 · " else "") + task.prompt, fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.weight(1f))
                 if (task.showTab) TabPrompt(task.coordinate!!, Modifier.width(144.dp))
                 if (a.phase == Phase.CORRECTED) Button(onClick = { model.next(task.id) }, enabled = !busy) { Text("下一题") }
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
