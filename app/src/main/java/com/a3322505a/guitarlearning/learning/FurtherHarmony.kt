@@ -72,8 +72,7 @@ internal object FurtherHarmony {
         } } }
         "ear-memory" -> listOf(listOf(57,60,62),listOf(60,57,64),listOf(57,62,60,57),listOf(64,62,60,62),listOf(57,60,64,62,57),listOf(62,60,57,60,64)).mapIndexed { i,route ->
             sequence(id,"$i",route,"听完${route.size}音短句，再依次找到实际音高","参照A3；短句${route.joinToString(" → "){pitch(it)}}。只判断音高顺序，不判断演奏节奏。",57,ear=true)
-        }
-            + rhythmMemory(id)
+        } + rhythmMemory(id)
         "compose-eight" -> listOf(composition(id,"work",List(16){i->permitted(if(i==7)setOf(7) else if(i==15)setOf(0) else setOf(0,2,4,5,7,9,11)).copy(firstFret=if(i<8)0 else 5,lastFret=if(i<8)4 else 8)},List(16){8},
             "写8小节：C大调，第4小节停G，第8小节回C","每小节两个二分音符，共16音；前4小节0–4品，后4小节5–8品，一次换把。用C大调自然音，第8音为G，第16音为C。核对这些条件，不设唯一旋律答案。"))
         "keys-g-f" -> listOf(
