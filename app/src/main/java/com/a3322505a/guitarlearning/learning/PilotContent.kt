@@ -32,9 +32,10 @@ internal fun PilotMenu(state: PilotMenuUi, start: (PilotMode) -> Unit) {
 internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     val pilot = requireNotNull(state.pilot)
     var comment by remember(state.taskId) { mutableStateOf("") }
+    var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(8.dp)) {
         val boardHeight = maxHeight * 0.43f
-        val scoreHeight = if (pilot.mode == PilotMode.GUITAR) maxHeight * 0.55f else (maxHeight * 0.32f).coerceIn(80.dp,120.dp)
+        val scoreHeight = if (pilot.mode == PilotMode.GUITAR) maxHeight * 0.50f else (maxHeight * 0.32f).coerceIn(80.dp,120.dp)
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -44,13 +45,18 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
                     Text("${pilot.bpm} BPM")
                     TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm - 5).coerceAtLeast(40))) }, enabled = !pilot.playing, modifier = Modifier.width(40.dp), contentPadding = PaddingValues(0.dp)) { Text("−") }
                     TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm + 5).coerceAtMost(80))) }, enabled = !pilot.playing, modifier = Modifier.width(40.dp), contentPadding = PaddingValues(0.dp)) { Text("＋") }
-                    if (pilot.canPlay) TextButton(onClick = { onEvent(TrainingEvent.PilotPlay) }) { Text(if (pilot.playing) "暂停" else "试听 / 继续") }
+                    if (pilot.canPlay) {
+                        TextButton(onClick = { onEvent(TrainingEvent.PilotPlay) }) { Text(if (pilot.playing) "暂停" else "试听 / 继续") }
+                        Box {
+                            TextButton(onClick = { menuOpen = true },modifier = Modifier.width(40.dp),contentPadding = PaddingValues(0.dp)) { Text("⋯") }
+                            DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
+                                DropdownMenuItem(text={Text(if(pilot.loop) "循环 ✓" else "循环")},onClick={menuOpen=false;onEvent(TrainingEvent.PilotLoop)})
+                                DropdownMenuItem(text={Text(if(pilot.compare) "收起对照" else "对照谱")},onClick={menuOpen=false;onEvent(TrainingEvent.PilotCompare)})
+                            }
+                        }
+                    }
                 }
                 state.notation?.let { NotationView(it, if (pilot.mode == PilotMode.GUITAR) -1 else state.notationIndex, Modifier.fillMaxWidth().height(scoreHeight)) }
-                if (pilot.canPlay) Row {
-                    TextButton(onClick = { onEvent(TrainingEvent.PilotLoop) }) { Text(if (pilot.loop) "循环 ✓" else "循环") }
-                    TextButton(onClick = { onEvent(TrainingEvent.PilotCompare) }) { Text(if (pilot.compare) "收起对照" else "对照谱") }
-                }
                 if (pilot.compare) state.notation?.score?.let { NotationView(it.notation(if (state.notation.kind == NotationKind.TAB) NotationKind.STAFF else NotationKind.TAB),state.notationIndex,Modifier.fillMaxWidth().height(120.dp)) }
                 if (pilot.mode == PilotMode.GUITAR) {
                     TextButton(onClick = { onEvent(TrainingEvent.PilotMetronome) }) { Text(if (pilot.metronome) "停止节拍器" else "节拍器 · 一小节预备拍") }
