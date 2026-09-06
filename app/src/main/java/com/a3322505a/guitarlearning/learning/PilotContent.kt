@@ -10,13 +10,13 @@ import androidx.compose.ui.unit.dp
 
 data class PilotControlsUi(val mode: PilotMode, val bpm: Int, val playing: Boolean, val canPlay: Boolean,
     val completed: Boolean, val loop: Boolean, val metronome: Boolean, val compare: Boolean)
-data class PilotMenuUi(val resume: Boolean, val next: Map<PilotMode, Int?>, val enabled: Map<PilotMode, Boolean>, val results: List<String>)
+data class PilotMenuUi(val resume: Boolean, val next: Map<PilotMode, Int?>, val enabled: Map<PilotMode, Boolean>, val results: List<String>, val resumeMode: PilotMode? = null)
 
 @Composable
 internal fun PilotMenu(state: PilotMenuUi, start: (PilotMode) -> Unit) {
     Panel("短谱试用", "每次5–10分钟，分3–5次完成；先测读，再练习，最后读陌生谱。") {
         Text("五线谱与TAB使用同一份音符。先四分音符，再练二分音符和休止。")
-        PilotMode.entries.forEach { mode ->
+        (if(state.resume) listOf(state.resumeMode ?: PilotMode.SLOW) else PilotMode.entries).forEach { mode ->
             val next = state.next[mode]
             Button(onClick = { start(mode) }, enabled = state.resume || state.enabled[mode] == true) {
                 Text(if (state.resume) "继续${mode.title}" else if (next == null) "${mode.title} · 已完成" else "${mode.title} · 第${next + 1}/8段")

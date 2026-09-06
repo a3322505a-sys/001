@@ -72,8 +72,9 @@ internal object LearningPageAdapter {
     fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null,
         PilotMode.entries.associateWith { ShortScorePilot.nextClip(s,it) },
         PilotMode.entries.associateWith { mode -> ShortScorePilot.nextClip(s,mode)?.let { ShortScorePilot.available(s,it) } == true },
-        s.pilotResults.map { r -> "${r.mode.title} · ${r.kind} · 第${r.clip+1}段 · ${r.elapsedMs/1000}秒 · " +
-            if(r.mode == PilotMode.GUITAR) "自评：${r.rating}" else "首次正确 ${r.firstCorrect}/${r.notes}" + if(r.assisted) "（含辅助）" else "" })
+        s.pilotResults.map { r -> "${r.mode.title} · ${if(r.kind==NotationKind.TAB) "TAB" else "五线谱"} · ${when(r.role){PilotRole.BASELINE->"基线";PilotRole.PRACTICE->"练习";PilotRole.RETEST->"复测"}} 第${r.clip+1}段 · ${r.elapsedMs/1000}秒 · " +
+            (if(r.mode == PilotMode.GUITAR) "自评：${r.rating}" else "首次正确 ${r.firstCorrect}/${r.notes}") + (if(r.assisted) "（含辅助）" else "") +
+            (if(r.comment.isBlank()) "" else "\n备注：${r.comment}") }, s.pilot?.mode)
     fun history(s: LearnerState) = s.sessions.asReversed().map { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }
         InfoPanelUi(formatTime(session.startedAt), (if (session.mode == "practice") "专项 · " else "学习 · ") + if (session.endedAt == null) "进行中 / 已暂停" else "已结束",
