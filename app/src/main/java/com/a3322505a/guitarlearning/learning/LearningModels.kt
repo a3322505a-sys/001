@@ -20,7 +20,7 @@ enum class Category(val title: String, val description: String) {
     ADVANCED("进阶应用", "和弦、音程、音阶与听觉"),
 }
 
-@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE, CHORD_SHAPE, STAFF_TO_POSITION }
+@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE, CHORD_SHAPE, STAFF_TO_POSITION, RELATION, STRUCTURE, REFERENCE_EAR }
 @Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION, PRACTICE }
 @Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL }
 @Serializable enum class CompletionKind { SINGLE, SET, SEQUENCE }
@@ -70,6 +70,7 @@ data class LearningTask(
     val chord: ChordShape? = null,
     val targetSkillIds: List<String> = emptyList(),
     val notation: NotationPrompt? = null,
+    val relation: RelationPrompt? = null,
     val referenceCoordinates: List<Coordinate> = emptyList(),
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
@@ -96,6 +97,7 @@ data class ActiveTask(
     val sequenceIndex: Int = 0,
     val feedback: String = "",
     val hintRequested: Boolean = false,
+    val audioReady: Boolean = false,
 )
 
 @Serializable
@@ -114,6 +116,7 @@ data class Attempt(
     val curriculumVersion: Int = 4,
     val policyVersion: Int = 1,
     val members: List<TargetEvidence> = emptyList(),
+    val audioPlayed: Boolean = false,
 )
 
 @Serializable
@@ -128,7 +131,7 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 
 @Serializable enum class PracticeKind(val title: String) {
     POSITION_MIXED("音位双向混合"), FIND_POSITION("音名找位置"), NAME_NOTE("看位置认音名"),
-    MAPPING_MIXED("唱名与级数混合"), FIXED_MAPPING("固定唱名双向"), DEGREE_MAPPING("C 大调级数双向"), TAB("TAB 定位"), CHORD_SHAPE("指定和弦形态"), READING("短句与五线谱"), FULL_MIXED("全指板 0–12 品混合")
+    MAPPING_MIXED("唱名与级数混合"), FIXED_MAPPING("固定唱名双向"), DEGREE_MAPPING("C 大调级数双向"), TAB("TAB 定位"), CHORD_SHAPE("指定和弦形态"), READING("短句与五线谱"), FULL_MIXED("全指板 0–12 品混合"), RELATIONS("关系与结构"), REFERENCE_EAR("带参照听辨")
 }
 @Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
 @Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)

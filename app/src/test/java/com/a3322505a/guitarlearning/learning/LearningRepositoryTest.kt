@@ -222,4 +222,41 @@ class LearningRepositoryTest {
         db.close(); context.deleteDatabase(name)
     }
 
+    @Test fun playbackAndPartialScaleSaveTogetherOrRollBackWithoutEvidence() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-"+newId()+".db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val task = StructureLessons.tasks("ear-triads").first().copy(id = newId())
+        val session = LearningSession(startedAt = 1)
+        var state = repo.commit(initial, initial.copy(currentNode = "ear-triads", active = ActiveTask(task), sessions = listOf(session), sessionId = session.id))
+        val played = co.playbackCompleted(state, task.id)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_audio BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(state, played) }
+        assertFalse(repo.load().active!!.audioReady)
+        assertEquals(0, db.learningDao().evidenceCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_audio")
+        state = repo.commit(state, played)
+        db.close()
+        db = openTest(context, name)
+        repo = RoomLearningRepository(db)
+        assertTrue(repo.load().active!!.audioReady)
+        state = repo.commit(state, co.answer(state, symbol = task.constraint.symbol, now = 2))
+        assertTrue(state.attempts.single().audioPlayed)
+        assertEquals(1, db.learningDao().evidenceCount())
+        val invalid = state.copy(attempts = listOf(state.attempts.single().copy(audioPlayed = false)))
+        assertFails { repo.restore(state, LearningCodec.encode(invalid)) }
+        assertEquals(state, repo.load())
+        val scale = StructureLessons.tasks("scale-major").first { it.completion == CompletionKind.SEQUENCE }.copy(id = newId())
+        state = repo.commit(state, state.copy(currentNode = "scale-major", active = ActiveTask(scale)))
+        state = repo.commit(state, co.answer(state, AnswerEvaluator.validPositions(scale).last(), now = 3))
+        val restored = repo.restore(state, LearningCodec.encode(state))
+        assertEquals(1, restored.active!!.sequenceIndex)
+        assertEquals(1, restored.attempts.last().members.size)
+        assertEquals(2, db.learningDao().evidenceCount())
+        db.close(); context.deleteDatabase(name)
+    }
+
 }

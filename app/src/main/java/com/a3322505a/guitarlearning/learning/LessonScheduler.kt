@@ -8,6 +8,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
         if (state.practice != null) return PracticeLessons.next(state, this, random)
         val node = Curriculum.node(state.currentNode)
         val source = if (state.reviewMode) TaskSource.REVIEW else TaskSource.MAIN
+        if (node.id in StructureLessons.ids) return StructureLessons.next(state, node.id, source, random)
         return when (node.id) {
             "g00" -> guitarTask(state, source)
             "n00" -> symbolTask(state, source)

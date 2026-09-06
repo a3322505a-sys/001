@@ -70,6 +70,10 @@ object LearningCodec {
             require(lesson.active == null || lesson.sessionId != null)
         }
         (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task)).forEach { task ->
+            task.relation?.let { relation ->
+                require((task.direction == Direction.REFERENCE_EAR) == relation.ear)
+                if (task.completion == CompletionKind.SEQUENCE) require(task.sequence.map { it.midi } == relation.targetPitches)
+            }
             task.notation?.let { notation ->
                 val rules = if (task.completion == CompletionKind.SEQUENCE) task.sequence else listOf(task.constraint)
                 if (rules.first().kind != ConstraintKind.SYMBOL) {
@@ -87,6 +91,7 @@ object LearningCodec {
             }
         }
         state.attempts.forEach { a ->
+            require(a.task.relation?.ear != true || !a.independent || a.audioPlayed)
             require(a.members.map { it.index }.distinct().size == a.members.size)
             require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
         }

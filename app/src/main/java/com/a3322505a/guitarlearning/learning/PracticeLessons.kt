@@ -14,6 +14,7 @@ object PracticeLessons {
     fun eligible(state: LearnerState, node: CurriculumNode): Boolean = Curriculum.available(state, node) && when {
         node.positions.isNotEmpty() -> introducedPositions(state, node).isNotEmpty()
         ChordLessons.shapes(node.id).isNotEmpty() -> ChordLessons.shapes(node.id).any { "chord:${it.id}:intro" in state.introductions }
+        node.id in StructureLessons.ids -> StructureLessons.eligible(state, node.id)
         node.id in ReadingLessons.ids -> ReadingLessons.eligible(state, node.id)
         node.id == "mapping" -> state.introductions.any { it.startsWith("mapping:") }
         node.id == "tab01" -> "tab01:intro" in state.introductions
@@ -23,6 +24,7 @@ object PracticeLessons {
     fun kinds(nodes: List<CurriculumNode>, state: LearnerState): List<PracticeKind> = when {
         nodes.isNotEmpty() && nodes.all { ChordLessons.shapes(it.id).isNotEmpty() } -> listOf(PracticeKind.CHORD_SHAPE)
         nodes.isNotEmpty() && nodes.all { it.positions.isNotEmpty() } -> positionKinds + if (nodes.any { it.positions.any { c -> c.fret >= 9 } }) listOf(PracticeKind.FULL_MIXED) else emptyList()
+        nodes.isNotEmpty() && nodes.all { it.id in StructureLessons.ids } -> listOf(if (nodes.all { it.id.startsWith("ear-") }) PracticeKind.REFERENCE_EAR else PracticeKind.RELATIONS)
         nodes.isNotEmpty() && nodes.all { it.id in ReadingLessons.ids } -> listOf(PracticeKind.READING)
         nodes.singleOrNull()?.id == "mapping" -> mappingKinds.filter { kind ->
             kind != PracticeKind.DEGREE_MAPPING || state.introductions.any { it.startsWith("mapping:major:") }
@@ -41,6 +43,7 @@ object PracticeLessons {
     fun next(state: LearnerState, scheduler: LessonScheduler, random: Random): LearningTask {
         val selection = requireNotNull(state.practice)
         val candidates = when (selection.kind) {
+            PracticeKind.RELATIONS, PracticeKind.REFERENCE_EAR -> selection.nodeIds.map { StructureLessons.next(state, it, TaskSource.PRACTICE, random) }
             PracticeKind.READING -> selection.nodeIds.map { ReadingLessons.next(state, it, TaskSource.PRACTICE, random) }
             PracticeKind.FULL_MIXED -> selection.nodeIds.flatMap { id -> introducedPositions(state, Curriculum.node(id)).flatMap { c ->
                 listOf(Direction.NOTE_TO_POSITION, Direction.POSITION_TO_NOTE).map { direction ->

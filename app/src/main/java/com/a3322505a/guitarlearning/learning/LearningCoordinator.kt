@@ -42,12 +42,25 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val a = state.active ?: return state
         if (a.phase != Phase.ANSWERING) return state
         return state.copy(active = a.copy(hintLevel = (a.hintLevel + 1).coerceAtMost(2), hintRequested = true,
-            feedback = if (a.hintLevel > 0) a.task.explanation else if (a.task.mappingNote != null) "先分清固定唱名还是调内级数；级数要先看主音。再次提示可查看对应关系。" else "先看琴弦粗细、弦枕和定位圆点；再点一次提示可查看答案。"))
+            feedback = if (a.hintLevel > 0) a.task.explanation else if (a.task.relation != null) "先看参考音和题目语境；听觉题可重复播放。再次提示可查看关系。" else if (a.task.mappingNote != null) "先分清固定唱名还是调内级数；级数要先看主音。再次提示可查看对应关系。" else "先看琴弦粗细、弦枕和定位圆点；再点一次提示可查看答案。"))
+    }
+
+    fun playbackStarted(state: LearnerState, taskId: String): LearnerState {
+        val active = state.active?.takeIf { it.task.id == taskId } ?: return state
+        val relation = active.task.relation ?: return state
+        return state.copy(active = active.copy(audioReady = false,
+            hintLevel = if (relation.ear || active.task.guided) active.hintLevel else maxOf(1, active.hintLevel)))
+    }
+
+    fun playbackCompleted(state: LearnerState, taskId: String): LearnerState {
+        val active = state.active?.takeIf { it.task.id == taskId && it.task.relation != null } ?: return state
+        return state.copy(active = active.copy(audioReady = true))
     }
 
     fun answer(state: LearnerState, coordinate: Coordinate? = null, symbol: String? = null, now: Long, zone: ZoneId = ZoneId.systemDefault()): LearnerState {
         val active = state.active ?: return state
         if (active.phase in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
+        if (active.task.relation?.ear == true && !active.audioReady) return state
         if ((coordinate == null) == (symbol == null)) return state
         val result = AnswerEvaluator.evaluate(active, coordinate, symbol)
         val record = InputRecord(now, coordinate, symbol, result, if (active.task.completion == CompletionKind.SEQUENCE) active.sequenceIndex else null)
@@ -86,6 +99,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val attempt = Attempt(active.task, requireNotNull(state.sessionId), ordinal, old?.at ?: now,
             old?.localDay ?: Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString(),
             changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent,
+            curriculumVersion = 7, policyVersion = 2, audioPlayed = active.audioReady,
             members = MemberEvidencePolicy.record(state, active, old, result, coordinate, now))
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,

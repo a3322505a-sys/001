@@ -310,6 +310,11 @@ private fun NodeContent(s: LearnerState, node: CurriculumNode, start: (String) -
             Text("${MappingLessons.directionLabel(direction)}：独立正确 ${s.attempts.count { it.independent && it.firstCorrect == true && it.task.direction == direction }} 次", fontSize = 13.sp)
         }
     }
+    if (node.id in ReadingLessons.ids || node.id in StructureLessons.ids) Panel("掌握依据", "各项目最近三次有效独立回答均正确；提示和示范不计入。") {
+        val keys = if (node.id in ReadingLessons.ids) ReadingLessons.skills(node.id) else StructureLessons.keys(node.id)
+        Text("已达标 ${keys.count { StructureLessons.keyPassed(s, it) }} / ${keys.size} 项；顺序成员分别记录。", fontSize = 13.sp)
+        if (node.id.startsWith("ear-")) Text("仅完整播放后接受作答；回放不透露选项答案，提示仍按辅助记录。", fontSize = 13.sp)
+    }
     if (node.positions.isNotEmpty()) {
         Text("掌握依据", fontWeight = FontWeight.Bold)
         node.positions.forEach { c ->
@@ -344,7 +349,7 @@ private fun HistoryContent(s: LearnerState, detail: (String) -> Unit) {
     s.sessions.asReversed().forEach { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }
         Panel(formatTime(session.startedAt), (if (session.mode == "practice") "专项 · " else "学习 · ") + if (session.endedAt == null) "进行中 / 已暂停" else "已结束") {
-            Text("完成${attempts.count { it.completed }}个任务 · 独立回答${attempts.count { it.independent }}次")
+            Text("完成${attempts.count { it.completed }}个任务 · 独立回答${attempts.count { it.independent } + attempts.sumOf { it.members.count { m -> m.independent } }}项")
             attempts.map { it.task.nodeId }.distinct().forEach { id -> TextButton(onClick = { detail(id) }) { Text(Curriculum.node(id).title) } }
         }
     }
@@ -394,7 +399,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
     val task = a.task
     var menuOpen by remember(task.id) { mutableStateOf(false) }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
-    val hasBoard = task.chord != null || task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null
+    val hasBoard = task.referenceCoordinates.isNotEmpty() || task.chord != null || task.constraint.kind != ConstraintKind.SYMBOL || task.coordinate != null
     val message = trainingMessage(a)
     LaunchedEffect(task.id, a.phase, busy, foreground) {
         if (a.phase == Phase.CORRECT && !busy && foreground) { delay(if (task.guided) 1200 else 650); model.next(task.id) }
@@ -432,6 +437,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
             }
             if (task.chord != null && (!s.fingerLegendSeen || legendOpen)) FingerLegend { legendOpen = false; model.legendSeen() }
             if (task.chord != null) ChordInputControls(a, busy, model)
+            if (task.relation != null) RelationContent(a, s, busy, model)
             task.notation?.let { NotationView(it, a.sequenceIndex, Modifier.fillMaxWidth().height(86.dp)) }
             if (message != null) {
                 val wrong = a.firstCorrect == false
@@ -443,7 +449,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
                             .padding(horizontal = 14.dp, vertical = 8.dp))
                 }
             }
-            if (task.options.isNotEmpty()) AnswerOptions(a, busy, model,
+            if (task.options.isNotEmpty()) AnswerOptions(a, busy || (task.relation?.ear == true && !a.audioReady), model,
                 Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
             if (hasBoard) TeachingFretboard(a,
                 task.constraint.kind != ConstraintKind.SYMBOL && !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING),
