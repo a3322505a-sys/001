@@ -32,6 +32,9 @@ object AdaptiveMix {
         fun stable(values: List<AssessmentSample>) = values.takeLast(8).let { it.size == 8 && it.count { a -> a.correct } >= 7 }
         val fixed = notes.filter { ready(s, view, it, AnswerRepresentation.FIXED) }
         val degrees = fixed.filter { ready(s, view, it, AnswerRepresentation.DEGREE) }
+        val participatingUnits = RegionTraining.known(s, region.regionId)
+            .filter { MusicFacts.note(it.second.string, it.second.fret) in degrees }
+            .map { AdaptiveEvidence.positionUnit(it.second, Direction.POSITION_TO_NOTE) }.toSet()
         val related = run.focus.mapNotNull { AdaptiveTraining.mappingTask(it)?.mappingNote }.distinct().ifEmpty { notes }
         val reinstated = run.excluded.firstOrNull { representation -> related.isNotEmpty() && notes.containsAll(related) && related.all { ready(s, view, it, representation) } }
         if (reinstated != null) run = run.copy(excluded = run.excluded - reinstated, generation = run.generation + 1, sinceOrdinal = ordinal,
@@ -42,7 +45,7 @@ object AdaptiveMix {
             val stage = when {
                 run.mixStage == 0 && fixed.size >= 2 -> 1
                 run.mixStage == 1 && stable(mixed) && degrees.size >= 2 -> 2
-                run.mixStage == 2 && degrees.size >= 2 && s.weakPoints.values.none { it.resolvedAt == null && it.confirmedAt != null && (it.unit in run.focus || it.unit.startsWith("mapping:") && AdaptiveTraining.mappingTask(it.unit)?.mappingNote in degrees) } && AnswerRepresentation.entries.all { rep -> stable(mixed.filter { it.task.adaptive?.correctRepresentation == rep }) } -> 3
+                run.mixStage == 2 && degrees.size >= 2 && s.weakPoints.values.none { it.resolvedAt == null && it.confirmedAt != null && (it.unit in participatingUnits || it.unit in run.focus || it.unit.startsWith("mapping:") && AdaptiveTraining.mappingTask(it.unit)?.mappingNote in degrees) } && AnswerRepresentation.entries.all { rep -> stable(mixed.filter { it.task.adaptive?.correctRepresentation == rep }) } -> 3
                 else -> run.mixStage
             }
             if (stage != run.mixStage) run = run.copy(mixStage = stage, generation = run.generation + 1, sinceOrdinal = ordinal)

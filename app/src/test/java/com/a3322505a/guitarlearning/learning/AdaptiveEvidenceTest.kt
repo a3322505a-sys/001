@@ -231,4 +231,32 @@ class AdaptiveEvidenceTest {
         assertTrue(s.regionTraining!!.adaptive.representationTrials.isEmpty())
         assertEquals(s, LearningCodec.decode(LearningCodec.encode(s)))
     }
+
+    @Test fun m3RequiresEveryParticipatingFoundationToHaveResolvedItsConfirmedWeakness() {
+        var s = profile(); var now = 1000L
+        val c = Coordinate(1, 0)
+        repeat(4) {
+            for (coordinate in listOf(c, Coordinate(1, 1), Coordinate(1, 3))) {
+                s = answer(s, position(coordinate, Direction.POSITION_TO_NOTE), true, now); now += 100
+            }
+            for (direction in MappingLessons.directions) for (note in listOf("E", "F", "G")) {
+                s = answer(s, MappingLessons.make(note, direction, TaskSource.MAIN), true, now); now += 100
+            }
+        }
+        val key = AdaptiveEvidence.positionUnit(c, Direction.POSITION_TO_NOTE)
+        val target = AdaptiveEvidence.positionTarget(c)
+        s = s.copy(regionTraining = RegionRun("LOW", 1, 0, AdaptiveRun(mixStage = 2)),
+            weakPoints = mapOf(key to WeakPoint(key, target, now, confirmedAt = now)))
+        val base = position(c, Direction.POSITION_TO_NOTE).copy(adaptive = AdaptiveTask(s.regionTraining!!.adaptive.config, PracticePurpose.NORMAL, 2))
+        val variants = (0..200).map { AdaptiveMix.apply(s, base, Random(it), now) }.filter { it.adaptive!!.options.isNotEmpty() }
+        for (representation in AnswerRepresentation.entries) repeat(8) {
+            now += AdaptiveEvidence.HOLD_MS + 2
+            s = answer(s, variants.first { it.adaptive!!.correctRepresentation == representation }, true, now)
+        }
+        assertEquals(2, s.regionTraining!!.adaptive.mixStage)
+        s = s.copy(weakPoints = mapOf(key to s.weakPoints.getValue(key).copy(resolvedAt = now)))
+        now += AdaptiveEvidence.HOLD_MS + 2
+        s = answer(s, variants.first(), true, now)
+        assertEquals(3, s.regionTraining!!.adaptive.mixStage)
+    }
 }
