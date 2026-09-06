@@ -74,7 +74,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             firstAnswerAt = active.firstAnswerAt ?: now,
             inputs = active.inputs + record, confirmed = confirmed, sequenceIndex = sequenceIndex,
             feedback = when (result) {
-                ClickResult.WRONG -> AnswerEvaluator.wrongFeedback(active.task, coordinate)
+                ClickResult.WRONG -> AnswerEvaluator.wrongFeedback(active.task, coordinate, active.sequenceIndex)
                 ClickResult.CORRECTION -> if (correctedDone) "已纠正。准备好后点下一题。" else "这一处已纠正，继续找剩余位置。"
                 ClickResult.PARTIAL -> "这一处正确，继续。"
                 else -> if (active.task.guided) "记住这个位置，接下来试着自己找。" else "正确"

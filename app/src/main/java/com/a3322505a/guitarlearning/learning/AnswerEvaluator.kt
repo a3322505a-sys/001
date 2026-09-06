@@ -32,11 +32,13 @@ object AnswerEvaluator {
         return ClickResult.CORRECT
     }
 
-    fun wrongFeedback(task: LearningTask, coordinate: Coordinate?): String {
-        if (coordinate != null && task.constraint.kind == ConstraintKind.COORDINATE) {
-            val target = task.constraint.coordinate
+    fun wrongFeedback(task: LearningTask, coordinate: Coordinate?, index: Int = 0): String {
+        if (task.chord != null) return "按当前指定弦设置位置、空弦或不弹：${task.explanation}"
+        val rule = if (task.completion == CompletionKind.SEQUENCE) task.sequence.getOrNull(index) else task.constraint
+        if (coordinate != null && rule?.kind == ConstraintKind.COORDINATE) {
+            val target = rule.coordinate
             if (target != null && MusicFacts.midi(coordinate.string, coordinate.fret) == MusicFacts.midi(target.string, target.fret)) {
-                return "音高相同，这道 TAB 要求的是${target.label}。请点亮起的位置。"
+                return "音高相同，本题指定的是${target.label}。请点亮起的位置。"
             }
         }
         return "再看一次：${task.explanation}"
