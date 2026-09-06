@@ -94,10 +94,10 @@ object StructureLessons {
             val components = if (shape == ChordShapes.g5Two) "根音 / 纯五度" else "根音 / 纯五度 / 根音八度"
             listOf(choice(id, "${shape.id}:quality", "${shape.title}为什么不分大、小？",
                 "G5 只有 G 与 D；三音形态多一个 G 八度，没有三音，不能据此称 G 大或 G 小。", "没有三音",
-                listOf("没有三音", "多八度就是大调", "三个音必是三和弦"), listOf(43), shape.pitches(), chord = true, board = shape.sounding, range = PhysicalRange(0, 5)),
+                listOf("没有三音", "多八度就是大调", "三个音必是三和弦"), listOf(43), shape.pitches(), chord = true, board = shape.sounding(), range = PhysicalRange(0, 5)),
                 choice(id, "${shape.id}:members", "${shape.title}如何相对根音 G 构成？", "G2 是根音，D3 是其纯五度，G3 是根音八度。$components。",
                     components, listOf("根音 / 纯五度", "根音 / 纯五度 / 根音八度", "根音 / 大三度 / 纯五度"),
-                    listOf(43), shape.pitches(), chord = true, board = shape.sounding, range = PhysicalRange(0, 5)))
+                    listOf(43), shape.pitches(), chord = true, board = shape.sounding(), range = PhysicalRange(0, 5)))
         }
         "cross-position" -> listOf(64, 67, 59, 60, 62, 57).map { pitch ->
             val reference = locations(listOf(pitch), PhysicalRange()).first()
