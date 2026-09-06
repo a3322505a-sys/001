@@ -119,7 +119,9 @@ object AdaptiveEvidence {
                 } else {
                     val a = requireNotNull(event.attempt)
                     val facts = targets(a.task)
-                    if (event.rank == 2) completions += facts else {
+                    if (event.rank == 2) {
+                        if (collected.any { it.taskId == a.task.id }) completions += facts
+                    } else {
                         val input = requireNotNull(firstInput(a))
                         val correct = input.result != ClickResult.WRONG
                         val key = unit(a.task)

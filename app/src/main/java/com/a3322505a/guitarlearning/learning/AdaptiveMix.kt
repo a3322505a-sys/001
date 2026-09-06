@@ -56,7 +56,7 @@ object AdaptiveMix {
         val view = AdaptiveEvidence.View(s, now)
         val known = notes(s, view)
         // Use the reserved sixth task to teach and test conversion before it can enter options.
-        val currentCount = s.attempts.count { it.sessionId == s.sessionId && it.completed && !it.task.guided && it.task.adaptive != null }
+        val currentCount = AdaptiveTraining.completedScorable(s, view).size
         if (currentCount % 6 == 5 && Curriculum.available(s, Curriculum.node("mapping")) && known.size >= 2) {
             val representation = if (run.mixStage == 0) AnswerRepresentation.FIXED else AnswerRepresentation.DEGREE
             val candidateKeys = known.flatMap { mappingKeys(it, representation) }.filterNot { view.ready(it) || s.weakPoints[it]?.let { point -> point.confirmedAt != null && point.resolvedAt == null } == true }

@@ -167,4 +167,54 @@ class AdaptiveEvidenceTest {
         val active = s.copy(regionTraining = RegionRun("LOW", 1, 0))
         assertNull(AdaptiveTraining.transition(active, now).regionTraining!!.adaptive.sevenQualifiedAt)
     }
+
+    @Test fun immediateRepetitionAndTeachingDoNotConsumeTheSixTaskQuota() {
+        val c = Coordinate(1, 0)
+        val task = position(c, Direction.POSITION_TO_NOTE).copy(adaptive = AdaptiveTask("fixture", PracticePurpose.NORMAL))
+        var s = answer(profile(), task, true, 100)
+        repeat(6) { s = answer(s, task, true, 200L + it) }
+        s = answer(s, task.copy(source = TaskSource.DEMONSTRATION), true, 300)
+        val view = AdaptiveEvidence.View(s, 301)
+        assertEquals(1, view.samples.size)
+        assertEquals(1, AdaptiveTraining.completedScorable(s, view).size)
+    }
+
+    @Test fun mappingFailureExitsOnlyItsRepresentationAndCanReenterWithANewTrialWindow() {
+        var s = profile(); var now = 1000L
+        fun respond(task: LearningTask, good: Boolean) {
+            s = answer(s, task, good, now); now += AdaptiveEvidence.HOLD_MS + 2
+        }
+        val c = Coordinate(1, 0)
+        repeat(4) {
+            for (coordinate in listOf(c, Coordinate(1, 1), Coordinate(1, 3))) respond(position(coordinate, Direction.POSITION_TO_NOTE), true)
+            for (note in listOf("E", "F", "G")) for (direction in MappingLessons.fixedDirections)
+                respond(MappingLessons.make(note, direction, TaskSource.MAIN), true)
+        }
+        s = s.copy(regionTraining = RegionRun("LOW", 1, 0, AdaptiveRun(mixStage = 1)))
+        val original = position(c, Direction.POSITION_TO_NOTE).copy(adaptive = AdaptiveTask(s.regionTraining!!.adaptive.config, PracticePurpose.NORMAL, 1))
+        val mixed = (0..100).map { AdaptiveMix.apply(s, original, Random(it), now) }
+            .first { it.adaptive!!.correctRepresentation == AnswerRepresentation.FIXED }
+        fun configured(task: LearningTask, purpose: PracticePurpose) = task.copy(adaptive = requireNotNull(task.adaptive).copy(config = s.regionTraining!!.adaptive.config, purpose = purpose))
+        repeat(2) { respond(configured(mixed, PracticePurpose.NORMAL), false) }
+        assertTrue(s.regionTraining!!.adaptive.diagnosing)
+        val mapping = MappingLessons.make("E", Direction.NOTE_TO_SOLFEGE, TaskSource.MAIN)
+            .copy(adaptive = AdaptiveTask(s.regionTraining!!.adaptive.config, PracticePurpose.DIAGNOSIS,
+                unit = "mapping:fixed:E:NOTE_TO_SOLFEGE"))
+        repeat(2) { respond(configured(mapping, PracticePurpose.DIAGNOSIS), false) }
+        assertEquals(setOf(AnswerRepresentation.FIXED), s.regionTraining!!.adaptive.excluded)
+        assertEquals(RecoveryLayer.REGION, s.regionTraining!!.adaptive.layer)
+        assertTrue(AdaptiveEvidence.View(s, now).ready(AdaptiveEvidence.positionUnit(c, Direction.POSITION_TO_NOTE)))
+        val lesson = configured(mapping.copy(source = TaskSource.DEMONSTRATION), PracticePurpose.WEAK)
+        s = AdaptiveEvidence.present(s, lesson, now)
+        respond(lesson, true)
+        assertNotNull(s.weakPoints["mapping:fixed:E:NOTE_TO_SOLFEGE"]?.taughtAt)
+        repeat(3) { respond(configured(mapping, PracticePurpose.WEAK), true) }
+        assertTrue(s.regionTraining!!.adaptive.excluded.isEmpty())
+        assertTrue(AnswerRepresentation.FIXED in s.regionTraining!!.adaptive.representationTrials)
+        respond(configured(mixed, PracticePurpose.NORMAL), true)
+        assertTrue(AnswerRepresentation.FIXED in s.regionTraining!!.adaptive.representationTrials)
+        repeat(7) { respond(configured(mixed, PracticePurpose.NORMAL), true) }
+        assertTrue(s.regionTraining!!.adaptive.representationTrials.isEmpty())
+        assertEquals(s, LearningCodec.decode(LearningCodec.encode(s)))
+    }
 }

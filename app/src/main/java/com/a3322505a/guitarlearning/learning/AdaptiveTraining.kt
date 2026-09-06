@@ -7,6 +7,10 @@ import kotlin.random.Random
 object AdaptiveTraining {
     private val directions = AdaptiveEvidence.positionDirections
     private fun nextOrdinal(s: LearnerState) = (s.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
+    internal fun completedScorable(s: LearnerState, view: AdaptiveEvidence.View): List<Attempt> {
+        val scored = view.allSamples.map { it.taskId }.toSet()
+        return s.attempts.filter { it.sessionId == s.sessionId && it.completed && it.task.id in scored && it.task.adaptive != null }
+    }
     private fun scoped(s: LearnerState, view: AdaptiveEvidence.View): List<AssessmentSample> {
         val r = s.regionTraining ?: return emptyList()
         val sessionTasks = s.attempts.filter { it.sessionId == s.sessionId }.map { it.task.id }.toSet()
@@ -127,7 +131,7 @@ object AdaptiveTraining {
         val known = RegionTraining.known(s, region.regionId).distinctBy { it.second }
         val history = RegionTraining.history(s)
         val probe = history.count { it.task.regionProbe } < region.probeSize
-        val completed = s.attempts.filter { it.sessionId == s.sessionId && it.completed && !it.task.guided && it.task.adaptive != null }
+        val completed = completedScorable(s, view)
         val slot = completed.size % 6
         val block = completed.size / 6
         val pending = RegionTraining.region(region.regionId).nodes.firstOrNull { Curriculum.available(s, it) && !Curriculum.mastered(s, it.id) }

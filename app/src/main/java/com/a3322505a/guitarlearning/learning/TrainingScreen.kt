@@ -126,6 +126,7 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
     val density = LocalDensity.current
     val width = with(density) { options.maxOf { measurer.measure(it.value + " ✓", TextStyle(fontSize = 19.sp)).size.width }.toDp() } + 28.dp
     BoxWithConstraints(modifier) {
+    val optionWidth = minOf(maxWidth, maxOf(64.dp, width))
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { option ->
             val confirmed = option.role == MarkRole.CORRECT
@@ -139,7 +140,7 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
             }
             OutlinedButton(onClick = { answer(option.value) },
                 enabled = option.enabled,
-                modifier = Modifier.width(minOf(maxWidth, maxOf(64.dp, width))), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
+                modifier = Modifier.width(optionWidth), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = optionColors.background, contentColor = optionColors.ink,
                     disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {

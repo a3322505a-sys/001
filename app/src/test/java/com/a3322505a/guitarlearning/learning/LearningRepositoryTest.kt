@@ -16,6 +16,38 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun adaptiveFailureAndExposureRollBackTogetherAndMalformedRestoreKeepsTheProfile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "adaptive-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val initial = repo.load()
+        val c = Coordinate(1, 0)
+        val task = LessonScheduler().makePosition("p01", c, Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+            .copy(evidenceVersion = 1, adaptive = AdaptiveTask(AdaptiveRun().config, PracticePurpose.NORMAL))
+        val session = LearningSession(startedAt = 1)
+        val started = repo.commit(initial, initial.copy(currentNode = "p01", sessionId = session.id,
+            sessions = listOf(session), active = ActiveTask(task), regionTraining = RegionRun("LOW", 1, 0)))
+        val next = LearningCoordinator().answer(started, symbol = task.options.first { it != task.constraint.symbol }, now = 2000)
+        assertFalse(next.attempts.single().firstCorrect!!)
+        assertTrue(next.knowledgeExposures.isNotEmpty())
+        assertTrue(next.weakPoints.isNotEmpty())
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_adaptive BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(started, next) }
+        assertEquals(started, repo.load())
+        assertEquals(0, db.learningDao().attemptCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_adaptive")
+        val saved = repo.commit(started, next)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(listOf(false), AdaptiveEvidence.View(repo.load(), 2001).samples.map { it.correct })
+        assertFails { repo.commit(started, next) }
+        val bad = saved.copy(regionTraining = saved.regionTraining!!.copy(adaptive = AdaptiveRun(mixStage = 4)))
+        assertFails { repo.restore(saved, LearningCodec.encode(bad)) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun closeReopenKeepsTaskProfileSettingsAndEvidenceExactlyOnce() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "test-${newId()}.db"
