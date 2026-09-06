@@ -124,22 +124,9 @@ internal fun CatalogContent(state: CatalogUiState, start: (String) -> Unit, deta
         section.title?.let { Text(it, fontWeight = FontWeight.Bold, color = colors.accent, modifier = Modifier.padding(top = 6.dp)) }
         section.rows.forEach { row -> NodeRow(row, { detail(row.id) }, { start(row.id) }) }
         section.regions.forEach { region ->
-            val open = expanded == region.id
-            Row(Modifier.fillMaxWidth().heightIn(min = 82.dp)
-                .border(if (open) 2.dp else 1.dp, if (open) colors.accent else colors.border, CutCornerShape(5.dp))
-                .background(colors.surface, CutCornerShape(5.dp)).clickable { expanded = if (open) null else region.id }
-                .semantics { stateDescription = if (open) "已展开" else "已折叠" }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(region.title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.ink)
-                    Text(region.progress, fontSize = 13.sp, color = colors.muted)
-                }
-                Text(if (open) "⌄" else "›", fontSize = 24.sp, color = colors.accent)
-            }
-            if (open) Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Panel(region.title, region.progress) {
                 region.note?.let { Text(it, fontSize = 13.sp) }
-                region.rows.forEach { row -> NodeRow(row, { detail(row.id) }, { start(row.id) }) }
-                if (region.practiceIds.isNotEmpty()) OutlinedButton(onClick = { practice(region.practiceIds) }) { Text("专项练习") }
+                region.startLabel?.let { label -> Button(onClick = { start("region:${region.id}") }) { Text(label) } }
             }
         }
     }

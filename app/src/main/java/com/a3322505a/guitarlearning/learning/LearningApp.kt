@@ -50,7 +50,11 @@ fun LearningApp(model: TrainingViewModel) {
         else -> "home"
     } }
     BackHandler(page != "home", onBack = back)
-    val start: (String) -> Unit = { id -> model.start(id) { returnPage = page; page = "training" } }
+    val start: (String) -> Unit = { id ->
+        val region = if (id.startsWith("region:")) id.substringAfter(':') else RegionTraining.owner(id)?.name
+        if (region != null) model.region(region) { returnPage = page; page = "training" }
+        else model.start(id) { returnPage = page; page = "training" }
+    }
     val resume: () -> Unit = { if (!busy) { returnPage = page; page = "training" } }
     val practice: (List<String>) -> Unit = { ids -> practiceReturnPage = page; page = "practice:${ids.joinToString(",")}" }
     val detail: (String) -> Unit = { id ->
