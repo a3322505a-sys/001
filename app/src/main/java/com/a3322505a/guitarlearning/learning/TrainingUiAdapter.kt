@@ -64,7 +64,7 @@ object TrainingUiAdapter {
         val hasBoard = t.referenceCoordinates.isNotEmpty() || t.chord != null || t.constraint.kind != ConstraintKind.SYMBOL || t.coordinate != null
         val relation = t.relation?.let { r ->
             val lines = mutableListOf("参考音 ${r.referencePitches.joinToString(" / ") { pitchLabel(it) }}")
-            if (t.completion == CompletionKind.SEQUENCE) lines += if (chordVisible(a)) r.targetPitches.mapIndexed { i, p -> (if (i == a.sequenceIndex) "▸" else "") + pitchLabel(p) }.joinToString("  ")
+            if (t.completion == CompletionKind.SEQUENCE) lines += if (chordVisible(a)) r.targetPitches.mapIndexed { i, p -> (if (i == a.sequenceIndex) "▸" else "") + (r.targetSpellings.getOrNull(i) ?: pitchLabel(p)) }.joinToString("  ")
                 else "第${(a.sequenceIndex + 1).coerceAtMost(t.sequence.size)} / ${t.sequence.size}项 · 点击范围内正确音高"
 
             RelationUiState(lines, if (r.ear) null else "试听示范", !busy && !audio.playing && s.soundEnabled)

@@ -31,7 +31,7 @@ internal object FurtherHarmony {
         "triad-build" -> listOf(48,53,55,57).flatMap { root -> listOf(false,true).flatMap { minor ->
             val offsets=if(minor)listOf(0,3,7) else listOf(0,4,7);val pitches=offsets.map{root+it};val spelled=offsets.mapIndexed{i,o->SpelledPitch.fromNaturalRoot(root,i*2,o).label}
             val name=MusicFacts.noteNames[root%12]+if(minor)"m" else ""
-            listOf(sequence(id,"$name:build",pitches,"构建$name：根、三、五","${spelled.joinToString("–")}；根音${pitch(root)}，各音距根音${offsets.joinToString("、")}个半音。",root),
+            listOf(sequence(id,"$name:build",pitches,"构建$name：根、三、五","${spelled.joinToString("–")}；根音${pitch(root)}，各音距根音${offsets.joinToString("、")}个半音。",root).copy(relation=RelationPrompt(listOf(root),pitches,targetSpellings=spelled)),
                 choice(id,"$name:name","${spelled.joinToString("–")}组成什么和弦？","根音${pitch(root)}，${if(minor)"小" else "大"}三度与纯五度组成$name。",name,listOf(name,MusicFacts.noteNames[root%12]+if(minor)"" else "m","G5")))
         } }
         "triad-inversions" -> listOf(48,53,57).flatMap { root -> (0..2).map { inversion ->
@@ -79,7 +79,7 @@ internal object FurtherHarmony {
             choice(id,"g-signature","G大调调号改变哪个音？","G–A–B–C–D–E–F♯–G，第七级F♯保持全全半全全全半。","F♯",listOf("F♯","F","G♭")),
             choice(id,"f-signature","F大调第四级怎样拼写？","F–G–A–B♭–C–D–E–F，第四级B♭，不是A♯。","B♭",listOf("B♭","A♯","B")),
             sequence(id,"g-scale",MusicRelations.major.map{55+it},"从G3构建G大调","G–A–B–C–D–E–F♯–G，F♯为第七级。",55),
-            sequence(id,"f-scale",MusicRelations.major.map{53+it},"从F3构建F大调","F–G–A–B♭–C–D–E–F，B♭为第四级。",53)) +
+            sequence(id,"f-scale",MusicRelations.major.map{53+it},"从F3构建F大调","F–G–A–B♭–C–D–E–F，B♭为第四级。",53).copy(relation=RelationPrompt(listOf(53),MusicRelations.major.map{53+it},targetSpellings=MusicRelations.major.mapIndexed{i,o->SpelledPitch.fromNaturalRoot(53,i,o).label}))) +
             listOf(55,53).flatMap{root->(1..7).map{degree->find(id,"$root:$degree",root,root+MusicRelations.major[degree-1],"${if(root==55)"G" else "F"}大调：找到${degree}级","从本调主音按全全半全全全半构建，不能沿用C大调级数。")}}
         "transpose-pentatonic" -> listOf(48,50,55).flatMap { root ->
             val route=listOf(0,2,4,7,9,12).map{root+it}

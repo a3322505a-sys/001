@@ -70,7 +70,8 @@ object FurtherLessons {
             find(id,"$root:$down",ref,target,"从${pitch(ref)}找${if(down)"低" else "高"}八度","${pitch(ref)}→${pitch(target)}：${if(down)"降低" else "升高"}12个半音。同音名，不同实际音高。")
         } }
         "interval-build" -> listOf(48,53,57,60).flatMap { root -> listOf(3,4,7).map { distance ->
-            find(id,"$root:$distance",root,root+distance,"从${pitch(root)}构建上方${MusicRelations.intervals[distance]}","${pitch(root)}→${pitch(root+distance)}：升${distance}个半音；范围内同音高位置均可。")
+            val target=SpelledPitch.fromNaturalRoot(root,if(distance==7)4 else 2,distance).label
+            find(id,"$root:$distance",root,root+distance,"从${pitch(root)}构建上方${MusicRelations.intervals[distance]}","${pitch(root)}→$target：升${distance}个半音；范围内同音高位置均可。")
         } }
         "ear-height" -> listOf(12,7,2).flatMap { gap -> listOf(52,59,64).flatMap { root -> listOf(-1,0,1).map { sign ->
             val target=root+gap*sign;val answer=if(sign>0)"更高" else if(sign<0)"更低" else "同高"

@@ -55,6 +55,10 @@ class FurtherLessonsTest {
     @Test fun spellingPitchSetsAndInversionsUseMusicalFacts() {
         assertEquals("B♭3",SpelledPitch.fromNaturalRoot(53,3,5).label)
         assertEquals("E♭3",SpelledPitch.fromNaturalRoot(48,2,3).label)
+        val fScale=FurtherLessons.tasks("keys-g-f").first{it.skillId.endsWith("f-scale")}
+        val guided=state(fScale.copy(source=TaskSource.DEMONSTRATION))
+        assertTrue(TrainingUiAdapter.training(guided,false,AudioUiState()).relation!!.lines.joinToString().contains("B♭3"))
+        assertFalse(TrainingUiAdapter.training(guided,false,AudioUiState()).relation!!.lines.joinToString().contains("A♯"))
         val t=FurtherLessons.tasks("octave-build").first()
         val target=t.constraint.midi!!
         assertTrue(AnswerEvaluator.validPositions(t).all{MusicFacts.midi(it.string,it.fret)==target})

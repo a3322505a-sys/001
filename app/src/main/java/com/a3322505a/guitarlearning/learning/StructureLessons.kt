@@ -4,8 +4,8 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
-@Serializable data class RelationPrompt(val referencePitches: List<Int>, val targetPitches: List<Int>, val chord: Boolean = false, val ear: Boolean = false) {
-    init { require(referencePitches.isNotEmpty() && targetPitches.isNotEmpty() && (referencePitches + targetPitches).all { it in 40..88 }) }
+@Serializable data class RelationPrompt(val referencePitches: List<Int>, val targetPitches: List<Int>, val chord: Boolean = false, val ear: Boolean = false, val targetSpellings: List<String> = emptyList()) {
+    init { require(targetSpellings.isEmpty() || targetSpellings.size == targetPitches.size); require(referencePitches.isNotEmpty() && targetPitches.isNotEmpty() && (referencePitches + targetPitches).all { it in 40..88 }) }
 }
 
 /** A bounded course per relationship, with stable skill identities and new task instances. */
