@@ -77,7 +77,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
             }
             val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null || state.options.isNotEmpty()
             key(state.taskId) {
-            if (split && hasContent) {
+            if (split && hasContent && state.message != null) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(0.56f).fillMaxHeight().verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
