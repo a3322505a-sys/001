@@ -35,9 +35,11 @@ class AdaptiveEvidenceTest {
             val withoutHold = AdaptiveEvidence.View(s, now).region(region)
             assertEquals(total, withoutHold.measured)
             assertEquals(80.0, withoutHold.raw, 0.0001)
-            now += AdaptiveEvidence.HOLD_MS
-            for (direction in AdaptiveEvidence.positionDirections) for (c in positions) {
-                s = answer(s, position(c, direction), true, now); now += 100
+            for (direction in AdaptiveEvidence.positionDirections) {
+                now += AdaptiveEvidence.HOLD_MS
+                for (c in positions) {
+                    s = answer(s, position(c, direction), true, now); now += 100
+                }
             }
             assertEquals(100.0, AdaptiveEvidence.View(s, now).region(region).raw, 0.0001)
             assertEquals("音位熟练度 · 待复测", AdaptiveEvidence.View(s, now + AdaptiveEvidence.WINDOW_MS + 1).region(region).label)
@@ -197,6 +199,7 @@ class AdaptiveEvidenceTest {
         fun configured(task: LearningTask, purpose: PracticePurpose) = task.copy(adaptive = requireNotNull(task.adaptive).copy(config = s.regionTraining!!.adaptive.config, purpose = purpose))
         repeat(2) { respond(configured(mixed, PracticePurpose.NORMAL), false) }
         assertTrue(s.regionTraining!!.adaptive.diagnosing)
+        respond(configured(original, PracticePurpose.DIAGNOSIS), true)
         val mapping = MappingLessons.make("E", Direction.NOTE_TO_SOLFEGE, TaskSource.MAIN)
             .copy(adaptive = AdaptiveTask(s.regionTraining!!.adaptive.config, PracticePurpose.DIAGNOSIS,
                 unit = "mapping:fixed:E:NOTE_TO_SOLFEGE"))

@@ -63,7 +63,7 @@ object AdaptiveTraining {
             val broad = basics.size == 8 && basics.count { !it.correct } >= 4 && basics.filter { !it.correct }.map { it.target }.distinct().size >= 3
             val relevant = run.focus.mapNotNull { points[it] }.filter { it.confirmedAt != null && it.resolvedAt == null }
             val mappings = relevant.filter { it.unit.startsWith("mapping:") }
-            val foundationReady = run.focus.filter { it.startsWith("position:") }.all { view.ready(it) }
+            val foundationReady = run.focus.filter { it.startsWith("position:") }.all { key -> view.ready(key) && diagnosed.any { it.unit == key } }
             val recoveryCoordinates = when (run.layer) {
                 RecoveryLayer.OPEN -> known.filter { it.fret == 0 && (run.focus.isEmpty() || run.focus.any { key -> key.contains("s${it.string}:") }) }
                 RecoveryLayer.NATURAL -> run.representatives
@@ -85,7 +85,7 @@ object AdaptiveTraining {
                     sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s), handledFailure = basics.last().taskId)
             } else if (run.focus.isNotEmpty() && run.focus.all { key ->
                 val weak = points[key]?.takeIf { it.confirmedAt != null && it.resolvedAt == null }
-                if (weak == null) view.ready(key) else targetedRecovery(view, weak)
+                if (weak == null) view.ready(key) && diagnosed.any { it.unit == key } else targetedRecovery(view, weak)
             }) {
                 run = run.copy(generation = run.generation + 1, sinceOrdinal = nextOrdinal(s), diagnosing = false,
                     layer = run.previousLayer, trial = true, reason = null,

@@ -111,6 +111,7 @@ object AdaptiveEvidence {
                 if (a.completed && input != null && a.firstUnassisted == true && a.task.completion == CompletionKind.SINGLE) events += Event(a.inputs.last().at, 2, a)
             }
             val collected = mutableListOf<AssessmentSample>()
+            val scoredTasks = mutableSetOf<String>()
             events.filter { it.at <= now }.sortedWith(compareBy<Event> { it.at }.thenBy { it.rank }.thenBy { it.attempt?.ordinal ?: 0 }).forEach { event ->
                 val exposure = event.exposure
                 if (exposure != null) {
@@ -120,7 +121,7 @@ object AdaptiveEvidence {
                     val a = requireNotNull(event.attempt)
                     val facts = targets(a.task)
                     if (event.rank == 2) {
-                        if (collected.any { it.taskId == a.task.id }) completions += facts
+                        if (a.task.id in scoredTasks) completions += facts
                     } else {
                         val input = requireNotNull(firstInput(a))
                         val correct = input.result != ClickResult.WRONG
@@ -131,6 +132,7 @@ object AdaptiveEvidence {
                             val lastExposure = previous.maxOfOrNull { it.at }
                             collected += AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
                                 correct && lastExposure != null && event.at - lastExposure >= HOLD_MS, a.task)
+                            scoredTasks += a.task.id
                         }
                         if (!correct && a.firstUnassisted == true) facts.forEach { challenges[it] = event.at }
                     }
