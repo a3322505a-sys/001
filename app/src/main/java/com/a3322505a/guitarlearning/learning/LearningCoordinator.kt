@@ -6,12 +6,14 @@ import java.time.ZoneId
 /** Pure state transitions. The caller must commit the returned state before exposing it. */
 class LearningCoordinator(private val scheduler: LessonScheduler = LessonScheduler()) {
     fun startRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
-        if (state.pilot != null) return state
         require(RegionTraining.available(state, regionId)) { "请先完成该区域前置内容。" }
-        if (state.regionTraining?.regionId == regionId && state.active != null) return state
-        // Restore any already displayed task first, including legacy practice and suspended lessons.
-        if (state.active != null) return state.copy(queuedRegion = regionId)
-        return activateRegion(state, regionId, now)
+        val inRegion = RegionSessions.active(state)
+        if (inRegion && state.regionTraining?.regionId == regionId && state.active != null) return state.copy(queuedRegion = null)
+        val savedRegions = if (inRegion) state.pausedRegions + (state.regionTraining!!.regionId to RegionSessions.capture(state)) else state.pausedRegions
+        val outside = if (!inRegion && (state.active != null || state.sessionId != null)) RegionSessions.capture(state) else state.pausedTraining
+        val base = RegionSessions.clear(state).copy(pausedTraining = outside, pausedRegions = savedRegions - regionId)
+        val resume = savedRegions[regionId]
+        return if (resume != null) RegionSessions.restore(base, resume) else activateRegion(base, regionId, now)
     }
 
     private fun activateRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
@@ -26,6 +28,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
+        if (RegionSessions.active(state) || state.pausedTraining != null) return start(RegionSessions.leave(state), nodeId, now)
         if (state.pilot != null) return state
         if (state.practice != null) return start(endPractice(state, now), nodeId, now)
         val node = Curriculum.node(nodeId)
@@ -39,6 +42,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     fun startPractice(state: LearnerState, selection: PracticePlan, now: Long): LearnerState {
+        if (RegionSessions.active(state) || state.pausedTraining != null) return startPractice(RegionSessions.leave(state), selection, now)
         if (state.pilot != null) return state
         PracticeLessons.validateSelection(state, selection)
         if (state.practice == selection && state.active != null) return state
@@ -157,5 +161,22 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         return state.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
             sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now) else it },
             endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
+    }
+}
+
+/** Region entry never resumes an unrelated exercise. Leaving it restores the paused course context. */
+internal object RegionSessions {
+    fun active(s: LearnerState) = s.regionTraining != null && s.practice == null && s.pilot == null
+    fun capture(s: LearnerState) = PausedTraining(s.currentNode, s.sessionId, s.active, s.reviewMode,
+        s.practice, s.suspendedLesson, s.regionTraining, s.pilot, s.pilotSuspended)
+    fun clear(s: LearnerState) = s.copy(sessionId = null, active = null, reviewMode = false, practice = null,
+        suspendedLesson = null, regionTraining = null, queuedRegion = null, pilot = null, pilotSuspended = null, endedSummary = null)
+    fun restore(s: LearnerState, p: PausedTraining) = s.copy(currentNode = p.currentNode, sessionId = p.sessionId,
+        active = p.active, reviewMode = p.reviewMode, practice = p.practice, suspendedLesson = p.suspendedLesson,
+        regionTraining = p.regionTraining, pilot = p.pilot, pilotSuspended = p.pilotSuspended, queuedRegion = null, endedSummary = null)
+    fun leave(s: LearnerState): LearnerState {
+        val regions = if (active(s)) s.pausedRegions + (s.regionTraining!!.regionId to capture(s)) else s.pausedRegions
+        val base = clear(s).copy(pausedTraining = null, pausedRegions = regions)
+        return s.pausedTraining?.let { restore(base, it) } ?: base
     }
 }

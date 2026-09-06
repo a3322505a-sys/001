@@ -286,4 +286,31 @@ class LearningRepositoryTest {
         assertEquals(1, db.learningDao().attemptCount())
         db.close(); context.deleteDatabase(name)
     }
+    @Test fun switchingRegionRollsBackAsOneTransactionAndKeepsPausedTaskAfterRestart() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "region-switch-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val base = initial.copy(progress = Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions = setOf("position:s1:f0", "position:s1:f1"))
+        val started = repo.commit(initial, co.start(base, "chord-am", 10))
+        val partial = repo.commit(started, co.answer(started, coordinate = Coordinate(6, 4), now = 20))
+        val switched = co.startRegion(partial, "LOW", 30)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_switch BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(partial, switched) }
+        assertEquals(partial, repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_switch")
+        val saved = repo.commit(partial, switched)
+        db.close()
+        db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(partial.active, co.start(repo.load(), "chord-am", 40).active)
+        val damaged = saved.copy(pausedTraining = saved.pausedTraining!!.copy(sessionId = "missing-session"))
+        assertFails { repo.restore(saved, LearningCodec.encode(damaged)) }
+        assertEquals(saved, repo.load())
+        db.close(); context.deleteDatabase(name)
+    }
+
 }

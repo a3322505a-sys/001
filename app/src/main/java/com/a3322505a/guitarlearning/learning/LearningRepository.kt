@@ -57,33 +57,12 @@ object LearningCodec {
         require(state.attempts.map { it.task.id }.distinct().size == state.attempts.size)
         require(state.sessions.map { it.id }.distinct().size == state.sessions.size)
         require(state.attempts.all { a -> a.ordinal > 0 && state.sessions.any { it.id == a.sessionId } })
-        require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
-        require(state.active == null || state.sessionId != null)
-        require((state.practice == null) == (state.suspendedLesson == null))
-        require((state.pilot == null) == (state.pilotSuspended == null))
-        state.pilot?.let { run ->
-            require(run.clip in 0..7 && run.bpm in 40..80 && run.elapsedMs >= 0 && run.playbackMs >= 0)
-            require(state.active?.task?.notation?.score == run.score)
-        }
         require(state.pilotResults.map { it.mode to it.clip }.distinct().size == state.pilotResults.size)
-        state.pilotSuspended?.let { old ->
-            require(Curriculum.nodes.any { it.id == old.currentNode })
-            require(old.sessionId == null || state.sessions.any { it.id == old.sessionId && it.endedAt == null })
-        }
-        state.regionTraining?.let { run ->
-            require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
-        }
-        require(state.queuedRegion == null || state.queuedRegion in FretboardRegion.entries.map { it.name })
-        state.practice?.let { plan ->
-            require(state.sessionId != null && plan.nodeIds.isNotEmpty() && plan.nodeIds.distinct().size == plan.nodeIds.size)
-            require(plan.nodeIds.all { id -> Curriculum.nodes.any { it.id == id } })
-        }
-        state.suspendedLesson?.let { lesson ->
-            require(Curriculum.nodes.any { it.id == lesson.currentNode })
-            require(lesson.sessionId == null || state.sessions.any { it.id == lesson.sessionId && it.endedAt == null })
-            require(lesson.active == null || lesson.sessionId != null)
-        }
-        (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task, state.pilotSuspended?.active?.task)).forEach { task ->
+        val paused = listOfNotNull(state.pausedTraining) + state.pausedRegions.values
+        require(state.pausedRegions.all { (id, p) -> id in FretboardRegion.entries.map { it.name } && p.regionTraining?.regionId == id && p.practice == null && p.pilot == null })
+        val contexts = listOf(state) + paused.map { RegionSessions.restore(state, it) }
+        contexts.forEach { validateContext(it) }
+        (state.attempts.map { it.task } + contexts.flatMap { listOfNotNull(it.active?.task, it.suspendedLesson?.active?.task, it.pilotSuspended?.active?.task) }).forEach { task ->
             val constraints = listOf(task.constraint) + task.sequence
             require(constraints.all { it.allowedPitches.all { p -> p in 40..88 } && (it.kind != ConstraintKind.PITCH_SET || it.allowedPitches.isNotEmpty()) })
             require(constraints.all { (it.firstFret == null || it.firstFret in 0..15) && (it.lastFret == null || it.lastFret in (it.firstFret ?: 0)..15) })
@@ -116,6 +95,35 @@ object LearningCodec {
             require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
         }
         return state
+    }
+
+    private fun validateContext(state: LearnerState) {
+        require(Curriculum.nodes.any { it.id == state.currentNode })
+        require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
+        require(state.active == null || state.sessionId != null)
+        require((state.practice == null) == (state.suspendedLesson == null))
+        require((state.pilot == null) == (state.pilotSuspended == null))
+        state.pilot?.let { run ->
+            require(run.clip in 0..7 && run.bpm in 40..80 && run.elapsedMs >= 0 && run.playbackMs >= 0)
+            require(state.active?.task?.notation?.score == run.score)
+        }
+        state.pilotSuspended?.let { old ->
+            require(Curriculum.nodes.any { it.id == old.currentNode })
+            require(old.sessionId == null || state.sessions.any { it.id == old.sessionId && it.endedAt == null })
+        }
+        state.regionTraining?.let { run ->
+            require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
+        }
+        require(state.queuedRegion == null || state.queuedRegion in FretboardRegion.entries.map { it.name })
+        state.practice?.let { plan ->
+            require(state.sessionId != null && plan.nodeIds.isNotEmpty() && plan.nodeIds.distinct().size == plan.nodeIds.size)
+            require(plan.nodeIds.all { id -> Curriculum.nodes.any { it.id == id } })
+        }
+        state.suspendedLesson?.let { lesson ->
+            require(Curriculum.nodes.any { it.id == lesson.currentNode })
+            require(lesson.sessionId == null || state.sessions.any { it.id == lesson.sessionId && it.endedAt == null })
+            require(lesson.active == null || lesson.sessionId != null)
+        }
     }
 }
 

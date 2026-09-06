@@ -36,9 +36,10 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     var legendOpen by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
         val fixedBoardHeight = maxHeight * 0.48f
-        val messageHeight = (maxHeight * 0.24f).coerceIn(48.dp, 88.dp)
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Reserve the same board area across prompt, hint and correction states.
+        // Only the two information panes scroll; neither can push text under the neck.
+        val split = maxWidth >= 560.dp
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
@@ -46,7 +47,6 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 }
                 Text(state.title + if (state.soundEnabled) "  ♫" else "", fontWeight = FontWeight.Bold, fontSize = 20.sp,
                     modifier = Modifier.weight(1f).clickable(enabled = state.canReplay, onClickLabel = "重听题目") { onEvent(TrainingEvent.Replay) })
-                state.tab?.let { TabPrompt(it, Modifier.width(144.dp)) }
                 if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
                 if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Box {
@@ -67,32 +67,55 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                     }
                 }
             }
-            if (state.hasChord && (state.showLegend || legendOpen)) FingerLegend { legendOpen = false; onEvent(TrainingEvent.LegendSeen) }
-            state.chordControls?.let { ChordInputControls(it, onEvent) }
-            state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-            state.notation?.let { NotationView(it, state.notationIndex, Modifier.fillMaxWidth().height(86.dp)) }
-            if (state.message != null) {
-                val wrong = state.wrong
-                Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
-                    color = if (wrong) colors.error.background else colors.available.background,
-                    border = BorderStroke(1.dp, if (wrong) colors.error.ink else colors.available.ink)) {
-                    Text(state.message, color = if (wrong) colors.error.ink else colors.available.ink, fontSize = 15.sp,
-                        modifier = Modifier.heightIn(max = messageHeight).verticalScroll(rememberScrollState())
-                            .padding(horizontal = 14.dp, vertical = 8.dp))
+            val content: @Composable ColumnScope.() -> Unit = {
+                state.tab?.let { TabPrompt(it, Modifier.width(160.dp)) }
+                state.notation?.let { CompactNotation(it, state.notationIndex) }
+                state.chordControls?.let { ChordInputControls(it, onEvent) }
+                if (state.hasChord && (state.showLegend || legendOpen)) FingerLegend { legendOpen = false; onEvent(TrainingEvent.LegendSeen) }
+                state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
+                if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
+            }
+            val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null || state.options.isNotEmpty()
+            key(state.taskId) {
+            if (split && hasContent && state.message != null) {
+                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(0.56f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+                    key(state.message) { BoxWithConstraints(Modifier.weight(0.44f).fillMaxHeight()) {
+                        TrainingMessage(state, Modifier.heightIn(max = maxHeight), scrollable = true)
+                    } }
+                }
+            } else {
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    content()
+                    TrainingMessage(state)
                 }
             }
-            if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) },
-                Modifier.fillMaxWidth().padding(horizontal = 48.dp).align(Alignment.CenterHorizontally))
-          }
+            }
             if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }
 }
 
 @Composable
+internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifier, scrollable: Boolean = false) {
+    val message = state.message ?: return
+    val colors = LocalGuitarColors.current
+    val ink = if (state.wrong) colors.error.ink else colors.ink
+    Surface(modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
+        color = if (state.wrong) colors.error.background else colors.surface,
+        border = BorderStroke(1.dp, if (state.wrong) colors.error.ink else colors.border)) {
+        Text(message, color = ink, fontSize = 15.sp, lineHeight = 20.sp,
+            modifier = (if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = 12.dp, vertical = 8.dp))
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { option ->
             val confirmed = option.role == MarkRole.CORRECT
             val wrong = option.role == MarkRole.WRONG
@@ -105,7 +128,7 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
             }
             OutlinedButton(onClick = { answer(option.value) },
                 enabled = option.enabled,
-                modifier = Modifier.weight(1f), contentPadding = PaddingValues(8.dp), shape = CutCornerShape(4.dp),
+                modifier = Modifier.widthIn(min = 64.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = optionColors.background, contentColor = optionColors.ink,
                     disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {

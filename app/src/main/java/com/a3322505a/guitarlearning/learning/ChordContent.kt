@@ -40,9 +40,12 @@ fun ChordOverlay(state: ChordOverlayUiState, g: TeachingGeometry, left: Dp, top:
         }
     }
     state.openMutedLabels.forEach { (string, label) ->
-        Text(label, color = Color.White, fontSize = 14.sp,
-            modifier = Modifier.absoluteOffset(x = 2.dp, y = top + height * ((string - 1) / 6f))
-                .background(Color.Black.copy(alpha = 0.8f)).padding(horizontal = 4.dp))
+        val nut = left + width * if (g.first == 0) g.right(0) else 0f
+        Box(Modifier.absoluteOffset(x = (nut - 28.dp).coerceAtLeast(0.dp), y = top + height * ((string - 1) / 6f))
+            .width(22.dp).height(height / 6), contentAlignment = Alignment.Center) {
+            Text(label, color = Color.White, fontSize = 14.sp,
+                modifier = Modifier.background(Color.Black.copy(alpha = 0.8f)).padding(horizontal = 4.dp))
+        }
     }
     state.tones.filter { it.label.isNotEmpty() }.forEach { tone ->
         val c = tone.coordinate
@@ -54,9 +57,10 @@ fun ChordOverlay(state: ChordOverlayUiState, g: TeachingGeometry, left: Dp, top:
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FingerLegend(onClose: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf("食指", "中指", "无名指", "小指").forEachIndexed { index, name ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.size(12.dp).background(FingerColors[index]))
@@ -92,12 +96,13 @@ fun ChordExamples(state: ChordExamplesUiState, select: (String) -> Unit, play: (
     Text("颜色与手指固定对应；音名视图的白环表示根音。屏幕逐点操作不识别真实手指或按弦力度。", fontSize = 13.sp)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChordInputControls(state: ChordControlsUiState, onEvent: (TrainingEvent) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("第 ${state.string} 弦 · ${state.progress}", fontSize = 14.sp)
-        OutlinedButton(onClick = { onEvent(TrainingEvent.OpenString) }, enabled = state.enabled) { Text("空弦 O") }
-        OutlinedButton(onClick = { onEvent(TrainingEvent.MuteString) }, enabled = state.enabled) { Text("不弹 X") }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) { Text("第 ${state.string} 弦 · ${state.progress}", fontSize = 14.sp) }
+        OutlinedButton(onClick = { onEvent(TrainingEvent.OpenString) }, enabled = state.enabled, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("空弦 O") }
+        OutlinedButton(onClick = { onEvent(TrainingEvent.MuteString) }, enabled = state.enabled, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("不弹 X") }
         if (state.canDemonstrate) TextButton(onClick = { onEvent(TrainingEvent.Demonstrate) }) { Text("试听形态") }
     }
 }
