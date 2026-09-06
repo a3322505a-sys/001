@@ -118,6 +118,10 @@ class TrainingViewModel @JvmOverloads constructor(
         if (page != "chord-examples") return
         startPlayback(TaskAudioPolicy.shape(shape))
     }
+    fun physical(node: String, exercise: String, rating: String) = change { s ->
+        require(PhysicalPractice.exercises(node).any { it.id == exercise } && rating in listOf("顺畅","有困难"))
+        s.copy(physicalReports = s.physicalReports + PhysicalReport(node,exercise,rating,System.currentTimeMillis()))
+    }
     fun theme(id: String) = change { it.copy(themeId = AppTheme.fromId(id).id) }
     fun viewNode(nodeId: String, onDone: () -> Unit) = change(onDone) { state ->
         val ordinal = state.attempts.maxOfOrNull { it.ordinal } ?: 0
@@ -147,6 +151,12 @@ class TrainingViewModel @JvmOverloads constructor(
         val a = s.active?.takeIf { it.task.id == tap.viewId && trainingVisible() } ?: return
         val board = TrainingUiAdapter.board(a, FingeringMode.fromId(s.fingeringMode), _busy.value, TrainingUiAdapter.displayLast(s))
         if (board.interaction == BoardInteraction.DISABLED || tap.coordinate !in board.interactivePositions) return
+        if (a.task.relation?.ear == true) {
+            if (_busy.value || _audio.value.playing || !a.audioReady || tap.coordinate !in board.answerPositions) return
+            // Commit the answer before another sound can change the listening gate.
+            if (board.interaction == BoardInteraction.ANSWER) answer(tap.viewId, coordinate = tap.coordinate)
+            return
+        }
         startPlayback(TaskAudioPolicy.position(tap.coordinate))
         if (board.interaction == BoardInteraction.ANSWER && tap.coordinate in board.answerPositions) answer(tap.viewId, coordinate = tap.coordinate)
     }
@@ -177,10 +187,10 @@ class TrainingViewModel @JvmOverloads constructor(
         _audio.value = AudioUiState(playing = true)
         _playing.value = true
         val evidence = owner != "chord-examples" && (spec.purpose == AudioPurpose.EAR ||
-            spec.purpose == AudioPurpose.FULL_DEMONSTRATION && _state.value?.active?.task?.relation != null)
+            spec.purpose == AudioPurpose.FULL_DEMONSTRATION && _state.value?.active?.task?.let { it.relation != null || it.notation?.score != null || it.chordProgression.isNotEmpty() } == true)
         val output: () -> Unit = {
             if (audioSession.accepts(id)) {
-                try { player.play(PlaybackRequest(id, spec.cues)) { event ->
+                try { player.play(PlaybackRequest(id, spec.cues,events = spec.events)) { event ->
                     viewModelScope.launch { handlePlayback(event, owner, evidence) }
                 } } catch (e: Exception) { viewModelScope.launch { handlePlayback(PlaybackEvent(id, PlaybackStatus.FAILED, e.message), owner, evidence) } }
             }

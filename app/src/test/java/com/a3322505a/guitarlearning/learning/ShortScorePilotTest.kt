@@ -31,7 +31,31 @@ class ShortScorePilotTest {
         assertEquals(7,s.pilotResults.single().firstCorrect)
         assertEquals(4500,s.pilotResults.single().elapsedMs)
         assertNull(s.pilot)
-        assertEquals(1,ShortScorePilot.nextClip(s,PilotMode.SLOW))
+        assertEquals(1,ShortScorePilot.nextClip(s))
+    }
+
+    @Test fun reducedPoolAndModeChangesCannotExposeRetestsEarly() {
+        for(pool in listOf(ShortScorePilot.pool(profile()),ShortScorePilot.pool(profile()).take(2))) {
+            val signatures=(0..7).map { ShortScorePilot.score(it,pool).events.map { e -> e.midi to e.duration } }
+            assertEquals(8,signatures.distinct().size)
+        }
+        var s=profile()
+        for(clip in 0..5) {
+            val mode=if(clip==0)PilotMode.SLOW else PilotMode.GUITAR
+            s=ShortScorePilot.begin(s,mode,clip+1L)
+            assertEquals(clip,s.pilot!!.clip)
+            if(mode==PilotMode.SLOW) {
+                val co=LearningCoordinator()
+                while(s.active!!.sequenceIndex<s.active!!.task.sequence.size) s=co.answer(s,coordinate=s.active!!.task.sequence[s.active!!.sequenceIndex].coordinate,now=10)
+            }
+            s=ShortScorePilot.finish(s,20,if(mode==PilotMode.GUITAR)"顺畅" else null)
+            s=LearningCodec.decode(LearningCodec.encode(s))
+        }
+        assertEquals(6,ShortScorePilot.nextClip(s))
+        assertTrue(ShortScorePilot.modeAvailable(s,6,PilotMode.SLOW))
+        assertFalse(ShortScorePilot.modeAvailable(s,6,PilotMode.GUITAR))
+        assertTrue(ShortScorePilot.modeAvailable(s,7,PilotMode.GUITAR))
+        assertEquals(6,s.pilotResults.map{it.clip}.distinct().size)
     }
     @Test fun guitarSelfReportIsSeparateAndOriginalTaskSurvivesBackup() {
         val co = LearningCoordinator()

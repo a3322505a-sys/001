@@ -84,3 +84,13 @@ jobs:
         with:
           name: guitar-learning-debug-apk
           path: upgrade-check/base.apk
+
+      - name: Upload manual UI previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-ui-previews
+          path: |
+            ui-previews/
+            ui-previews.log
+          if-no-files-found: ignore

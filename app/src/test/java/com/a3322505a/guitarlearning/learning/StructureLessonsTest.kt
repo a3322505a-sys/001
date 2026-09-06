@@ -79,7 +79,7 @@ class StructureLessonsTest {
     }
 
     @Test fun allTenCoursesFinishWithSeparateEvidenceAcrossReloads() {
-        for (id in StructureLessons.ids) {
+        for (id in StructureLessons.ids.filterNot { it in FurtherLessons.ids }) {
             val co = LearningCoordinator(LessonScheduler(Random(73)))
             var s = co.start(LearnerState(progress = ancestors(id).associateWith { NodeProgress(masteredAt = 1) }), id, 2).copy(reviewMode = true)
             var steps = 0

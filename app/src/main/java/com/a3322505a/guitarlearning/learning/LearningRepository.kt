@@ -84,6 +84,12 @@ object LearningCodec {
             require(lesson.active == null || lesson.sessionId != null)
         }
         (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task, state.pilotSuspended?.active?.task)).forEach { task ->
+            val constraints = listOf(task.constraint) + task.sequence
+            require(constraints.all { it.allowedPitches.all { p -> p in 40..88 } && (it.kind != ConstraintKind.PITCH_SET || it.allowedPitches.isNotEmpty()) })
+            require(constraints.all { (it.firstFret == null || it.firstFret in 0..15) && (it.lastFret == null || it.lastFret in (it.firstFret ?: 0)..15) })
+            require(task.auditoryScore == null || task.relation?.ear == true)
+            require(task.creationDurations.isEmpty() || task.creationDurations.size == task.sequence.size && task.creationDurations.all { it > 0 })
+            require(task.chordProgression.all { it.isNotEmpty() && it.all { p -> p in 40..88 } })
             task.relation?.let { relation ->
                 require((task.direction == Direction.REFERENCE_EAR) == relation.ear)
                 if (task.completion == CompletionKind.SEQUENCE) require(task.sequence.map { it.midi } == relation.targetPitches)

@@ -69,9 +69,10 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
 
     fun playbackStarted(state: LearnerState, taskId: String): LearnerState {
         val active = state.active?.takeIf { it.task.id == taskId } ?: return state
-        val relation = active.task.relation ?: return state
+        val relation = active.task.relation
+        if (relation == null && active.task.notation?.score == null && active.task.chordProgression.isEmpty()) return state
         return state.copy(active = active.copy(audioReady = false,
-            hintLevel = if (relation.ear || active.task.guided) active.hintLevel else maxOf(1, active.hintLevel)))
+            hintLevel = if (relation?.ear == true || active.task.guided) active.hintLevel else maxOf(1, active.hintLevel)))
     }
 
     fun playbackCompleted(state: LearnerState, taskId: String): LearnerState {
@@ -122,7 +123,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val attempt = Attempt(active.task, requireNotNull(state.sessionId), ordinal, old?.at ?: now,
             old?.localDay ?: Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString(),
             changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent,
-            curriculumVersion = 7, policyVersion = 2, audioPlayed = active.audioReady,
+            curriculumVersion = if (active.task.nodeId in FurtherLessons.ids) 8 else 7, policyVersion = 2, audioPlayed = active.audioReady,
             members = MemberEvidencePolicy.record(state, active, old, result, coordinate, now))
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,

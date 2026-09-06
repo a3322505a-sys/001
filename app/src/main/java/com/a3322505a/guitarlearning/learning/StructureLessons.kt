@@ -4,13 +4,13 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
-@Serializable data class RelationPrompt(val referencePitches: List<Int>, val targetPitches: List<Int>, val chord: Boolean = false, val ear: Boolean = false) {
-    init { require(referencePitches.isNotEmpty() && targetPitches.isNotEmpty() && (referencePitches + targetPitches).all { it in 40..88 }) }
+@Serializable data class RelationPrompt(val referencePitches: List<Int>, val targetPitches: List<Int>, val chord: Boolean = false, val ear: Boolean = false, val targetSpellings: List<String> = emptyList()) {
+    init { require(targetSpellings.isEmpty() || targetSpellings.size == targetPitches.size); require(referencePitches.isNotEmpty() && targetPitches.isNotEmpty() && (referencePitches + targetPitches).all { it in 40..88 }) }
 }
 
 /** A bounded course per relationship, with stable skill identities and new task instances. */
 object StructureLessons {
-    val ids = listOf("structure", "pitch-relations", "intervals", "scale-major", "scale-minor", "triads", "power-structure", "cross-position", "ear-intervals", "ear-triads")
+    val ids = listOf("structure", "pitch-relations", "intervals", "scale-major", "scale-minor", "triads", "power-structure", "cross-position", "ear-intervals", "ear-triads") + FurtherLessons.ids
     private val intervalSpellings = listOf("C4 / C4", "C4 / D♭4", "C4 / D4", "C4 / E♭4", "C4 / E4", "C4 / F4", "C4 / F♯4", "C4 / G4", "C4 / A♭4", "C4 / A4", "C4 / B♭4", "C4 / B4", "C4 / C5")
     private val templates by lazy { ids.associateWith(::buildTasks) }
     fun tasks(id: String): List<LearningTask> = templates[id].orEmpty()
@@ -124,7 +124,7 @@ object StructureLessons {
                 constraint = AnswerConstraint(ConstraintKind.PITCH, midi = pitch), range = PhysicalRange(5, 12),
                 relation = RelationPrompt(listOf(pitch), listOf(pitch)))
         }
-        else -> emptyList()
+        else -> FurtherLessons.tasks(id)
     }
 
     fun keys(id: String): List<String> = tasks(id).flatMap { if (it.completion == CompletionKind.SEQUENCE) it.targetSkillIds else listOf(it.skillId) }.distinct()
@@ -155,7 +155,7 @@ object StructureLessons {
         val selected = unseen ?: spaced.shuffled(random).minBy { t ->
             if (t.completion == CompletionKind.SEQUENCE) t.targetSkillIds.minOf { count(state, it) } else count(state, t.skillId)
         }
-        return selected.copy(id = newId(), source = if (unseen != null) TaskSource.DEMONSTRATION else source,
+        return FurtherLessons.adaptOwnWork(state, selected).copy(id = newId(), source = if (unseen != null) TaskSource.DEMONSTRATION else source,
             introductionId = if (unseen != null) "${selected.skillId}:intro" else null, options = selected.options.shuffled(random))
     }
 }

@@ -23,3 +23,11 @@ run_test verifyPreservedProfile
 
 # Scoped regression for this batch, using the same emulator and instrumentation runner.
 run_test verifyStaticAudioPlaybackAndCancellation "$app.audio.AudioOutputSmokeTest"
+
+# Optional fixed-contract captures for manual layout review; not an additional pass gate.
+adb shell settings put secure immersive_mode_confirmations confirmed
+adb shell settings put system accelerometer_rotation 0
+adb shell settings put system user_rotation 1
+adb shell am instrument -w -r -e class "$app.learning.UiPreviewTest#captureContracts" "$runner" > ui-previews.log 2>&1 || true
+mkdir -p ui-previews
+adb pull "/sdcard/Android/data/$app/files/previews/." ui-previews/ || true

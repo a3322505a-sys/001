@@ -41,7 +41,7 @@ object TrainingUiAdapter {
         val teaching = t.nodeId == "g00" && t.source == TaskSource.DEMONSTRATION && a.phase == Phase.ANSWERING
         val interaction = when {
             t.notation?.score?.id?.startsWith("pilot-") == true && a.phase in listOf(Phase.CORRECT, Phase.CORRECTED) -> BoardInteraction.DISABLED
-            t.relation?.ear == true -> BoardInteraction.DISABLED
+            t.relation?.ear == true && (!a.audioReady || t.options.isNotEmpty()) -> BoardInteraction.DISABLED
             t.constraint.kind == ConstraintKind.SYMBOL || busy || a.phase !in listOf(Phase.ANSWERING, Phase.CORRECTING) -> BoardInteraction.AUDITION
             else -> BoardInteraction.ANSWER
         }
@@ -55,31 +55,38 @@ object TrainingUiAdapter {
         val t = a.task
         val answerable = !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING) && (t.relation?.ear != true || a.audioReady && !audio.playing)
         val mistake = a.inputs.lastOrNull { it.result == ClickResult.WRONG }?.symbol
+        val optionAnswer = if (t.completion == CompletionKind.SEQUENCE) t.sequence.getOrNull(a.sequenceIndex)?.symbol else t.constraint.symbol
         val options = t.options.map { option ->
-            val confirmed = a.phase in listOf(Phase.CORRECT, Phase.CORRECTED) && option == t.constraint.symbol
-            val shown = (t.guided || a.hintLevel >= 2 || a.phase == Phase.CORRECTING || confirmed) && option == t.constraint.symbol
+            val confirmed = a.phase in listOf(Phase.CORRECT, Phase.CORRECTED) && option == optionAnswer
+            val shown = (t.guided || a.hintLevel >= 2 || a.phase == Phase.CORRECTING || confirmed) && option == optionAnswer
             AnswerOptionUi(option, when { confirmed -> MarkRole.CORRECT; mistake == option -> MarkRole.WRONG; shown -> MarkRole.TARGET; else -> null }, answerable)
         }
         val hasBoard = t.referenceCoordinates.isNotEmpty() || t.chord != null || t.constraint.kind != ConstraintKind.SYMBOL || t.coordinate != null
         val relation = t.relation?.let { r ->
             val lines = mutableListOf("参考音 ${r.referencePitches.joinToString(" / ") { pitchLabel(it) }}")
-            if (t.completion == CompletionKind.SEQUENCE) lines += if (chordVisible(a)) r.targetPitches.mapIndexed { i, p -> (if (i == a.sequenceIndex) "▸" else "") + pitchLabel(p) }.joinToString("  ")
+            if (t.completion == CompletionKind.SEQUENCE) lines += if (chordVisible(a)) r.targetPitches.mapIndexed { i, p -> (if (i == a.sequenceIndex) "▸" else "") + (r.targetSpellings.getOrNull(i) ?: pitchLabel(p)) }.joinToString("  ")
                 else "第${(a.sequenceIndex + 1).coerceAtMost(t.sequence.size)} / ${t.sequence.size}项 · 点击范围内正确音高"
 
             RelationUiState(lines, if (r.ear) null else "试听示范", !busy && !audio.playing && s.soundEnabled)
         }
+        val extraRelation = if (t.creationDurations.isNotEmpty() || relation == null && (t.chordProgression.isNotEmpty() || t.notation?.score != null)) {
+            val lines = if (t.creationDurations.isNotEmpty()) listOf("第${(a.sequenceIndex+1).coerceAtMost(t.sequence.size)}/${t.sequence.size}音 · 本音${t.creationDurations.getOrNull(a.sequenceIndex)?.div(4.0) ?: 0.0}拍") else emptyList()
+            val displayLines = (if(t.referenceScore != null) listOf("上方是问题谱；按条件创作回应。") else emptyList()) + lines
+            RelationUiState(displayLines,if(t.creationDurations.isNotEmpty())"听本次短句" else "试听示范", !busy && s.soundEnabled && !audio.playing &&
+                (t.creationDurations.isEmpty() || a.phase in listOf(Phase.CORRECT,Phase.CORRECTED)))
+        } else relation
         val rule = t.sequence.getOrNull(a.sequenceIndex)
         val string = rule?.coordinate?.string ?: rule?.string
         val controls = if (t.chord != null && string != null) ChordControlsUiState(string, "${a.sequenceIndex + 1}/${t.sequence.size}", answerable, chordVisible(a) && s.soundEnabled && !busy) else null
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
         return TrainingUiState(t.id, (if (s.practice != null) "专项 · " else "") + t.prompt, busy = busy,
             board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
-            tab = t.coordinate.takeIf { t.showTab }, notation = t.notation, notationIndex = a.sequenceIndex,
-            message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = relation, chordControls = controls,
+            tab = t.coordinate.takeIf { t.showTab }, notation = t.notation ?: t.referenceScore?.notation(NotationKind.TAB), notationIndex = if(t.referenceScore != null) -1 else a.sequenceIndex,
+            message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = extraRelation, chordControls = controls,
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
             canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
-            canNext = a.phase == Phase.CORRECTED && !busy,
-            autoNextDelayMs = if (s.pilot == null && a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
+            canNext = (a.phase == Phase.CORRECTED || t.creationDurations.isNotEmpty() && a.phase == Phase.CORRECT) && !busy,
+            autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio)
     }
     fun displayLast(s: LearnerState): Int {

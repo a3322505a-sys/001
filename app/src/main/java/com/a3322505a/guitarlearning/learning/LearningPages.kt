@@ -144,7 +144,7 @@ internal fun TreeContent(rows: List<NodeRowUi>, detail: (String) -> Unit, histor
 }
 
 @Composable
-internal fun NodeContent(state: NodeDetailUiState, start: (String) -> Unit, practice: (List<String>) -> Unit) {
+internal fun NodeContent(state: NodeDetailUiState, start: (String) -> Unit, practice: (List<String>) -> Unit, report: (String,String) -> Unit = { _,_ -> }) {
     NodeRow(state.row)
     Panel("学习内容", state.description) {
         if (state.row.prerequisites.isNotEmpty()) Text("先修：${state.row.prerequisites}")
@@ -152,6 +152,9 @@ internal fun NodeContent(state: NodeDetailUiState, start: (String) -> Unit, prac
     }
     if (state.canPractice) OutlinedButton(onClick = { practice(listOf(state.row.id)) }) { Text("专项练习") }
     state.panels.forEach { InfoPanel(it) {} }
+    state.physical.forEach { exercise -> Panel("实琴选练 · ${exercise.title}", exercise.instruction) {
+        Row { listOf("顺畅","有困难").forEach { rating -> TextButton(onClick = { report(exercise.id,rating) }) { Text(rating) } } }
+    } }
     state.recordLines.forEach { Text(it, fontSize = 13.sp, color = LocalGuitarColors.current.muted) }
 }
 
