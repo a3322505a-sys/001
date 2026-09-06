@@ -5,9 +5,6 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.a3322505a.guitarlearning.audio.*
-import com.a3322505a.guitarlearning.audio.MidiPitch
-import com.a3322505a.guitarlearning.audio.PitchCue
-import com.a3322505a.guitarlearning.core.MusicFacts
 import com.a3322505a.guitarlearning.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +13,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class TrainingViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = LearningDatabase.open(application)
-    private val repository: LearningRepository = RoomLearningRepository(db)
+class TrainingViewModel @JvmOverloads constructor(
+    application: Application,
+    suppliedRepository: LearningRepository? = null,
+    suppliedOutput: PlaybackOutput? = null,
+) : AndroidViewModel(application) {
+    private val db = if (suppliedRepository == null) LearningDatabase.open(application) else null
+    private val repository: LearningRepository = suppliedRepository ?: RoomLearningRepository(requireNotNull(db))
     private val coordinator = LearningCoordinator()
     private val _state = MutableStateFlow<LearnerState?>(null)
     val state = _state.asStateFlow()
@@ -32,7 +33,7 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     val notice = _notice.asStateFlow()
     private val _playing = MutableStateFlow(false)
     val playing = _playing.asStateFlow()
-    private val player: PlaybackOutput = AndroidPitchPlayer(application)
+    private val player: PlaybackOutput = suppliedOutput ?: AndroidPitchPlayer(application)
     private val audioSession = TrainingAudioSession()
     private val _audio = MutableStateFlow(AudioUiState())
     val audio = _audio.asStateFlow()
@@ -241,5 +242,5 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    override fun onCleared() { audioSession.invalidate(); player.release(); db.close(); super.onCleared() }
+    override fun onCleared() { audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
 }

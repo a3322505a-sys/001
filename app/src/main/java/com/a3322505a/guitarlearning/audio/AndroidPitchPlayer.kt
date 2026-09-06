@@ -109,9 +109,11 @@ class AndroidPitchPlayer(
             synchronized(lock) {
                 if (!isCurrent(work)) return false
                 activeTrack = track
-                check(track.state == AudioTrack.STATE_INITIALIZED) { "音轨初始化失败" }
+                // MODE_STATIC starts in STATE_NO_STATIC_DATA until its first successful write.
+                check(track.state != AudioTrack.STATE_UNINITIALIZED) { "音轨初始化失败" }
                 val written = track.write(pcm, 0, pcm.size)
                 check(written == pcm.size) { "音轨写入失败 ($written/${pcm.size})" }
+                check(track.state == AudioTrack.STATE_INITIALIZED) { "音轨数据尚未就绪" }
                 track.play()
                 check(track.playState == AudioTrack.PLAYSTATE_PLAYING) { "音轨未启动" }
                 if (!work.started) {

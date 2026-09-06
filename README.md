@@ -6,7 +6,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha10（versionCode 27）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
+- 当前应用版本：**2.0.0-alpha11（versionCode 28）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。
@@ -52,7 +52,8 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | 需求 | 当前实现 |
 | --- | --- |
 | 启动、沉浸系统栏 | `MainActivity.kt`；Manifest 只声明这一个 Activity |
-| 首页、训练页、知识树、历史、设置 | `learning/LearningApp.kt` |
+| 页面连接、导航、生命周期、文件选择器 | `learning/LearningApp.kt` |
+| 首页、训练页、知识树、历史、设置布局 | `learning/LearningPages.kt`、`TrainingScreen.kt`；显示契约及适配见 [alpha11](docs/interface-audio-alpha11.md) |
 | 区域展示分组及节点视觉状态 | `learning/LearningPresentation.kt`；不改课程依赖 |
 | 课程开放及先修关系 | `learning/Curriculum.kt` |
 | 出题、复习、预学习 | `learning/LessonScheduler.kt` |
@@ -69,6 +70,8 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 新版只使用 `learning-v2.db`（Room schema 1）。用户已批准 v1 进度不迁移；该决定仅针对 v1→v2，不允许清空后续 v2 学习档案。暂停、重启恢复、备份和覆盖升级继续维护同一档案。R1 仅在原 JSON 快照增加可缺省的 `themeId`，不改 Room 表结构、数据库版本或学习证据。旧档案缺少该字段时默认清爽青白；未知主题 ID 可读取，显示回退到默认主题。
 
+alpha11 将页面、指板、音频与训练逻辑改为显示状态和事件契约；普通题首播、标题重听与实际坐标试听已接入。修复静态音轨在写入前误判初始化失败的问题，按实际播放帧处理完成、失败与取消。开发边界和本批验证见 [接口与声音交接](docs/interface-audio-alpha11.md)；手机听感需单独确认。
+
 ## 资料索引与状态
 
 | 资料 | 用途及状态 |
@@ -81,6 +84,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | [interface-alpha03.md](docs/interface-alpha03.md) | 已合并的首页和训练页修正记录 |
 | [roadmap-progress.md](docs/roadmap-progress.md) | R2–R7 分批范围、实现边界和交接 |
 | [r1-regions-themes.md](docs/r1-regions-themes.md) | alpha04 的 R1 范围、主题兼容与验证说明 |
+| [interface-audio-alpha11.md](docs/interface-audio-alpha11.md) | 页面/指板/音频边界、无声缺陷与本批验证 |
 | [release-signing.md](docs/release-signing.md) | 持续生效的长期签名说明；公开证书用于核验 |
 
 项目中的《App重构初版设计与复用审计_20260905_2323.md》是 Draft 0.4 的设计与 **v1 基线审计**：A+B 已实现，C–E 的后续范围已由 R2–R7 分批实施，当前能力以本 README 为准；旧进度迁移由用户后续指令取消，首页安排由 alpha03 更新。其中的旧源码发现和“当前未实现”描述需按其基线理解。更早的《第一指板与映射训练整合修正方案_20260904_0522.md》保留为需求历史，旧 P0–P17 不再作为新版施工顺序。
@@ -97,6 +101,6 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 ./gradlew test assembleDebug assembleRelease
 ```
 
-CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha10 属功能版本，正式包使用原长期签名，versionCode 为 27；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
+CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha11 属功能版本，正式包使用原长期签名，versionCode 为 28；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
 
-R7 的可用范围明确为 C 大调、A 自然小调，C/A 根音下四类三和弦；音程识别覆盖 0–12 半音，听辨覆盖同度、大二度、小三度、大三度、纯四度、纯五度和八度。后续调性、完整节奏与实琴识别不在本批完成声明中。R7 交付过程中执行环境曾离线，现已从远端仓库与原长期签名备份恢复。正式 APK 继续核验包名、版本和原证书；交付结果见 PR。
+R7 的可用范围明确为 C 大调、A 自然小调，C/A 根音下四类三和弦；音程识别覆盖 0–12 半音，听辨覆盖同度、大二度、小三度、大三度、纯四度、纯五度和八度。后续调性、完整节奏与实琴识别不在本批完成声明中。R7 历史交付过程中执行环境曾离线，现已从远端仓库与原长期签名备份恢复。正式 APK 继续核验包名、版本和原证书；交付结果见 PR。
