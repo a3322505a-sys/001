@@ -22,7 +22,7 @@ enum class Category(val title: String, val description: String) {
 
 @Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE, CHORD_SHAPE, STAFF_TO_POSITION, RELATION, STRUCTURE, REFERENCE_EAR }
 @Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION, PRACTICE }
-@Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL }
+@Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL, PITCH_SET }
 @Serializable enum class CompletionKind { SINGLE, SET, SEQUENCE }
 @Serializable enum class Phase { ANSWERING, CORRECT, CORRECTING, CORRECTED }
 @Serializable enum class ClickResult { CORRECT, EXTRA_CORRECT, WRONG, OUTSIDE, REPEATED, CORRECTION, PARTIAL }
@@ -35,6 +35,9 @@ data class AnswerConstraint(
     val midi: Int? = null,
     val string: Int? = null,
     val fret: Int? = null,
+    val allowedPitches: Set<Int> = emptySet(),
+    val firstFret: Int? = null,
+    val lastFret: Int? = null,
 )
 
 @Serializable
@@ -73,6 +76,9 @@ data class LearningTask(
     val relation: RelationPrompt? = null,
     val referenceCoordinates: List<Coordinate> = emptyList(),
     val regionProbe: Boolean = false,
+    val creationDurations: List<Int> = emptyList(),
+    val chordProgression: List<List<Int>> = emptyList(),
+    val auditoryScore: ShortScore? = null,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -167,6 +173,7 @@ data class LearnerState(
     val pilotPool: List<Coordinate> = emptyList(),
     val pilotResults: List<PilotResult> = emptyList(),
     val pilotSuspended: SuspendedLesson? = null,
+    val physicalReports: List<PhysicalReport> = emptyList(),
 )
 
 data class CurriculumNode(

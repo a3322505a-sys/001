@@ -4,13 +4,17 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 
 /** Musical truth is independent of which locations the course has introduced. */
 object AnswerEvaluator {
-    fun matches(c: Coordinate, rule: AnswerConstraint): Boolean = when (rule.kind) {
+    fun matches(c: Coordinate, rule: AnswerConstraint): Boolean {
+        if (c.fret < (rule.firstFret ?: 0) || c.fret > (rule.lastFret ?: 15)) return false
+        return when (rule.kind) {
+        ConstraintKind.PITCH_SET -> MusicFacts.midi(c.string, c.fret) in rule.allowedPitches
         ConstraintKind.NOTE_CLASS -> MusicFacts.note(c.string, c.fret) == rule.symbol
         ConstraintKind.PITCH -> MusicFacts.midi(c.string, c.fret) == rule.midi
         ConstraintKind.COORDINATE -> c == rule.coordinate
         ConstraintKind.STRING -> c.string == rule.string
         ConstraintKind.FRET -> c.fret == rule.fret
         ConstraintKind.SYMBOL -> false
+        }
     }
 
     fun validPositions(task: LearningTask, index: Int = 0): List<Coordinate> {

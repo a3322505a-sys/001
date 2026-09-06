@@ -20,7 +20,7 @@ import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
     Canvas(modifier.semantics { contentDescription = if (notation.kind == NotationKind.TAB) "TAB，依次读取第${index + 1}个弦品数字" else "高音谱号吉他谱，实际发声低八度，第${index + 1}个音" }) {
-        val gap = size.height / 7.8f
+        val gap = size.height / if (notation.score != null) 10f else 7.8f
         val top = gap * 1.6f
         val left = if (notation.score != null) 76.dp.toPx() else 58.dp.toPx()
         val right = size.width - 12.dp.toPx()
@@ -61,6 +61,10 @@ fun NotationView(notation: NotationPrompt, index: Int, modifier: Modifier = Modi
                 val y = top + 2*gap
                 // Quarter rest zigzag; half rest rests above the middle staff line.
                 if(e.duration == 8) drawRect(colors.ink,Offset(x-5.dp.toPx(),y-4.dp.toPx()),Size(10.dp.toPx(),4.dp.toPx()))
+                else if (e.duration == 2) {
+                    drawCircle(colors.ink,2.5.dp.toPx(),Offset(x+2.dp.toPx(),y-gap/2))
+                    drawLine(colors.ink,Offset(x+5.dp.toPx(),y-gap/2),Offset(x-2.dp.toPx(),y+gap),1.8.dp.toPx())
+                }
                 else drawPath(Path().apply { moveTo(x-3.dp.toPx(),y-gap); lineTo(x+3.dp.toPx(),y-gap/2); lineTo(x-3.dp.toPx(),y); lineTo(x+3.dp.toPx(),y+gap/2); quadraticBezierTo(x-7.dp.toPx(),y+gap/3,x-2.dp.toPx(),y+gap) },colors.ink,style=Stroke(2.dp.toPx()))
             }
         }

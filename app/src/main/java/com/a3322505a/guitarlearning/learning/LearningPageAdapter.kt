@@ -67,7 +67,7 @@ internal object LearningPageAdapter {
         records += attempts.takeLast(6).asReversed().map { "${formatTime(it.at)} · ${it.task.prompt}\n${attemptLabel(it)}" }
         return NodeDetailUiState(row(s, n), n.description,
             if (Curriculum.available(s, n)) if (RegionTraining.owner(n.id) != null) "进入${RegionTraining.owner(n.id)!!.title}训练" else if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
-            RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records)
+            RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records + s.physicalReports.filter { it.lessonId == n.id }.takeLast(4).map { "实琴自评 · ${it.exerciseId} · ${it.rating}" }, PhysicalPractice.exercises(n.id))
     }
     fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null,
         PilotMode.entries.associateWith { ShortScorePilot.nextClip(s,it) },

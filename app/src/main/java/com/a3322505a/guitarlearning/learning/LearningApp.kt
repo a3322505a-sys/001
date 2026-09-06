@@ -97,7 +97,7 @@ fun LearningApp(model: TrainingViewModel) {
                         page.startsWith("group:") -> CatalogContent(LearningPageAdapter.catalog(s, HomeGroup.valueOf(page.substringAfter(':')).categories, page == "group:ADVANCED"), start, detail, practice, { page = "chord-examples" })
                         page.startsWith("category:") -> CatalogContent(LearningPageAdapter.catalog(s, setOf(Category.valueOf(page.substringAfter(':')))), start, detail, practice, { page = "chord-examples" })
                         page == "tree" -> TreeContent(LearningPageAdapter.tree(s), detail, { page = "history" })
-                        page.startsWith("node:") -> NodeContent(LearningPageAdapter.node(s, Curriculum.node(page.substringAfter(':'))), start, practice)
+                        page.startsWith("node:") -> NodeContent(LearningPageAdapter.node(s, Curriculum.node(page.substringAfter(':'))), start, practice) { exercise,rating -> model.physical(page.substringAfter(':'),exercise,rating) }
                         page.startsWith("practice:") -> PracticeRoute(s, page.substringAfter(':').split(','), busy) { selection ->
                             model.practice(selection) { returnPage = page; page = "training" }
                         }

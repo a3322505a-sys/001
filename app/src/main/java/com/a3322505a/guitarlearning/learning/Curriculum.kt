@@ -47,7 +47,7 @@ object Curriculum {
         CurriculumNode("cross-position", "跨把位的同音高", Category.ADVANCED, "E4（1弦空弦）= E4（2弦5品）= E4（3弦9品）；换位置，实际音高不变。", listOf("h07", "pitch-relations")),
         CurriculumNode("ear-intervals", "有参照的音程听辨", Category.ADVANCED, "先听参考音→再听第二音→比较方向与距离；例如上行7个半音是纯五度，不要求凭空报音名。", listOf("intervals")),
         CurriculumNode("ear-triads", "有根音的和弦听辨", Category.ADVANCED, "先听根音→再听和弦→比较根音、三音、五音；例如大三和弦是先4个半音、再3个半音。", listOf("triads")),
-    )
+    ) + FurtherLessons.nodes
     fun positionSuccessor(id: String): CurriculumNode? = nodes.firstOrNull {
         it.category == Category.FRETBOARD && it.positions.isNotEmpty() && it.implemented && id in it.prerequisites
     }
@@ -55,7 +55,7 @@ object Curriculum {
         .flatMap { it.positions }.map { com.a3322505a.guitarlearning.core.MusicFacts.note(it.string, it.fret) }.distinct()
     fun node(id: String): CurriculumNode = nodes.first { it.id == id }
     fun mastered(state: LearnerState, id: String): Boolean = state.progress[id]?.masteredAt != null
-    fun available(state: LearnerState, node: CurriculumNode): Boolean = node.implemented && node.prerequisites.all { mastered(state, it) }
+    fun available(state: LearnerState, node: CurriculumNode): Boolean = node.implemented && node.prerequisites.all { mastered(state, it) } && (node.id != "rework-key" || FurtherLessons.hasOwnWork(state))
     fun next(state: LearnerState): CurriculumNode? = nodes.firstOrNull { available(state, it) && !mastered(state, it.id) }
     fun status(state: LearnerState, node: CurriculumNode): String = when {
         !node.implemented -> "规划中"
