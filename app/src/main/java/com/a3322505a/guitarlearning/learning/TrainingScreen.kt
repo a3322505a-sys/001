@@ -14,7 +14,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,7 +38,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
         val fixedBoardHeight = maxHeight * 0.48f
         // Reserve the same board area across prompt, hint and correction states.
         // Only the two information panes scroll; neither can push text under the neck.
-        val split = maxWidth >= 600.dp * LocalDensity.current.fontScale
+        val split = maxWidth >= 560.dp
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -77,13 +76,14 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
             }
             val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null || state.options.isNotEmpty()
+            key(state.taskId) {
             if (split && hasContent) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(0.56f).fillMaxHeight().verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
-                    Column(Modifier.weight(0.44f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                        TrainingMessage(state)
-                    }
+                    key(state.message) { BoxWithConstraints(Modifier.weight(0.44f).fillMaxHeight()) {
+                        TrainingMessage(state, Modifier.heightIn(max = maxHeight), scrollable = true)
+                    } }
                 }
             } else {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,21 +91,23 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                     TrainingMessage(state)
                 }
             }
+            }
             if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }
 }
 
 @Composable
-internal fun TrainingMessage(state: TrainingUiState) {
+internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifier, scrollable: Boolean = false) {
     val message = state.message ?: return
     val colors = LocalGuitarColors.current
     val ink = if (state.wrong) colors.error.ink else colors.ink
-    Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
+    Surface(modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
         color = if (state.wrong) colors.error.background else colors.surface,
         border = BorderStroke(1.dp, if (state.wrong) colors.error.ink else colors.border)) {
-        Text(message, color = ink, fontSize = 15.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp))
+        Text(message, color = ink, fontSize = 15.sp, lineHeight = 20.sp,
+            modifier = (if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = 12.dp, vertical = 8.dp))
     }
 }
 

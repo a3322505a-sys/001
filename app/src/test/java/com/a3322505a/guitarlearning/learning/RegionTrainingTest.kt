@@ -88,6 +88,8 @@ class RegionTrainingTest {
         val pilot = ShortScorePilot.begin(base, PilotMode.SLOW, 10).let { it.copy(pilot = it.pilot!!.copy(elapsedMs = 1200)) }
         val region = co.startRegion(pilot, "LOW", 20)
         assertNull(region.pilot)
+        assertTrue(LearningPageAdapter.pilot(region).resume)
+        assertEquals(PilotMode.SLOW, LearningPageAdapter.pilot(region).resumeMode)
         val resumed = ShortScorePilot.begin(LearningCodec.decode(LearningCodec.encode(region)), PilotMode.SLOW, 30)
         assertEquals(pilot.active, resumed.active)
         assertEquals(pilot.pilot, resumed.pilot)

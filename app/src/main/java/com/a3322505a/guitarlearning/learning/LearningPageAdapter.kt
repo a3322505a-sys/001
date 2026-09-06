@@ -69,12 +69,12 @@ internal object LearningPageAdapter {
             if (Curriculum.available(s, n)) if (RegionTraining.owner(n.id) != null) "进入${RegionTraining.owner(n.id)!!.title}训练" else if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
             RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records + s.physicalReports.filter { it.lessonId == n.id }.takeLast(4).map { "实琴自评 · ${it.exerciseId} · ${it.rating}" }, PhysicalPractice.exercises(n.id))
     }
-    fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null,
+    fun pilot(s: LearnerState): PilotMenuUi = PilotMenuUi(s.pilot != null || s.pausedTraining?.pilot != null,
         PilotMode.entries.associateWith { ShortScorePilot.nextClip(s) },
         PilotMode.entries.associateWith { mode -> ShortScorePilot.nextClip(s)?.let { ShortScorePilot.available(s,it) && ShortScorePilot.modeAvailable(s,it,mode) } == true },
         s.pilotResults.map { r -> "${r.mode.title} · ${if(r.kind==NotationKind.TAB) "TAB" else "五线谱"} · ${when(r.role){PilotRole.BASELINE->"基线";PilotRole.PRACTICE->"练习";PilotRole.RETEST->"复测"}} 第${r.clip+1}段 · ${r.elapsedMs/1000}秒 · " +
             (if(r.mode == PilotMode.GUITAR) "自评：${r.rating}" else "首次正确 ${r.firstCorrect}/${r.notes}") + (if(r.assisted) "（含辅助）" else "") +
-            (if(r.comment.isBlank()) "" else "\n备注：${r.comment}") }, s.pilot?.mode)
+            (if(r.comment.isBlank()) "" else "\n备注：${r.comment}") }, s.pilot?.mode ?: s.pausedTraining?.pilot?.mode)
     fun history(s: LearnerState) = s.sessions.asReversed().map { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }
         InfoPanelUi(formatTime(session.startedAt), (if (session.mode == "practice") "专项 · " else "学习 · ") + if (session.endedAt == null) "进行中 / 已暂停" else "已结束",
@@ -94,9 +94,10 @@ internal object LearningPageAdapter {
         val chosen = available.filter { selected == null || it.id in selected }
         val kinds = PracticeLessons.kinds(chosen, s)
         val kind = kinds.firstOrNull { it.name == kindName } ?: kinds.firstOrNull()
+        val pausedPlan = s.practice ?: s.pausedTraining?.practice
         return PracticeUiState(available.map { ChoiceUi(it.id, it.title) }, chosen.map { it.id }, kinds.map { ChoiceUi(it.name, it.title) }, kind?.name,
             busy, !busy && chosen.isNotEmpty() && kind != null,
-            if (s.practice?.nodeIds == chosen.map { it.id } && s.practice?.kind == kind) "继续专项" else "开始专项")
+            if (pausedPlan?.nodeIds == chosen.map { it.id } && pausedPlan?.kind == kind) "继续专项" else "开始专项")
     }
     private fun attemptLabel(a: Attempt): String = when {
         a.task.source == TaskSource.PREVIEW -> "预学习接触，不计过关"

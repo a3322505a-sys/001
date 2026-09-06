@@ -35,7 +35,7 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
         val boardHeight = maxHeight * 0.48f
-        val split = maxWidth >= 600.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale
+        val split = maxWidth >= 560.dp
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { onEvent(TrainingEvent.Back) }) { Text("‹ 返回") }
@@ -70,6 +70,7 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
                     OutlinedTextField(comment, { comment = it.take(200) }, label = { Text("可选：哪里停顿？") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 } else if (state.wrong) TrainingMessage(state.copy(message = "再看当前音，答对后继续。"))
             }
+            key(state.taskId) {
             if (split) {
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(0.64f).fillMaxHeight().verticalScroll(rememberScrollState()), content = score)
@@ -77,6 +78,7 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
                 }
             } else {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) { score(); controls() }
+            }
             }
             state.board?.let { TeachingFretboard(it, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(boardHeight)) }
         }

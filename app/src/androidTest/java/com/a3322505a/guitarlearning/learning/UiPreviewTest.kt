@@ -4,10 +4,13 @@ import android.graphics.Bitmap
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.a3322505a.guitarlearning.MainActivity
@@ -36,8 +39,9 @@ class UiPreviewTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             instrumentation.waitForIdleSync()
             Thread.sleep(800)
-            for(theme in listOf("forest","midnight")) for((name,state) in states) {
-                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } }
+            for(fontScale in listOf(1f, 1.3f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
+                if (fontScale > 1f && (theme != "forest" || name !in listOf("chord-error", "tab-three-notes", "pilot-tab"))) continue
+                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
                 instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
@@ -45,7 +49,7 @@ class UiPreviewTest {
                 Thread.sleep(250)
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
-                directory.resolve("$theme-$name.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                directory.resolve("$theme-$name${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
         }
