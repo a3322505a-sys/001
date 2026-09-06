@@ -90,4 +90,22 @@ class TrainingContractsTest {
         assertFalse(session.claimAuto("b"))
         assertTrue(TrainingAudioSession().apply { bind("b", true, true) }.claimAuto("b"))
     }
+
+    @Test fun expandedBoardKeepsReferencesWithoutExpandingAnswerOrLeakingHiddenTarget() {
+        val t = LessonScheduler().makePosition("middle", Coordinate(1, 5), Direction.NOTE_TO_POSITION, TaskSource.MAIN)
+        val hidden = TrainingUiAdapter.board(ActiveTask(t), FingeringMode.COLORS)
+        assertEquals(0, hidden.firstFret)
+        assertEquals(8, hidden.lastFret)
+        assertTrue(hidden.marks.isEmpty())
+        assertTrue(Coordinate(1, 1) in hidden.interactivePositions)
+        assertFalse(Coordinate(1, 1) in hidden.answerPositions)
+        val shown = TrainingUiAdapter.board(ActiveTask(t.copy(source = TaskSource.DEMONSTRATION)), FingeringMode.COLORS)
+        assertTrue(shown.marks.map { it.coordinate }.containsAll(listOf(Coordinate(1, 1), Coordinate(1, 3), Coordinate(1, 5))))
+        val s = LearnerState(active = ActiveTask(position()), introductions = setOf("position:s3:f9"))
+        assertEquals(12, TrainingUiAdapter.training(s, false, AudioUiState()).board!!.lastFret)
+        val ear = StructureLessons.tasks("ear-intervals").first()
+        val state = LearnerState(active = ActiveTask(ear))
+        assertEquals(TrainingUiAdapter.training(state, false, AudioUiState()).relation?.lines,
+            TrainingUiAdapter.training(state.copy(active = ActiveTask(ear, audioReady = true)), false, AudioUiState()).relation?.lines)
+    }
 }

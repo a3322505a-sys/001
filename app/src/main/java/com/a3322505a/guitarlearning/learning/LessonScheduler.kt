@@ -26,7 +26,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
             "frets" to guitar("frets", 1, TaskSource.DEMONSTRATION, "弦枕 → 第1品格 → 第2品格。\n金属线是品丝；弦枕与第1根品丝之间是第1品格，本题点这里。"),
             "open" to guitar("frets", 0, TaskSource.DEMONSTRATION, "0 → 空弦 → 不按任何品。\n本题点弦枕左侧的琴弦，表示弹空弦。"),
             "markers" to guitar("markers", 12, TaskSource.DEMONSTRATION, "3品（单点）→ 5品（单点）→ 7品（单点）→ 9品（单点）→ 12品（双点）。\n本题找双点；6品通常没有圆点。"),
-            "marker15" to guitar("markers", 15, TaskSource.DEMONSTRATION, "9品（单点）→ 12品（双点）→ 15品（单点）。\n本题点15品；虽然画面从9品开始，品号仍从弦枕计算。"),
+            "marker15" to guitar("markers", 15, TaskSource.DEMONSTRATION, "9品（单点）→ 12品（双点）→ 15品（单点）。\n本题点15品；品号从弦枕计算，向右查看15品。"),
         )
         demos.firstOrNull { "g00:${it.first}" !in state.introductions }?.let {
             return it.second.copy(introductionId = "g00:${it.first}")

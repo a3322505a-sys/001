@@ -2,6 +2,8 @@ package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,10 +34,16 @@ private val WrongPink = Color(0xFFFF668D)
 fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> Unit, modifier: Modifier = Modifier) {
     val geometry = remember(state.firstFret, state.lastFret) { TeachingGeometry(state.firstFret, state.lastFret) }
     BoxWithConstraints(modifier) {
-        val boardLeft = if (geometry.first == 0) maxWidth * 0.18f else 0.dp
-        val boardWidth = maxWidth - boardLeft
-        val boardTop = maxHeight * 0.17f
-        val boardHeight = maxHeight * 0.77f
+        val availableWidth = maxWidth
+        val availableHeight = maxHeight
+        val boardLeft = if (geometry.first == 0) 72.dp else 0.dp
+        val minimumWidth = 40.dp / (geometry.right(geometry.last) - geometry.left(geometry.last))
+        val boardWidth = maxOf(availableWidth - boardLeft, minimumWidth)
+        val boardHeight = minOf(144.dp, availableHeight * 0.78f)
+        val boardTop = (availableHeight - boardHeight) / 2
+        // One continuous viewport: never scroll to a hidden answer when a task changes.
+        Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+          Box(Modifier.width(boardWidth + boardLeft).height(availableHeight)) {
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
@@ -81,6 +89,8 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
             }
         }
     }
+    }
+  }
 }
 
 /** A native drawing, so wood, hardware and interactive marks scale together without bitmap blur. */

@@ -120,10 +120,10 @@ class TrainingViewModel @JvmOverloads constructor(
     fun positionTapped(tap: PositionTapped) {
         val s = _state.value ?: return
         val a = s.active?.takeIf { it.task.id == tap.viewId && trainingVisible() } ?: return
-        val board = TrainingUiAdapter.board(a, FingeringMode.fromId(s.fingeringMode), _busy.value)
+        val board = TrainingUiAdapter.board(a, FingeringMode.fromId(s.fingeringMode), _busy.value, TrainingUiAdapter.displayLast(s))
         if (board.interaction == BoardInteraction.DISABLED || tap.coordinate !in board.interactivePositions) return
         startPlayback(TaskAudioPolicy.position(tap.coordinate))
-        if (board.interaction == BoardInteraction.ANSWER) answer(tap.viewId, coordinate = tap.coordinate)
+        if (board.interaction == BoardInteraction.ANSWER && tap.coordinate in board.answerPositions) answer(tap.viewId, coordinate = tap.coordinate)
     }
     fun replay(taskId: String) {
         val a = _state.value?.active?.takeIf { it.task.id == taskId && trainingVisible() } ?: return
