@@ -29,14 +29,14 @@ internal object LearningPageAdapter {
         return HomeGroup.entries.map { group ->
             val active = current?.takeIf { it.category in group.categories }
             HomeEntryUi(group.name, group.title, active?.let { "当前：${it.title}" } ?: group.description,
-                if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)
+                if (s.regionTraining != null) "继续训练" else if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)
         } + HomeEntryUi("tree", "知识树", "${s.progress.count { it.value.masteredAt != null }} 个节点已点亮")
     }
     fun catalog(s: LearnerState, categories: Set<Category>, examples: Boolean = false) = CatalogUiState(categories.map { category ->
         if (category == Category.FRETBOARD) CatalogSectionUi(null, regions = FretboardRegion.entries.map { region ->
-            RegionUi(region.name, "${region.title} · ${region.rangeLabel}", region.progressLabel(s), region.nodes.map { row(s, it) },
-                if (region.nodes.any { PracticeLessons.eligible(s, it) }) if (region == FretboardRegion.FULL) FretboardRegion.entries.flatMap { it.nodeIds } else region.nodeIds else emptyList(),
-                if (region == FretboardRegion.FULL) "先分组扩展 9–12 品；专项可合并低、中、高把位已接触的音。" else null)
+            RegionUi(region.name, "${region.title} · ${region.rangeLabel}", region.progressLabel(s), emptyList(), emptyList(),
+                if (RegionTraining.available(s, region.name)) null else "完成前置内容后开始",
+                if (RegionTraining.available(s, region.name)) if (s.active != null && (s.regionTraining?.regionId == region.name || RegionTraining.owner(s.currentNode) == region)) "继续" else "开始" else null)
         }) else CatalogSectionUi(category.title.takeIf { categories.size > 1 }, Curriculum.nodes.filter { it.category == category }.map { row(s, it) })
     }, examples)
     fun tree(s: LearnerState) = Curriculum.nodes.map { row(s, it) }
@@ -66,8 +66,8 @@ internal object LearningPageAdapter {
         s.progress[n.id]?.retainedOn?.let { records += "${it}有隔日独立正确记录。" }
         records += attempts.takeLast(6).asReversed().map { "${formatTime(it.at)} · ${it.task.prompt}\n${attemptLabel(it)}" }
         return NodeDetailUiState(row(s, n), n.description,
-            if (Curriculum.available(s, n)) if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
-            PracticeLessons.eligible(s, n), panels, records)
+            if (Curriculum.available(s, n)) if (RegionTraining.owner(n.id) != null) "进入${RegionTraining.owner(n.id)!!.title}训练" else if (Curriculum.mastered(s, n.id)) "开始复习" else "开始 / 继续学习" else null,
+            RegionTraining.owner(n.id) == null && PracticeLessons.eligible(s, n), panels, records)
     }
     fun history(s: LearnerState) = s.sessions.asReversed().map { session ->
         val attempts = s.attempts.filter { it.sessionId == session.id }

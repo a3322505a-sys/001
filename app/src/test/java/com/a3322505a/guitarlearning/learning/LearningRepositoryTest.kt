@@ -259,4 +259,31 @@ class LearningRepositoryTest {
         db.close(); context.deleteDatabase(name)
     }
 
+
+    @Test fun regionProbeAndQueuedBoundaryRollbackTogetherWithAttempt() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "region-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val base = initial.copy(progress = mapOf("g00" to NodeProgress(1), "n00" to NodeProgress(1)),
+            introductions = setOf("position:s1:f0", "position:s1:f1"))
+        val started = repo.commit(initial, co.startRegion(base, "LOW", 1000))
+        val t = started.active!!.task
+        val next = if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(started, symbol = t.constraint.symbol, now = 2000)
+            else co.answer(started, coordinate = AnswerEvaluator.validPositions(t).first(), now = 2000)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_commit BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(started, next) }
+        assertEquals(started, repo.load())
+        assertEquals(0, db.learningDao().attemptCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_commit")
+        val saved = repo.commit(started, next)
+        db.close()
+        db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(saved.active, co.startRegion(repo.load(), "LOW", 3000).active)
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
 }

@@ -5,6 +5,25 @@ import java.time.ZoneId
 
 /** Pure state transitions. The caller must commit the returned state before exposing it. */
 class LearningCoordinator(private val scheduler: LessonScheduler = LessonScheduler()) {
+    fun startRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
+        require(RegionTraining.available(state, regionId)) { "请先完成该区域前置内容。" }
+        if (state.regionTraining?.regionId == regionId && state.active != null) return state
+        // Restore any already displayed task first, including legacy practice and suspended lessons.
+        if (state.active != null) return state.copy(queuedRegion = regionId)
+        return activateRegion(state, regionId, now)
+    }
+
+    private fun activateRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
+        val count = RegionTraining.known(state, regionId).size
+        val run = RegionRun(regionId, (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1, if (count < 2) 0 else if (count < 3) 4 else 5)
+        val session = state.sessions.lastOrNull { it.id == state.sessionId && it.endedAt == null } ?: LearningSession(startedAt = now, mode = "region")
+        val next = state.copy(regionTraining = run, queuedRegion = null, sessionId = session.id,
+            sessions = if (session in state.sessions) state.sessions else state.sessions + session,
+            active = null, reviewMode = false, endedSummary = null)
+        val task = scheduler.next(next, now)
+        return next.copy(active = ActiveTask(task), currentNode = task.nodeId)
+    }
+
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
         if (state.practice != null) return start(endPractice(state, now), nodeId, now)
         val node = Curriculum.node(nodeId)
@@ -13,7 +32,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val session = state.sessions.lastOrNull { it.id == state.sessionId && it.endedAt == null } ?: LearningSession(startedAt = now)
         val next = state.copy(currentNode = nodeId, sessionId = session.id,
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
-            active = null, reviewMode = Curriculum.mastered(state, nodeId), endedSummary = null)
+            active = null, reviewMode = Curriculum.mastered(state, nodeId), endedSummary = null, regionTraining = null, queuedRegion = null)
         return next.copy(active = ActiveTask(scheduler.next(next, now)))
     }
 
@@ -111,6 +130,11 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val a = state.active ?: return state
         if (a.task.id != expectedTaskId || a.phase !in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
         var changed = state.copy(active = null)
+        if (state.practice == null && state.queuedRegion != null) return activateRegion(changed, state.queuedRegion, now)
+        if (state.practice == null && state.regionTraining != null) {
+            val task = scheduler.next(changed, now)
+            return changed.copy(active = ActiveTask(task), currentNode = task.nodeId)
+        }
         if (state.practice == null && !state.reviewMode && Curriculum.mastered(state, state.currentNode)) {
             val next = Curriculum.next(state)
             if (next == null) return end(changed, now, "首轮学习已完成。可以从知识树复习；后续课程会逐步补齐。")
@@ -124,7 +148,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val id = state.sessionId ?: return state
         val attempts = state.attempts.filter { it.sessionId == id }
         val independent = attempts.filter { it.independent }
-        return state.copy(sessionId = null, active = null,
+        return state.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
             sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now) else it },
             endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
     }

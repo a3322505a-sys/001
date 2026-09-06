@@ -60,6 +60,10 @@ object LearningCodec {
         require(state.sessionId == null || state.sessions.any { it.id == state.sessionId && it.endedAt == null })
         require(state.active == null || state.sessionId != null)
         require((state.practice == null) == (state.suspendedLesson == null))
+        state.regionTraining?.let { run ->
+            require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
+        }
+        require(state.queuedRegion == null || state.queuedRegion in FretboardRegion.entries.map { it.name })
         state.practice?.let { plan ->
             require(state.sessionId != null && plan.nodeIds.isNotEmpty() && plan.nodeIds.distinct().size == plan.nodeIds.size)
             require(plan.nodeIds.all { id -> Curriculum.nodes.any { it.id == id } })

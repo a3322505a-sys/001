@@ -72,6 +72,7 @@ data class LearningTask(
     val notation: NotationPrompt? = null,
     val relation: RelationPrompt? = null,
     val referenceCoordinates: List<Coordinate> = emptyList(),
+    val regionProbe: Boolean = false,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -136,6 +137,8 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 @Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
 @Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)
 
+@Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int)
+
 @Serializable
 data class LearnerState(
     val schemaVersion: Int = 1,
@@ -158,6 +161,8 @@ data class LearnerState(
     val fingeringMode: String = "colors",
     val fingerLegendSeen: Boolean = false,
     val viewedSkills: Map<String, Int> = emptyMap(),
+    val regionTraining: RegionRun? = null,
+    val queuedRegion: String? = null,
 )
 
 data class CurriculumNode(
