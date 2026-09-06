@@ -124,7 +124,8 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
     val colors = LocalGuitarColors.current
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val width = with(density) { options.maxOf { measurer.measure(it.value + " ✓", TextStyle(fontSize = 19.sp)).size.width }.toDp() } + 28.dp
+    val optionStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 19.sp)
+    val width = with(density) { options.maxOf { measurer.measure(it.value, optionStyle).size.width }.toDp() } + 30.dp
     BoxWithConstraints(modifier) {
     val optionWidth = minOf(maxWidth, maxOf(64.dp, width))
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -140,11 +141,16 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
             }
             OutlinedButton(onClick = { answer(option.value) },
                 enabled = option.enabled,
-                modifier = Modifier.width(optionWidth), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
+                modifier = Modifier.width(optionWidth), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp), shape = CutCornerShape(4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = optionColors.background, contentColor = optionColors.ink,
                     disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {
-                Text(option.value + if (wrong) " ×" else if (confirmed) " ✓" else "", fontSize = 19.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(option.value, style = optionStyle, maxLines = 1, softWrap = false)
+                    Box(Modifier.width(12.dp), contentAlignment = Alignment.Center) {
+                        if (wrong || confirmed) Text(if (wrong) "×" else "✓", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                    }
+                }
             }
         }
     }
