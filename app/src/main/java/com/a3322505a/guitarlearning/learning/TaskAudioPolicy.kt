@@ -12,6 +12,7 @@ internal object TaskAudioPolicy {
     fun prompt(a: ActiveTask): TaskAudio? {
         val t = a.task
         if (t.notation?.score?.id?.startsWith("pilot-") == true) return null
+        t.referenceScore?.let { return TaskAudio(emptyList(),AudioPurpose.PROMPT,it.playback()) }
         t.notation?.score?.let { score -> return if (t.guided) TaskAudio(emptyList(),AudioPurpose.FULL_DEMONSTRATION,score.playback()) else null }
         if (t.chordProgression.isNotEmpty()) return if (t.guided) TaskAudio(t.chordProgression.map { cue(it,true) },AudioPurpose.FULL_DEMONSTRATION) else null
         t.auditoryScore?.let { return auditory(t, it) }

@@ -85,12 +85,18 @@ object FurtherLessons {
         "motif-answer" -> (2..4).map { count ->
             val rules=List(count-1){permitted(setOf(9,0,2,4,7),57,69)}+permitted(setOf(9),57,69)
             composition(id,"$count",rules,if(count==2)listOf(8,8) else if(count==3)listOf(4,4,8) else List(4){4},
-                "$count 音回应：五声音阶，最后回A","问题A–C；回应可选A/C/D/E/G，最后A。节奏${if(count==2)"二分、二分" else if(count==3)"四分、四分、二分" else "四个四分音符"}。多种旋律都可以。",9)
-                .copy(referenceCoordinates=listOf(Coordinate(3,2),Coordinate(2,1)))
-        }
+                "$count 音回应：五声音阶，最后回A","上方是问题谱A–C–休止–A；回应可选A/C/D/E/G，最后A。节奏${if(count==2)"二分、二分" else if(count==3)"四分、四分、二分" else "四个四分音符"}。多种旋律都可以。",9)
+                .copy(referenceCoordinates=listOf(Coordinate(3,2),Coordinate(2,1)),referenceScore=questionScore())
+        } + listOf(endingVariation())
         else -> FurtherHarmony.tasks(id)
     }
 
+    private fun questionScore() = ShortScore("motif-question",bars=1,events=listOf(
+        ScoreEvent(0,4,57,Coordinate(3,2)),ScoreEvent(4,4,60,Coordinate(2,1)),ScoreEvent(8,4),ScoreEvent(12,4,57,Coordinate(3,2))))
+    private fun endingVariation(): LearningTask = composition("motif-answer","ending-only",
+        listOf(AnswerConstraint(ConstraintKind.PITCH,midi=57),AnswerConstraint(ConstraintKind.PITCH,midi=60),permitted(setOf(9),57,69)),listOf(4,4,8),
+        "只改变结尾：A3–C4–E4 改为回A", "前两音A3、C4及四分、四分、二分节奏不变；只把最后的E改为A。允许范围内任一A。",9)
+        .copy(referenceScore=ShortScore("motif-ending-question",bars=1,events=listOf(ScoreEvent(0,4,57,Coordinate(3,2)),ScoreEvent(4,4,60,Coordinate(2,1)),ScoreEvent(8,8,64,Coordinate(1,0)))))
     private fun rhythmTasks(id: String): List<LearningTask> {
         val patterns=if(id=="pulse-basics")listOf(listOf(4,4,4,4),listOf(8,8),listOf(4,4,8)) else listOf(listOf(2,2,4,4,4),listOf(4,2,2,8),listOf(2,2,2,2,4,4))
         return patterns.flatMapIndexed { n,durations -> listOf(false,true).map { rest ->

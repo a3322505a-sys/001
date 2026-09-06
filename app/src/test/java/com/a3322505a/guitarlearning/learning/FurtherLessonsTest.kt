@@ -41,6 +41,17 @@ class FurtherLessonsTest {
         assertTrue("full" !in ancestors("compose-eight"))
     }
 
+    @Test fun motifQuestionHasARealRestAndEndingVariationChangesOnlyOneDimension() {
+        val question=FurtherLessons.tasks("motif-answer").first()
+        assertTrue(question.referenceScore!!.events.any{it.midi==null})
+        val audio=TaskAudioPolicy.prompt(ActiveTask(question))!!
+        assertEquals(AudioPurpose.PROMPT,audio.purpose)
+        assertTrue(audio.events.any{it.pitches.isEmpty()&&it.durationMs==1200})
+        val variant=FurtherLessons.tasks("motif-answer").last()
+        assertEquals(listOf(57,60),variant.sequence.take(2).map{it.midi})
+        assertEquals(variant.referenceScore!!.events.map{it.duration},variant.creationDurations)
+        assertEquals(setOf(9),variant.sequence.last().allowedPitches.map{it%12}.toSet())
+    }
     @Test fun spellingPitchSetsAndInversionsUseMusicalFacts() {
         assertEquals("B♭3",SpelledPitch.fromNaturalRoot(53,3,5).label)
         assertEquals("E♭3",SpelledPitch.fromNaturalRoot(48,2,3).label)

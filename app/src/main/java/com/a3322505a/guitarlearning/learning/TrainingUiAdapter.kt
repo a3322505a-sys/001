@@ -71,7 +71,8 @@ object TrainingUiAdapter {
         }
         val extraRelation = if (t.creationDurations.isNotEmpty() || relation == null && (t.chordProgression.isNotEmpty() || t.notation?.score != null)) {
             val lines = if (t.creationDurations.isNotEmpty()) listOf("第${(a.sequenceIndex+1).coerceAtMost(t.sequence.size)}/${t.sequence.size}音 · 本音${t.creationDurations.getOrNull(a.sequenceIndex)?.div(4.0) ?: 0.0}拍") else emptyList()
-            RelationUiState(lines,if(t.creationDurations.isNotEmpty())"听本次短句" else "试听示范", !busy && s.soundEnabled && !audio.playing &&
+            val displayLines = (if(t.referenceScore != null) listOf("上方是问题谱；按条件创作回应。") else emptyList()) + lines
+            RelationUiState(displayLines,if(t.creationDurations.isNotEmpty())"听本次短句" else "试听示范", !busy && s.soundEnabled && !audio.playing &&
                 (t.creationDurations.isEmpty() || a.phase in listOf(Phase.CORRECT,Phase.CORRECTED)))
         } else relation
         val rule = t.sequence.getOrNull(a.sequenceIndex)
@@ -80,7 +81,7 @@ object TrainingUiAdapter {
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
         return TrainingUiState(t.id, (if (s.practice != null) "专项 · " else "") + t.prompt, busy = busy,
             board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s)) else null,
-            tab = t.coordinate.takeIf { t.showTab }, notation = t.notation, notationIndex = a.sequenceIndex,
+            tab = t.coordinate.takeIf { t.showTab }, notation = t.notation ?: t.referenceScore?.notation(NotationKind.TAB), notationIndex = if(t.referenceScore != null) -1 else a.sequenceIndex,
             message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = extraRelation, chordControls = controls,
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
             canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",

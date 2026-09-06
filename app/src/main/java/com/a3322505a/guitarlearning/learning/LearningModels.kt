@@ -79,6 +79,7 @@ data class LearningTask(
     val creationDurations: List<Int> = emptyList(),
     val chordProgression: List<List<Int>> = emptyList(),
     val auditoryScore: ShortScore? = null,
+    val referenceScore: ShortScore? = null,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
