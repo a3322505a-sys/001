@@ -8,6 +8,7 @@
 - 当前页面改 `learning/LearningApp.kt`；指板改 `learning/TeachingFretboard.kt` 和 `TeachingGeometry.kt`；课程/出题改 `learning/Curriculum.kt` 和 `LessonScheduler.kt`；学习记录改 `learning/LearningRepository.kt` 及 `TrainingViewModel.kt`。
 - `training/`、`storage/`、根包旧 `GuitarLearningApp.kt` 与旧训练 Screen 文件是 legacy v1。新增当前 App 功能应接入 `learning/`。复用旧素材前阅读 [docs/legacy-v1.md](docs/legacy-v1.md)，把任务和证据接入新版，不能用修改旧模块冒充新版已实现。
 - 和弦形态共用 `ChordShapes` 驱动显示/发音/判题；集合或顺序题不能把整体结果复制给未回答成员，逐目标证据在 `MemberEvidencePolicy`。
+- 读谱用 `ReadingLessons` / `NotationView`，吉他谱面高于实际发声八度；纯音高题接受范围内的等价位置，TAB 指定弦品。中高把位按两点节点单独掌握，不能以区域进入状态替代证据。
 - `core/`、`audio/`、`ui/theme/` 含共享能力，不按整目录删除。测试中的旧模块用例也不代表新版入口正在使用它。
 - `mapping` 已接入当前任务与方向证据，直接前置为 `p03`；旧独立映射入口不是新版需求依据。级数必须有调性语境，旧 `GuitarCore.fixedDegrees` 仅表示 C 大调。
 

@@ -14,6 +14,7 @@ object PracticeLessons {
     fun eligible(state: LearnerState, node: CurriculumNode): Boolean = Curriculum.available(state, node) && when {
         node.positions.isNotEmpty() -> introducedPositions(state, node).isNotEmpty()
         ChordLessons.shapes(node.id).isNotEmpty() -> ChordLessons.shapes(node.id).any { "chord:${it.id}:intro" in state.introductions }
+        node.id in ReadingLessons.ids -> ReadingLessons.eligible(state, node.id)
         node.id == "mapping" -> state.introductions.any { it.startsWith("mapping:") }
         node.id == "tab01" -> "tab01:intro" in state.introductions
         else -> false
@@ -21,7 +22,8 @@ object PracticeLessons {
 
     fun kinds(nodes: List<CurriculumNode>, state: LearnerState): List<PracticeKind> = when {
         nodes.isNotEmpty() && nodes.all { ChordLessons.shapes(it.id).isNotEmpty() } -> listOf(PracticeKind.CHORD_SHAPE)
-        nodes.all { it.positions.isNotEmpty() } -> positionKinds
+        nodes.isNotEmpty() && nodes.all { it.positions.isNotEmpty() } -> positionKinds + if (nodes.any { it.positions.any { c -> c.fret >= 9 } }) listOf(PracticeKind.FULL_MIXED) else emptyList()
+        nodes.isNotEmpty() && nodes.all { it.id in ReadingLessons.ids } -> listOf(PracticeKind.READING)
         nodes.singleOrNull()?.id == "mapping" -> mappingKinds.filter { kind ->
             kind != PracticeKind.DEGREE_MAPPING || state.introductions.any { it.startsWith("mapping:major:") }
         }
@@ -39,6 +41,15 @@ object PracticeLessons {
     fun next(state: LearnerState, scheduler: LessonScheduler, random: Random): LearningTask {
         val selection = requireNotNull(state.practice)
         val candidates = when (selection.kind) {
+            PracticeKind.READING -> selection.nodeIds.map { ReadingLessons.next(state, it, TaskSource.PRACTICE, random) }
+            PracticeKind.FULL_MIXED -> selection.nodeIds.flatMap { id -> introducedPositions(state, Curriculum.node(id)).flatMap { c ->
+                listOf(Direction.NOTE_TO_POSITION, Direction.POSITION_TO_NOTE).map { direction ->
+                    val t = scheduler.makePosition(id, c, direction, TaskSource.PRACTICE)
+                    if (direction == Direction.POSITION_TO_NOTE) t.copy(range = PhysicalRange(0, 12, setOf(c.string))) else t.copy(
+                        prompt = "在第${c.string}弦找到 ${com.a3322505a.guitarlearning.core.MusicFacts.label(c.string, c.fret)}",
+                        range = PhysicalRange(0, 12, setOf(c.string)), constraint = AnswerConstraint(ConstraintKind.PITCH, midi = com.a3322505a.guitarlearning.core.MusicFacts.midi(c.string, c.fret)))
+                }
+            } }
             in positionKinds -> selection.nodeIds.flatMap { id ->
                 introducedPositions(state, Curriculum.node(id)).flatMap { c ->
                     val directions = when (selection.kind) {

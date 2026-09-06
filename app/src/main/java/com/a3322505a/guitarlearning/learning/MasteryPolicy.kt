@@ -30,6 +30,7 @@ object MasteryPolicy {
         val good = state.attempts.filter { it.task.nodeId == node.id && it.independent && it.firstCorrect == true }
         return when (node.id) {
             "chord-am", "chord-g5", "chord-f" -> ChordLessons.passed(state, node.id)
+            "tab02", "staff", "staff02" -> ReadingLessons.passed(state, node.id)
             "mapping" -> MappingLessons.passed(state)
             "g00" -> listOf("strings", "frets", "markers").all { group -> good.filter { it.task.skillId.startsWith("g00:$group:") }.map { it.task.skillId }.distinct().size >= 2 }
             "n00" -> good.mapNotNull { it.task.constraint.symbol }.toSet().containsAll(listOf("E", "F"))
@@ -50,6 +51,7 @@ object MasteryPolicy {
             val initialDay = state.attempts.lastOrNull { it.at <= (old.masteredAt ?: now) }?.localDay
             val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay &&
                 (if (node.id == "mapping") MappingLessons.retained(state, day, old.masteredAt)
+                else if (node.id in ReadingLessons.ids) ReadingLessons.retained(state, node.id, day, old.masteredAt)
                 else if (ChordLessons.shapes(node.id).isNotEmpty()) MemberEvidencePolicy.retained(state,
                     ChordLessons.shapes(node.id).flatMap { shape -> (1..6).map { ChordLessons.skill(shape, it) } }, day, old.masteredAt) else
                     node.positions.all { c -> state.attempts.any { it.independent && it.task.coordinate == c && it.firstCorrect == true && it.localDay == day && it.at > old.masteredAt } })

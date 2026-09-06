@@ -51,7 +51,7 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
         // Numbers remain available to screen readers, never as a permanent visual answer grid.
         (1..6).forEach { s -> (geometry.first..geometry.last).forEach { f ->
             val c = Coordinate(s, f)
-            val target = c in answers || c == reference
+            val target = c in answers || c == reference || c in task.referenceCoordinates
             val correct = c in active.confirmed
             val wrong = c == mistake && !correct
             Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(f), y = boardTop + boardHeight * ((s - 1) / 6f))
@@ -78,6 +78,7 @@ fun TeachingFretboard(active: ActiveTask, enabled: Boolean, onPosition: (Coordin
                         wrong -> "×"
                         correct -> "✓"
                         c == reference -> "?"
+                        c in task.referenceCoordinates -> "参"
                         task.guided && task.coordinate == c -> task.constraint.symbol.orEmpty()
                         else -> ""
                     }

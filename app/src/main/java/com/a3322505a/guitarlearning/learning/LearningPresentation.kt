@@ -3,8 +3,8 @@ package com.a3322505a.guitarlearning.learning
 /** Presentation grouping only: node identity, prerequisites and evidence stay in Curriculum. */
 enum class FretboardRegion(val title: String, val rangeLabel: String, val nodeIds: List<String>) {
     LOW("低把位", "0–4 品", (1..9).map { "p0$it" }),
-    MIDDLE("中把位", "5–8 品", listOf("middle")),
-    FULL("全指板", "0–12 品", listOf("full"));
+    MIDDLE("中把位", "5–8 品", listOf("middle") + (2..8).map { "m0$it" }),
+    FULL("全指板", "0–12 品", listOf("full") + (2..7).map { "h0$it" });
 
     val nodes: List<CurriculumNode> get() = nodeIds.map(Curriculum::node)
     fun progressLabel(state: LearnerState): String = if (nodes.none { it.implemented }) "规划中"

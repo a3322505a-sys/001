@@ -70,6 +70,15 @@ object LearningCodec {
             require(lesson.active == null || lesson.sessionId != null)
         }
         (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task)).forEach { task ->
+            task.notation?.let { notation ->
+                val rules = if (task.completion == CompletionKind.SEQUENCE) task.sequence else listOf(task.constraint)
+                if (rules.first().kind != ConstraintKind.SYMBOL) {
+                    require(rules.size == notation.pitches.size)
+                    rules.forEachIndexed { index, rule -> require(if (notation.kind == NotationKind.TAB)
+                        rule.kind == ConstraintKind.COORDINATE && rule.coordinate == notation.coordinates[index]
+                        else rule.kind == ConstraintKind.PITCH && rule.midi == notation.pitches[index]) }
+                }
+            }
             require(task.targetSkillIds.isEmpty() || task.targetSkillIds.size == task.sequence.size)
             require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
             if (task.direction in MappingLessons.directions) {

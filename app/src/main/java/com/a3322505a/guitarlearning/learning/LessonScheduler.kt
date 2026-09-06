@@ -12,6 +12,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
             "g00" -> guitarTask(state, source)
             "n00" -> symbolTask(state, source)
             "tab01" -> tabTask(state, source)
+            "tab02", "staff", "staff02" -> ReadingLessons.next(state, node.id, source, random)
             "mapping" -> MappingLessons.next(state, source, random)
             "chord-am", "chord-g5", "chord-f" -> ChordLessons.next(state, node.id, source, random)
             else -> positionTask(state, node, source, now)
@@ -123,11 +124,15 @@ class LessonScheduler(private val random: Random = Random.Default) {
         val name = MusicFacts.note(c.string, c.fret)
         val reverse = direction == Direction.POSITION_TO_NOTE
         val knownOptions = (Curriculum.noteOptions(node) + name).distinct()
+        val octaveDemo = c.fret == 12 && source == TaskSource.DEMONSTRATION
+        val first = if (octaveDemo || c.fret <= 4) 0 else if (c.fret <= 8) 5 else 9
+        val last = if (c.fret <= 4) 4 else if (c.fret <= 8) 8 else 12
         return LearningTask(nodeId = node, skillId = "std:${c.id}:${direction.name.lowercase()}", coordinate = c, direction = direction,
             prompt = if (reverse) "亮起的位置是什么音名？" else "在第${c.string}弦找到 $name",
-            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else when (node) { "p04" -> "G在不同八度仍叫G；A是本课新音名。"; "p05" -> "3弦4品与2弦空弦都是B3，同音高可有不同位置。"; "p06" -> "E到F相邻一品，仍相差半音。"; else -> "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。" }}",
-            constraint = if (reverse) AnswerConstraint(ConstraintKind.SYMBOL, symbol = name) else AnswerConstraint(ConstraintKind.NOTE_CLASS, symbol = name),
-            range = PhysicalRange(strings = setOf(c.string)), source = source,
+            explanation = "${c.label}是${MusicFacts.label(c.string, c.fret)}。${if (octaveDemo) "同弦空弦与12品同音名，12品实际高一个八度；这次点12品。" else if (c == Coordinate(1, 1)) "E到F相邻一品，相差半音。" else if (c == Coordinate(2, 1)) "B到C相邻一品，相差半音。" else when (node) { "p04" -> "G在不同八度仍叫G；A是本课新音名。"; "p05" -> "3弦4品与2弦空弦都是B3，同音高可有不同位置。"; "p06" -> "E到F相邻一品，仍相差半音。"; else -> "先凭粗细找到琴弦，再从弦枕和圆点辨认品格。" }}",
+            constraint = if (reverse) AnswerConstraint(ConstraintKind.SYMBOL, symbol = name) else if (octaveDemo) AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c) else AnswerConstraint(ConstraintKind.NOTE_CLASS, symbol = name),
+            range = PhysicalRange(first, last, strings = setOf(c.string)), source = source,
+            referenceCoordinates = if (octaveDemo) listOf(Coordinate(c.string, 0)) else emptyList(),
             options = if (reverse) knownOptions.shuffled(random) else emptyList())
     }
 }
