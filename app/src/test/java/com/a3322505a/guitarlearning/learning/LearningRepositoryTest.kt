@@ -194,4 +194,32 @@ class LearningRepositoryTest {
         assertEquals(1, db.learningDao().attemptCount())
         db.close(); context.deleteDatabase(name)
     }
+    @Test fun partialStaffPhraseRollbackAndRestoreKeepActualEquivalentCoordinate() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-${newId()}.db"
+        val db = openTest(context, name)
+        val repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val task = ReadingLessons.phrase("staff02", listOf(Coordinate(1, 0), Coordinate(2, 0)), TaskSource.MAIN)
+        val session = LearningSession(startedAt = 1)
+        var state = repo.commit(initial, initial.copy(currentNode = "staff02", active = ActiveTask(task), sessions = listOf(session), sessionId = session.id))
+        state = repo.commit(state, co.answer(state, Coordinate(1, 0), now = 2))
+        val next = co.answer(state, Coordinate(3, 4), now = 3)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_reading BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(state, next) }
+        assertEquals(1, repo.load().active!!.sequenceIndex)
+        assertEquals(1, db.learningDao().evidenceCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_reading")
+        state = repo.commit(state, next)
+        val restored = repo.restore(state, LearningCodec.encode(state))
+        assertEquals(Coordinate(3, 4), restored.attempts.single().members.last().coordinate)
+        assertEquals(2, db.learningDao().evidenceCount())
+        assertEquals(1, db.learningDao().attemptCount())
+        val invalid = state.copy(active = state.active!!.copy(task = task.copy(notation = NotationPrompt(NotationKind.STAFF, listOf(64, 60)))))
+        assertFails { repo.restore(restored, LearningCodec.encode(invalid)) }
+        assertEquals(restored, repo.load())
+        db.close(); context.deleteDatabase(name)
+    }
+
 }

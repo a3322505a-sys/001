@@ -6,7 +6,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha08（versionCode 25）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
+- 当前应用版本：**2.0.0-alpha09（versionCode 26）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。
@@ -30,8 +30,9 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | p03 | 2弦 C / D | p02 | 已实现 |
 | p04–p09 | 继续扩展低把位，共覆盖 18 个自然音位 | 从 p03 逐节点递进 | 已实现 |
 | mapping | 固定唱名双向、C 大调级数双向 | p03 | 已实现，各方向分别留证据 |
-| staff | 五线谱入门 | tab01 | 规划中 |
-| middle / full | 中把位／全指板 | p09 / middle | 规划中 |
+| tab02 / staff / staff02 | TAB 短句、五线谱单音与短句 | tab01+p03 / tab01+p03 / staff | 已实现，逐项记录 |
+| middle、m02–m08 | 中把位 5–8 品，16 个自然音位 | p09 起逐节点递进 | 已实现，8 个两点节点 |
+| full、h02–h07 | 高把位 9–12 品，14 个自然音位；全指板专项 | m08 起逐节点递进 | 已实现，7 个两点节点 |
 | chord-am / chord-g5 / chord-f | Am 开放、G5 两音/三音、F 横按形态 | p07 / p09 / chord-am+chord-g5 | 已实现，逐弦手机定位 |
 | structure | 音程、音阶与和弦关系 | p03 | 规划中 |
 
@@ -53,6 +54,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | 专项范围、方向与入口 | `learning/PracticeLessons.kt`、`PracticeContent.kt`；共用协调器与 Room |
 | 判题、纠正、推进、掌握度 | `learning/AnswerEvaluator.kt`、`learning/LearningCoordinator.kt`、`learning/MasteryPolicy.kt` |
 | 和弦形态、绘制与逐项证据 | `learning/ChordShapes.kt`、`ChordLessons.kt`、`ChordContent.kt`、`MemberEvidencePolicy.kt` |
+| 读谱、短句与实际音高 | `learning/ReadingLessons.kt`、`NotationView.kt`；TAB 坐标与五线谱音高判题分开 |
 | 当前教学指板与点击几何 | `learning/TeachingFretboard.kt`、`learning/TeachingGeometry.kt` |
 | 页面状态、学习档案与备份恢复 | `learning/TrainingViewModel.kt`、`learning/LearningRepository.kt` |
 | 标准调弦、实际音高、播放、主题 | `core/MusicFacts.kt`、`audio/`、`ui/theme/` |
@@ -89,4 +91,4 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 ./gradlew test assembleDebug assembleRelease
 ```
 
-CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha08 属功能版本，正式包使用原长期签名，versionCode 为 25；不交付 CI 为升级检查临时生成的更高版本 Debug 包。
+CI 的 Release 产物是未签名包；正式交付按 [长期签名说明](docs/release-signing.md) 使用既有密钥，保持包名和递增的版本编号。CI 临时 Debug 证书不能代替正式升级签名。alpha09 属功能版本，正式包使用原长期签名，versionCode 为 26；不交付 CI 为升级检查临时生成的更高版本 Debug 包。

@@ -8,8 +8,8 @@
 | R2 | 已合并 PR #42，main `af26548`；CI 33999064871 通过 | alpha05 / 22 |
 | R3 | 已合并 PR #43，main `d617ede`；CI 33999476905 通过 | alpha06 / 23 |
 | R4 | 已合并 PR #44，main `db5e21a`；CI 33999874828 通过 | alpha07 / 24 |
-| R5 | 四形态示例与逐弦课程已实现 | alpha08 / 25 |
-| R6 | 待执行：读谱与区域 | — |
+| R5 | 已合并 PR #45，main `98b56be`；CI 34001346729 通过 | alpha08 / 25 |
+| R6 | TAB/五线谱短句、中高把位及全指板专项已实现 | alpha09 / 26 |
 | R7 | 待执行：关系、结构和参照听觉 | — |
 
 ## R2
@@ -45,6 +45,16 @@ Am 开放、G5 两音/三音、F 大横按共用一个形态模型。各弦最�
 验证：四形态与部分横按音高、完整形态学习回路与重读、成员首错/未答/提示隔离、部分任务恢复、事务失败不产生虚假成员及恢复不重复。新框大小和声音效果待真机反馈。
 
 形态核验：[Fender Am](https://www.fender.com/articles/chords/learn-how-to-play-a-minor-guitar-chord)、[Fender F](https://www.fender.com/articles/chords/learn-how-to-play-f-chord-on-guitar)、[Rocksmith G5](https://www.ubisoft.com/zh-tw/game/rocksmith/plus/news-updates/7455HS3Psh7Tyl94cKqSLC/what-is-a-power-chord-on-guitar)。
+
+## R6
+
+中把位以 `middle`、m02–m08 共八个两点节点覆盖 5–8 品 16 个自然音位；`full`、h02–h07 七节点覆盖 9–12 品 14 个自然音位。结合低把位共 48 个不同自然音位。保留原占位 ID，但每个 ID 现为实际两点课，不能把第一个节点当作整区通关。每位置仍须最近六次至少五对、双方向各两次且末次正确。12 品示范展示同弦空弦参照，判题指定12品；独立题限当前区域，避免把空弦回答记成高八度掌握。全指板专项合并已接触区域，以实际音高和八度明确 0–12 品目标。
+
+TAB 短句、五线谱单音与短句接入原顺序任务，当前成员逐项保存，音乐音高与固定坐标分开。五线谱先介绍高音谱号、吉他谱面高于实际发声八度；单音和短句按实际 MIDI 接受 0–4 品内等价位置。短句仅教音高与顺序，用无符干音头，不补造时值、拍号或完整小节。原 TAB 单音入口保留，后续读谱仅依赖 tab01+p03，五线谱短句依赖 staff。
+
+验证覆盖 48 音位清单、区域独立进度、12 品八度与选项、TAB 第二成员固定坐标/五线谱同音等价、三个读谱节点完整学习与重读、部分短句 Room 回滚和恢复。新增字段均可缺省，原档案与成员表结构不变。谱号绘制、短句横屏空间和触点仍待真机反馈。
+
+记谱核验：[Fundamental Changes：吉他记谱比实际发声高八度](https://www.fundamental-changes.com/http-www-fundamental-changes-com-playing-up-an-octave/)。
 
 ## 后续实施默认边界
 

@@ -214,10 +214,11 @@ private fun FretboardRegions(s: LearnerState, start: (String) -> Unit, detail: (
             Text(if (open) "⌄" else "›", fontSize = 24.sp, color = colors.accent)
         }
         if (open) Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (region == FretboardRegion.FULL) Text("先分组扩展 9–12 品；专项可合并低、中、高把位已接触的音。", fontSize = 13.sp)
             region.nodes.forEach { node ->
                 NodeRow(s, node, onClick = { detail(node.id) }, start = { start(node.id) })
             }
-            if (region.nodes.any { PracticeLessons.eligible(s, it) }) OutlinedButton(onClick = { practice(region.nodeIds) }) { Text("专项练习") }
+            if (region.nodes.any { PracticeLessons.eligible(s, it) }) OutlinedButton(onClick = { practice(if (region == FretboardRegion.FULL) FretboardRegion.entries.flatMap { it.nodeIds } else region.nodeIds) }) { Text("专项练习") }
         }
     }
 }
@@ -431,6 +432,7 @@ private fun TrainingScreen(s: LearnerState, busy: Boolean, model: TrainingViewMo
             }
             if (task.chord != null && (!s.fingerLegendSeen || legendOpen)) FingerLegend { legendOpen = false; model.legendSeen() }
             if (task.chord != null) ChordInputControls(a, busy, model)
+            task.notation?.let { NotationView(it, a.sequenceIndex, Modifier.fillMaxWidth().height(86.dp)) }
             if (message != null) {
                 val wrong = a.firstCorrect == false
                 Surface(Modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),

@@ -10,7 +10,7 @@ class LowPositionExtensionTest {
         assertEquals(18, nodes.flatMap { it.positions }.distinct().size)
         assertTrue(nodes.all { it.implemented })
         nodes.forEachIndexed { index, node ->
-            assertEquals(nodes.getOrNull(index + 1)?.id, Curriculum.positionSuccessor(node.id)?.id)
+            assertEquals(nodes.getOrNull(index + 1)?.id ?: "middle", Curriculum.positionSuccessor(node.id)?.id)
             node.positions.forEach { c ->
                 val task = LessonScheduler(Random(1)).makePosition(node.id, c, Direction.POSITION_TO_NOTE, TaskSource.MAIN)
                 assertEquals(1, task.options.count { it == MusicFacts.note(c.string, c.fret) })
