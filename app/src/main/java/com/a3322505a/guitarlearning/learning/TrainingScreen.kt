@@ -42,7 +42,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
         val answerWidth = if (state.options.isEmpty()) 0.dp else minOf(maxWidth, answerOptionWidth(state.options))
         val columns = ((maxWidth + 8.dp) / (answerWidth + 8.dp)).toInt().coerceAtLeast(1)
         val answerRows = (state.options.size + columns - 1) / columns
-        val answerHeight = answerRows * 48.dp + (answerRows - 1).coerceAtLeast(0) * 4.dp
+        val answerHeight = 48.dp * answerRows + 4.dp * (answerRows - 1).coerceAtLeast(0)
         // Keep one readable feedback line even on the 640 × 320 landscape preview.
         // The allowance is reserved before feedback exists, so the board never moves on an answer.
         val boardAllowance = maxHeight - 48.dp - 48.dp - answerHeight - if (answerRows > 0) 24.dp else 16.dp
