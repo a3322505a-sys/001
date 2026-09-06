@@ -101,7 +101,7 @@ class TrainingContractsTest {
         assertFalse(Coordinate(1, 1) in hidden.answerPositions)
         val shown = TrainingUiAdapter.board(ActiveTask(t.copy(source = TaskSource.DEMONSTRATION)), FingeringMode.COLORS)
         assertTrue(shown.marks.map { it.coordinate }.containsAll(listOf(Coordinate(1, 1), Coordinate(1, 3), Coordinate(1, 5))))
-        val s = LearnerState(active = ActiveTask(position()), introductions = setOf("position:s1:f9"))
+        val s = LearnerState(active = ActiveTask(position()), introductions = setOf("position:s3:f9"))
         assertEquals(12, TrainingUiAdapter.training(s, false, AudioUiState()).board!!.lastFret)
         val ear = StructureLessons.tasks("ear-intervals").first()
         val state = LearnerState(active = ActiveTask(ear))
