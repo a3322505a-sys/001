@@ -29,6 +29,7 @@ interface LearningDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun saveNodes(values: List<NodeEntity>)
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun saveSessions(values: List<SessionEntity>)
     @Query("SELECT COUNT(*) FROM attempts") fun attemptCount(): Int
+    @Query("SELECT COUNT(*) FROM skill_evidence") fun evidenceCount(): Int
     @Query("DELETE FROM attempts") fun clearAttempts()
     @Query("DELETE FROM skill_evidence") fun clearEvidence()
     @Query("DELETE FROM node_progress") fun clearNodes()
@@ -69,11 +70,16 @@ object LearningCodec {
             require(lesson.active == null || lesson.sessionId != null)
         }
         (state.attempts.map { it.task } + listOfNotNull(state.active?.task, state.suspendedLesson?.active?.task)).forEach { task ->
+            require(task.targetSkillIds.isEmpty() || task.targetSkillIds.size == task.sequence.size)
             require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
             if (task.direction in MappingLessons.directions) {
                 require(task.mappingNote in MappingLessons.notes)
                 if (task.direction in MappingLessons.degreeDirections) require(task.tonicPitchClass != null && task.tonalMode == "major")
             }
+        }
+        state.attempts.forEach { a ->
+            require(a.members.map { it.index }.distinct().size == a.members.size)
+            require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
         }
         return state
     }
@@ -104,7 +110,11 @@ class RoomLearningRepository(private val db: LearningDatabase) : LearningReposit
             if (restoring) { dao.clearAttempts(); dao.clearEvidence(); dao.clearNodes(); dao.clearSessions() }
             val changed = if (restoring) saved.attempts else saved.attempts.filter { a -> previous.attempts.firstOrNull { it.task.id == a.task.id } != a }
             dao.saveAttempts(changed.map { AttemptEntity(it.task.id, saved.learnerId, it.sessionId, it.task.nodeId, it.at, LearningCodec.json.encodeToString(it)) })
-            dao.saveEvidence(changed.filter { it.firstCorrect != null }.map { EvidenceEntity("${it.task.id}:${it.task.skillId}", it.task.id, it.task.skillId, it.firstCorrect == true, it.independent) })
+            dao.saveEvidence(changed.flatMap { a ->
+                if (a.task.completion == CompletionKind.SINGLE && a.firstCorrect != null)
+                    listOf(EvidenceEntity("${a.task.id}:${a.task.skillId}", a.task.id, a.task.skillId, a.firstCorrect == true, a.independent))
+                else a.members.map { m -> EvidenceEntity("${a.task.id}:member:${m.index}:${m.skillId}", a.task.id, m.skillId, m.firstCorrect, m.independent) }
+            })
             dao.saveNodes(saved.progress.map { (id, p) -> NodeEntity(id, p.masteredAt, p.needsReview, p.retainedOn) })
             dao.saveSessions(saved.sessions.map { SessionEntity(it.id, it.startedAt, it.endedAt) })
             dao.saveSnapshot(SnapshotEntity(revision = saved.revision, json = encoded))

@@ -82,6 +82,14 @@ class TrainingViewModel(application: Application) : AndroidViewModel(application
     fun next(taskId: String) = change { coordinator.next(it, taskId, System.currentTimeMillis()) }
     fun end(onDone: () -> Unit) = change(onDone) { coordinator.end(it, System.currentTimeMillis()) }
     fun sound(enabled: Boolean) = change { it.copy(soundEnabled = enabled) }
+    fun fingering(id: String) = change { it.copy(fingeringMode = FingeringMode.fromId(id).id) }
+    fun legendSeen() = change { it.copy(fingerLegendSeen = true) }
+    fun viewChord(id: String) = change { it.copy(viewedSkills = it.viewedSkills + ("chord:$id" to (it.attempts.maxOfOrNull { a -> a.ordinal } ?: 0))) }
+    fun playShape(shape: ChordShape) {
+        if (_state.value?.soundEnabled != true) return
+        try { player.play(PitchCue(shape.pitches().map(::MidiPitch), com.a3322505a.guitarlearning.audio.PitchPlaybackStyle.CHORD)) }
+        catch (_: Exception) { _notice.value = "声音暂时不可用。" }
+    }
     fun theme(id: String) = change { it.copy(themeId = AppTheme.fromId(id).id) }
     fun viewNode(nodeId: String, onDone: () -> Unit) = change(onDone) { state ->
         val ordinal = state.attempts.maxOfOrNull { it.ordinal } ?: 0

@@ -19,6 +19,9 @@ object Curriculum {
         CurriculumNode("staff", "五线谱入门", Category.READING, "谱号、吉他记谱八度、单音定位。", listOf("tab01"), implemented = false),
         CurriculumNode("middle", "中把位 5–8品", Category.FRETBOARD, "由已知锚点分组扩展。", listOf("p09"), implemented = false),
         CurriculumNode("full", "全指板 0–12品", Category.FRETBOARD, "八度关系与跨区域检索。", listOf("middle"), implemented = false),
+        CurriculumNode("chord-am", "Am 开放和弦形态", Category.ADVANCED, "学习推荐形态、开放弦与不弹弦；手机逐点定位不代表实琴按奏能力。", listOf("p07")),
+        CurriculumNode("chord-g5", "G5 两音与三音形态", Category.ADVANCED, "根音加五音，再加根音高八度；不含大小三度。", listOf("p09")),
+        CurriculumNode("chord-f", "F 横按形态", Category.ADVANCED, "区分食指覆盖与各弦最终发音，逐点设置六根弦。", listOf("chord-am", "chord-g5")),
         CurriculumNode("structure", "音程、音阶与和弦", Category.ADVANCED, "关系、结构与带参照的听觉练习。", listOf("p03"), implemented = false),
     )
     fun positionSuccessor(id: String): CurriculumNode? = nodes.firstOrNull {

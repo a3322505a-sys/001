@@ -50,7 +50,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         if (active.phase in listOf(Phase.CORRECT, Phase.CORRECTED)) return state
         if ((coordinate == null) == (symbol == null)) return state
         val result = AnswerEvaluator.evaluate(active, coordinate, symbol)
-        val record = InputRecord(now, coordinate, symbol, result)
+        val record = InputRecord(now, coordinate, symbol, result, if (active.task.completion == CompletionKind.SEQUENCE) active.sequenceIndex else null)
         if (result == ClickResult.REPEATED) return state.copy(active = active.copy(feedback = "这个位置已确认。"))
         if (result == ClickResult.OUTSIDE) return state.copy(active = active.copy(inputs = active.inputs + record, feedback = "这是本题范围外的位置，不计错。"))
         if (result == ClickResult.EXTRA_CORRECT) return state.copy(active = active.copy(inputs = active.inputs + record, feedback = "这个音也正确。请继续找齐本题要求的位置。"))
@@ -85,7 +85,8 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val independent = MasteryPolicy.independent(state, changed, ordinal) && active.task.completion == CompletionKind.SINGLE
         val attempt = Attempt(active.task, requireNotNull(state.sessionId), ordinal, old?.at ?: now,
             old?.localDay ?: Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString(),
-            changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent)
+            changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent,
+            members = MemberEvidencePolicy.record(state, active, old, result, coordinate, now))
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,
             introductions = if (completed && active.task.introductionId != null) state.introductions + active.task.introductionId else state.introductions)
@@ -111,6 +112,6 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val independent = attempts.filter { it.independent }
         return state.copy(sessionId = null, active = null,
             sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now) else it },
-            endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size}次，正确${independent.count { it.firstCorrect == true }}次。进度已保存。")
+            endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
     }
 }

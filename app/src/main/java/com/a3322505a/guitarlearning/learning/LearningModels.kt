@@ -17,10 +17,10 @@ enum class Category(val title: String, val description: String) {
     SYMBOL("基础认识", "认识音名，逐步理解唱名与级数"),
     READING("读谱入门", "用熟悉的位置看懂 TAB"),
     FRETBOARD("指板训练", "两个音位一小步，穿插旧知识"),
-    ADVANCED("进阶应用", "音程、音阶、和弦与听觉 · 规划中"),
+    ADVANCED("进阶应用", "和弦、音程、音阶与听觉"),
 }
 
-@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE }
+@Serializable enum class Direction { NOTE_TO_POSITION, POSITION_TO_NOTE, RECOGNIZE, TAB_TO_POSITION, NOTE_TO_SOLFEGE, SOLFEGE_TO_NOTE, NOTE_TO_DEGREE, DEGREE_TO_NOTE, CHORD_SHAPE }
 @Serializable enum class TaskSource { MAIN, REVIEW, PREVIEW, DEMONSTRATION, PRACTICE }
 @Serializable enum class ConstraintKind { NOTE_CLASS, PITCH, COORDINATE, STRING, FRET, SYMBOL }
 @Serializable enum class CompletionKind { SINGLE, SET, SEQUENCE }
@@ -67,6 +67,8 @@ data class LearningTask(
     val mappingNote: String? = null,
     val tonicPitchClass: Int? = null,
     val tonalMode: String? = null,
+    val chord: ChordShape? = null,
+    val targetSkillIds: List<String> = emptyList(),
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -77,6 +79,7 @@ data class InputRecord(
     val coordinate: Coordinate? = null,
     val symbol: String? = null,
     val result: ClickResult,
+    val targetIndex: Int? = null,
 )
 
 @Serializable
@@ -108,7 +111,12 @@ data class Attempt(
     val independent: Boolean,
     val curriculumVersion: Int = 4,
     val policyVersion: Int = 1,
+    val members: List<TargetEvidence> = emptyList(),
 )
+
+@Serializable
+data class TargetEvidence(val index: Int, val skillId: String, val direction: Direction, val coordinate: Coordinate?,
+    val firstCorrect: Boolean, val independent: Boolean, val at: Long, val completed: Boolean)
 
 @Serializable
 data class NodeProgress(val masteredAt: Long? = null, val retainedOn: String? = null, val needsReview: Boolean = false)
@@ -118,7 +126,7 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 
 @Serializable enum class PracticeKind(val title: String) {
     POSITION_MIXED("音位双向混合"), FIND_POSITION("音名找位置"), NAME_NOTE("看位置认音名"),
-    MAPPING_MIXED("唱名与级数混合"), FIXED_MAPPING("固定唱名双向"), DEGREE_MAPPING("C 大调级数双向"), TAB("TAB 定位")
+    MAPPING_MIXED("唱名与级数混合"), FIXED_MAPPING("固定唱名双向"), DEGREE_MAPPING("C 大调级数双向"), TAB("TAB 定位"), CHORD_SHAPE("指定和弦形态")
 }
 @Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
 @Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)
@@ -142,6 +150,9 @@ data class LearnerState(
     val endedSummary: String? = null,
     val practice: PracticePlan? = null,
     val suspendedLesson: SuspendedLesson? = null,
+    val fingeringMode: String = "colors",
+    val fingerLegendSeen: Boolean = false,
+    val viewedSkills: Map<String, Int> = emptyMap(),
 )
 
 data class CurriculumNode(

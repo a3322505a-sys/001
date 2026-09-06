@@ -163,4 +163,35 @@ class LearningRepositoryTest {
         assertEquals(0, db.learningDao().attemptCount())
         db.close(); context.deleteDatabase(name)
     }
+
+    @Test fun partialChordMembersPersistAndFailedAppendCannotCreatePhantomEvidence() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val initial = repo.load()
+        val task = ChordLessons.make(ChordShapes.am, "chord-am", TaskSource.DEMONSTRATION).copy(source = TaskSource.MAIN)
+        val session = LearningSession(startedAt = 1)
+        var state = repo.commit(initial, initial.copy(currentNode = "chord-am", active = ActiveTask(task), sessions = listOf(session), sessionId = session.id, fingeringMode = "numbers"))
+        state = repo.commit(state, co.answer(state, symbol = "X", now = 2))
+        db.close()
+        db = openTest(context, name)
+        repo = RoomLearningRepository(db)
+        assertEquals(state, repo.load())
+        assertEquals(1, db.learningDao().evidenceCount())
+        val next = co.answer(state, coordinate = Coordinate(5, 0), now = 3)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_member BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(state, next) }
+        assertEquals(state, repo.load())
+        assertEquals(1, db.learningDao().evidenceCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_member")
+        state = repo.commit(state, next)
+        assertEquals(2, db.learningDao().evidenceCount())
+        val restored = repo.restore(state, LearningCodec.encode(state))
+        assertEquals(state.copy(revision = state.revision + 1), restored)
+        assertEquals(2, db.learningDao().evidenceCount())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
 }

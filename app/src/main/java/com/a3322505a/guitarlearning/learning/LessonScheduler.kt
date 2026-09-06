@@ -13,6 +13,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
             "n00" -> symbolTask(state, source)
             "tab01" -> tabTask(state, source)
             "mapping" -> MappingLessons.next(state, source, random)
+            "chord-am", "chord-g5", "chord-f" -> ChordLessons.next(state, node.id, source, random)
             else -> positionTask(state, node, source, now)
         }
     }

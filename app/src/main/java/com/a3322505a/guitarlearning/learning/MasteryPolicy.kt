@@ -29,6 +29,7 @@ object MasteryPolicy {
     fun passed(state: LearnerState, node: CurriculumNode): Boolean {
         val good = state.attempts.filter { it.task.nodeId == node.id && it.independent && it.firstCorrect == true }
         return when (node.id) {
+            "chord-am", "chord-g5", "chord-f" -> ChordLessons.passed(state, node.id)
             "mapping" -> MappingLessons.passed(state)
             "g00" -> listOf("strings", "frets", "markers").all { group -> good.filter { it.task.skillId.startsWith("g00:$group:") }.map { it.task.skillId }.distinct().size >= 2 }
             "n00" -> good.mapNotNull { it.task.constraint.symbol }.toSet().containsAll(listOf("E", "F"))
@@ -42,13 +43,15 @@ object MasteryPolicy {
         Curriculum.nodes.filter { it.implemented && Curriculum.available(state, it) }.forEach { node ->
             val old = updated[node.id] ?: NodeProgress()
             val pass = passed(state, node)
-            val latest = state.attempts.lastOrNull { it.task.nodeId == node.id && it.independent }
-            val failureAfterMastery = old.masteredAt != null && latest != null && latest.at >= old.masteredAt && latest.firstCorrect == false
+            val latest = state.attempts.lastOrNull { it.task.nodeId == node.id && (it.independent || it.members.any { m -> m.independent }) }
+            val failureAfterMastery = old.masteredAt != null && latest != null && latest.at >= old.masteredAt && (if (latest.task.completion == CompletionKind.SINGLE) latest.firstCorrect == false else latest.members.any { it.independent && !it.firstCorrect })
             val recentGood = old.masteredAt != null && latest?.firstCorrect == true && pass
             val masteredAt = old.masteredAt ?: if (pass) now else null
             val initialDay = state.attempts.lastOrNull { it.at <= (old.masteredAt ?: now) }?.localDay
             val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay &&
-                (if (node.id == "mapping") MappingLessons.retained(state, day, old.masteredAt) else
+                (if (node.id == "mapping") MappingLessons.retained(state, day, old.masteredAt)
+                else if (ChordLessons.shapes(node.id).isNotEmpty()) MemberEvidencePolicy.retained(state,
+                    ChordLessons.shapes(node.id).flatMap { shape -> (1..6).map { ChordLessons.skill(shape, it) } }, day, old.masteredAt) else
                     node.positions.all { c -> state.attempts.any { it.independent && it.task.coordinate == c && it.firstCorrect == true && it.localDay == day && it.at > old.masteredAt } })
             updated[node.id] = NodeProgress(masteredAt, if (retention) day else old.retainedOn,
                 if (failureAfterMastery) true else if (recentGood) false else old.needsReview)

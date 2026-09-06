@@ -13,12 +13,14 @@ object PracticeLessons {
 
     fun eligible(state: LearnerState, node: CurriculumNode): Boolean = Curriculum.available(state, node) && when {
         node.positions.isNotEmpty() -> introducedPositions(state, node).isNotEmpty()
+        ChordLessons.shapes(node.id).isNotEmpty() -> ChordLessons.shapes(node.id).any { "chord:${it.id}:intro" in state.introductions }
         node.id == "mapping" -> state.introductions.any { it.startsWith("mapping:") }
         node.id == "tab01" -> "tab01:intro" in state.introductions
         else -> false
     }
 
     fun kinds(nodes: List<CurriculumNode>, state: LearnerState): List<PracticeKind> = when {
+        nodes.isNotEmpty() && nodes.all { ChordLessons.shapes(it.id).isNotEmpty() } -> listOf(PracticeKind.CHORD_SHAPE)
         nodes.all { it.positions.isNotEmpty() } -> positionKinds
         nodes.singleOrNull()?.id == "mapping" -> mappingKinds.filter { kind ->
             kind != PracticeKind.DEGREE_MAPPING || state.introductions.any { it.startsWith("mapping:major:") }
@@ -54,6 +56,8 @@ object PracticeLessons {
                     .plus(if (degrees) MappingLessons.degreeDirections else emptyList())
                     .map { MappingLessons.make(note, it, TaskSource.PRACTICE) }
             }
+            PracticeKind.CHORD_SHAPE -> selection.nodeIds.flatMap { id -> ChordLessons.shapes(id)
+                .filter { "chord:${it.id}:intro" in state.introductions }.map { ChordLessons.make(it, id, TaskSource.PRACTICE, random) } }
             PracticeKind.TAB -> listOf(Coordinate(1, 0), Coordinate(1, 1)).map { c ->
                 LearningTask(nodeId = "tab01", skillId = "${c.id}:tab_to_position", coordinate = c,
                     direction = Direction.TAB_TO_POSITION, prompt = "按 TAB 找到位置", explanation = "TAB 最上方是1弦，这次点${c.label}。",
