@@ -44,7 +44,13 @@ class UiPreviewTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             instrumentation.waitForIdleSync()
             Thread.sleep(800)
+            for (wide in listOf(false, true)) {
+            if (wide) {
+                instrumentation.uiAutomation.executeShellCommand("wm size 390x840").close()
+                Thread.sleep(800)
+            }
             for(fontScale in listOf(1f, 1.3f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
+                if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
                 if (fontScale > 1f && (theme != "forest" || name !in listOf("chord-error", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
                 scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } } }
                 instrumentation.waitForIdleSync()
@@ -62,9 +68,11 @@ class UiPreviewTest {
                 }
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
-                directory.resolve("$theme-$name${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
+            }
+            instrumentation.uiAutomation.executeShellCommand("wm size reset").close()
         }
     }
 }

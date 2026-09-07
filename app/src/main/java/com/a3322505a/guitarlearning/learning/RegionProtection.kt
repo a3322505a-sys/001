@@ -19,14 +19,15 @@ object RegionProtection {
     fun protect(s: LearnerState, t: LearningTask, now: Long): LearnerState {
         if (t.coordinate == null || t.direction !in AdaptiveEvidence.positionDirections || t.guided) return s
         val inherited = t.adaptive?.protectionKey?.let { s.positionProtections[it] }
-        val original = inherited?.original ?: t
+        val original = inherited?.original ?: if (t.adaptive?.options?.isNotEmpty() == true)
+            LessonScheduler().makePosition(t.nodeId, t.coordinate, t.direction, TaskSource.MAIN) else t
         val key = key(original)
         val old = s.positionProtections[key]
         if (old?.signal == t.id) return s
         val p = PositionProtection(AdaptiveEvidence.positionUnit(t.coordinate, t.direction), original,
             old?.since?.takeIf { old.resolvedAt == null } ?: now, t.id,
-            isolated = old?.takeIf { it.resolvedAt == null }?.let { it.isolated && it.signal == t.id } ?:
-                Fluency.ready(s.copy(attempts = s.attempts.filterNot { it.task.id == t.id }), AdaptiveEvidence.positionUnit(t.coordinate, t.direction), now))
+            isolated = t.id !in s.longThoughts && s.active?.hintRequested != true && (old?.takeIf { it.resolvedAt == null }?.let { it.isolated && it.signal == t.id } ?:
+                Fluency.ready(s.copy(attempts = s.attempts.filterNot { it.task.id == t.id }), AdaptiveEvidence.positionUnit(t.coordinate, t.direction), now)))
         return s.copy(positionProtections = s.positionProtections + (key to p))
     }
     fun transition(s: LearnerState, now: Long): LearnerState {

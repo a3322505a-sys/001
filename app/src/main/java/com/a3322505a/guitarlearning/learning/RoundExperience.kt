@@ -82,7 +82,8 @@ object RoundExperience {
             .thenBy { view.lastExposure(AdaptiveEvidence.positionTarget(it.second)) ?: 0L })
         val base = scheduler.makePosition(node, c, d, TaskSource.MAIN)
         val choices = known.map { com.a3322505a.guitarlearning.core.MusicFacts.note(it.second.string, it.second.fret) }.distinct()
-        return base.copy(options = if (d == Direction.POSITION_TO_NOTE && choices.size >= 2) choices.shuffled(random) else base.options, adaptive = AdaptiveTask("round:$region", PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
+        val task = base.copy(options = if (d == Direction.POSITION_TO_NOTE && choices.size >= 2) choices.shuffled(random) else base.options, adaptive = AdaptiveTask(requireNotNull(s.regionTraining).adaptive.config, PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
+        return if (slot == 10 && standardCurrent.all { ExperiencePolicy.plain(it.task) }) AdaptiveMix.apply(s, task, random, now) else task
     }
 }
 

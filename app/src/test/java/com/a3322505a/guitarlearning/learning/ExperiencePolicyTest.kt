@@ -97,4 +97,33 @@ class ExperiencePolicyTest {
         assertEquals(20,ExperiencePolicy.FLUENT_WINDOW)
         assertEquals(1,ExperiencePolicy.FLUENT_ALLOWED_ERRORS)
     }
+    @Test fun fluencyAllowsOneIsolatedErrorButNotTwoOrMissingTiming() {
+        val target=Coordinate(3,4)
+        var s=profile().copy(sessions=listOf(LearningSession("first",1000),LearningSession("second",50_000_000)))
+        repeat(20) { cycle ->
+            val session=if(cycle<10) "first" else "second"
+            val base=(if(cycle<10) 1000L else 50_000_000L)+(cycle%10)*3000
+            for((j,c) in listOf(target,Coordinate(4,2),Coordinate(5,3)).withIndex()) {
+                val task=scheduler.makePosition("p09",c,Direction.POSITION_TO_NOTE,TaskSource.MAIN).copy(evidenceVersion=1)
+                val at=base+j*1000
+                val good=cycle!=4 || c!=target
+                val inputs=listOf(InputRecord(at,symbol=if(good) task.constraint.symbol else task.options.first { it!=task.constraint.symbol },result=if(good) ClickResult.CORRECT else ClickResult.WRONG)) +
+                    if(good) emptyList() else listOf(InputRecord(at+1,symbol=task.constraint.symbol,result=ClickResult.CORRECTION))
+                s=s.copy(attempts=s.attempts+Attempt(task,session,s.attempts.size+1,at,"day",good,0,!good,true,inputs,true,firstUnassisted=true),
+                    knowledgeExposures=s.knowledgeExposures+KnowledgeExposure(task.id,AdaptiveEvidence.positionTarget(c),at+1),
+                    responseObservations=s.responseObservations+(task.id to ResponseObservation(task,session,1000,TimingQuality.VALID)))
+            }
+        }
+        val unit=AdaptiveEvidence.positionUnit(target,Direction.POSITION_TO_NOTE)
+        val now=51_000_000L
+        assertTrue(Fluency.ready(s,unit,now))
+        val secondError=s.attempts.first { it.task.coordinate==target && it.firstCorrect==true }
+        val bad=s.copy(attempts=s.attempts.map { if(it.task.id==secondError.task.id) it.copy(firstCorrect=false,inputs=listOf(it.inputs.first().copy(result=ClickResult.WRONG))) else it })
+        assertFalse(Fluency.ready(bad,unit,now))
+        assertFalse(Fluency.ready(s.copy(responseObservations=emptyMap()),unit,now))
+        val t=scheduler.makePosition("p09",target,Direction.POSITION_TO_NOTE,TaskSource.MAIN)
+        assertTrue(RegionProtection.protect(s,t,now).positionProtections.values.single().isolated)
+        assertFalse(ResponseTiming.long(s,LongThought(t,now,8000)).positionProtections.values.single().isolated)
+    }
+
 }
