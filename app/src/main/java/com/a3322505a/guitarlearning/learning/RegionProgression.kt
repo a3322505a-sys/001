@@ -75,7 +75,9 @@ object RegionProgression {
         val pending = RegionProtection.active(s)
         // A third taught target makes two distinct intervening responses possible in small pools.
         if (known.size < (if (pending.isEmpty()) 2 else 3)) return introduce(s,scheduler)
-        val lastNew = s.attempts.lastOrNull { it.task.adaptive?.purpose == PracticePurpose.NEXT && it.task.guided }
+        val lastNew = s.attempts.lastOrNull { it.task.adaptive?.purpose == PracticePurpose.NEXT &&
+            it.task.guided && it.task.direction in AdaptiveEvidence.positionDirections &&
+            it.task.coordinate != null && known.any { p -> p.second == it.task.coordinate } }
         if (lastNew != null && pending.none { it.original.coordinate == lastNew.task.coordinate }) {
             val verified = s.attempts.filter { it.ordinal > lastNew.ordinal && it.task.coordinate == lastNew.task.coordinate }
             val missing = AdaptiveEvidence.positionDirections.firstOrNull { d -> verified.none { it.task.direction == d && good(s,it,false) } }
