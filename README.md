@@ -4,11 +4,11 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 ## 当前交接基线
 
-当前工作分支实现“指板质感与训练停滞方案”修订2，基于 main `24e02f7c`。新增七音选项、短补练与间隔复测、本轮内上探、局部和弦图与方向偏好；未合并，尚未通过构建与模拟器验收。自动审批阻止推送，现有 CI 尚未运行。状态见 [本批施工记录](docs/progression-visuals-alpha25.md)。main 已交付版本仍为 alpha24 / 41（PR #60）。
+当前工作分支实现“指板质感与训练停滞方案”修订2，基于 main `24e02f7c`。新增七音选项、短补练与间隔复测、本轮内上探、局部和弦图与方向偏好；构建、模拟器及交付状态以 [PR #61](https://github.com/a3322505a-sys/001/pull/61) 为准。实现与候选参数见 [本批施工记录](docs/progression-visuals-alpha25.md)。此前已交付版本为 alpha24 / 41（PR #60）。
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha25（versionCode 42，工作分支，未交付）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。同时包含 v36 的 P6（PR #56）与 v37 的 P3 返工（PR #57），以及共同基线 PR #55；main 的合并事实仍以远端为准。整合边界见 [整合记录](docs/p3-p6-alpha21.md)。
+- 当前应用版本：**2.0.0-alpha25（versionCode 42，本批）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。同时包含 v36 的 P6（PR #56）与 v37 的 P3 返工（PR #57），以及共同基线 PR #55；main 的合并事实仍以远端为准。整合边界见 [整合记录](docs/p3-p6-alpha21.md)。
 - 指板首错可即时触发局部补教：自然音认音固定七项，补练集中目标并提供必要示范，找位缩小答题范围，撤辅助后穿插复测；读谱、和弦、关系、听辨与转换保留 P6 的逐成员证据和各自配置。历史交付分别见 [P6 记录](docs/p6-alpha19.md) 与 [P3 返工记录](docs/p3-downgrade-alpha20.md)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。

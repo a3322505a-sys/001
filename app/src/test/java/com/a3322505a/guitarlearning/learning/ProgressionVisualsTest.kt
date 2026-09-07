@@ -27,6 +27,7 @@ class ProgressionVisualsTest {
             assertEquals(12,s.attempts.size)
             assertTrue("seed $seed: ${s.attempts.map { it.task.coordinate to it.task.direction }}",s.attempts.any { it.task.coordinate !in Curriculum.node("p01").positions })
             assertTrue(s.attempts.any { it.task.introductionId!=null })
+            val firstRoundCoverage=s.attempts.mapNotNull { it.task.coordinate }.distinct().size
             repeat(5) {
                 s=r.co.startRegion(LearningCodec.decode(LearningCodec.encode(s)),"LOW",++r.now)
                 repeat(12) { s=r.step(s) }
@@ -36,6 +37,7 @@ class ProgressionVisualsTest {
             assertFalse("trial does not grant stable fluency",MiddleReadiness.ready(s,r.now))
             assertTrue(s.attempts.filter { it.task.guided }.none { it.independent })
             assertEquals(72,s.attempts.size)
+            println("trial seed=$seed first-round=$firstRoundCoverage six-round=${s.introductions.size} tasks=${s.attempts.size}")
         }
     }
     @Test fun invalidOrSlowTimingCannotAdvanceSmallTaughtPool() {
@@ -61,6 +63,7 @@ class ProgressionVisualsTest {
                 }
             }
             assertTrue("pool $n protections $count: ${s.positionProtections}",keys.all { s.positionProtections.getValue(it).resolvedAt!=null })
+            println("recovery pool=$n protections=$count tasks=${s.attempts.size}")
             keys.forEach { key -> assertTrue(s.attempts.count { it.task.adaptive?.protectionKey==key && it.task.adaptive.originalProbe }>=3) }
             assertTrue(s.attempts.filter { it.task.adaptive?.scaffolded==true }.none { it.independent })
         }

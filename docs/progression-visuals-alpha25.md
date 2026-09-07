@@ -5,9 +5,9 @@
 ## 基线和实际状态
 
 - 仅仓库 a3322505a-sys/001。重新读取远端 main 为 24e02f7caac8df0aefb829b81559300b225bb1c7；PR #59/#60 已合并；main CI 34161659803 成功。相关现有分支未发现本方案新实现。
-- 本地 feature/training-progression-visuals-20260908；目标版本 2.0.0-alpha25 / versionCode 42。正式 main 已交付版本仍为 alpha24 / 41。
-- 本批有本地代码和回归用例，未推送、未创建 PR、未运行新 CI、未合并、未构建或签名 APK，未获得真机结果。
-- 自动审批拒绝 GitHub push：认为当前措辞不足以明确授权向外部远端公开代码。未用其他接口绕过拒绝。只读 ls-remote 确认目标 feature 分支尚不存在。
+- 分支 feature/training-progression-visuals-20260908；目标版本 2.0.0-alpha25 / versionCode 42。前一正式版本为 alpha24 / 41。
+- 本批已提交 [PR #61](https://github.com/a3322505a-sys/001/pull/61)，最新 CI、合并、正式 APK 和截图验收以该 PR 的交付记录为准；真机结果单独确认。
+- 初次推送被自动审批拒绝后，用户明确授权推送、PR、CI及通过后的合并打包。Git命令行无登录凭据，授权后经已连接的GitHub接口提交，文件树与本地一致。
 - 本地 ./gradlew testDebugUnitTest --offline 也无法启动：Gradle 8.9 分发包未缓存，下载网络不可达。不是测试失败，也不是测试通过。
 
 ## 需求—实现—待验收
@@ -40,4 +40,6 @@ UiPreviewTest 增加开放和弦竖图、横按横/竖图及大字采集，七�
 
 ## 下一步
 
-得到明确推送授权后，先重新核验远端 main 与分支占用；必要时合并最新 main 并处理冲突。推送上述 feature 分支并创建 PR，运行现有 Android CI。修复所有真实编译/测试失败，审阅固定状态截图，随后依当前授权完成合并和原长期签名 APK。记录源 SHA、CI、APK 包名/版本/签名与 hash；真机效果另记。
+用户已明确授权上述全流程。每次交付前重新核验远端 main 与分支占用；必要时合并最新 main 并处理冲突，运行现有 Android CI。修复所有真实编译/测试失败，审阅固定状态截图，随后依当前授权完成合并和原长期签名 APK。记录源 SHA、CI、APK 包名/版本/签名与 hash；真机效果另记。
+
+实际页面的普通题与补练均启动独立作答计时；补练计时只参与撤辅助，不计稳定熟练度。TrainingAudioIntegrationTest 覆盖实际 ViewModel 显示→计时→保存，以及旋转前后的任务、首播归属一致。

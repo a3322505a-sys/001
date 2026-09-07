@@ -69,18 +69,25 @@ object RegionProgression {
         return scheduler.makePosition(n.id,c,Direction.NOTE_TO_POSITION,TaskSource.DEMONSTRATION)
             .copy(introductionId = AdaptiveEvidence.positionTarget(c), adaptive = AdaptiveTask("trial-v1:$region",PracticePurpose.NEXT))
     }
-    fun next(s: LearnerState, scheduler: LessonScheduler): LearningTask? {
+    fun next(s: LearnerState, scheduler: LessonScheduler, now: Long): LearningTask? {
         val region = s.regionTraining?.regionId ?: return null
         val known = RegionTraining.known(s,region).distinctBy { it.second }
         val pending = RegionProtection.active(s)
         // A third taught target makes two distinct intervening responses possible in small pools.
         if (known.size < (if (pending.isEmpty()) 2 else 3)) return introduce(s,scheduler)
-        if (!quick(s)) return null
         val lastNew = s.attempts.lastOrNull { it.task.adaptive?.purpose == PracticePurpose.NEXT && it.task.guided }
         if (lastNew != null && pending.none { it.original.coordinate == lastNew.task.coordinate }) {
             val verified = s.attempts.filter { it.ordinal > lastNew.ordinal && it.task.coordinate == lastNew.task.coordinate }
-            if (!AdaptiveEvidence.positionDirections.all { d -> verified.any { it.task.direction == d && good(s,it) } }) return null
+            val missing = AdaptiveEvidence.positionDirections.firstOrNull { d -> verified.none { it.task.direction == d && good(s,it,false) } }
+            if (missing != null) {
+                val task = scheduler.makePosition(lastNew.task.nodeId,requireNotNull(lastNew.task.coordinate),missing,TaskSource.MAIN)
+                    .copy(adaptive=AdaptiveTask("trial-v1:$region",PracticePurpose.COVERAGE))
+                // Validate each new point in both directions after real intervening responses.
+                // Pure random coverage can leave one direction missing across many short rounds.
+                return task.takeIf { AdaptiveEvidence.View(s,now).eligible(it) }
+            }
         }
+        if (!quick(s)) return null
         return introduce(s,scheduler)
     }
     fun summary(s: LearnerState): String {

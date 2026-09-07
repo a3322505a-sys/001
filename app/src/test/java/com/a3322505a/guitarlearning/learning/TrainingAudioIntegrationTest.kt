@@ -66,6 +66,45 @@ class TrainingAudioIntegrationTest {
         direction = Direction.POSITION_TO_NOTE, prompt = "这是什么音", explanation = "B3",
         constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "B"), options = listOf("A", "B"))
 
+    @Test fun supportedRegionResponsesReceiveActualDisplayClockTiming() {
+        val initial=LearnerState(progress=Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions=Curriculum.nodes.flatMap { it.positions }.map { AdaptiveEvidence.positionTarget(it) }.toSet(),
+            soundEnabled=false,regionContinuations=mapOf("LOW" to AdaptiveRun(diagnosing=true,scaffolding=true,
+                focus=listOf(AdaptiveEvidence.positionUnit(Coordinate(1,0),Direction.POSITION_TO_NOTE)))))
+        val repo=MemoryRepository(initial);val output=FakeOutput()
+        val model=TrainingViewModel(ApplicationProvider.getApplicationContext<Application>(),repo,output)
+        val store=ViewModelStore().apply { put("model",model) }
+        try {
+            drainUntil { model.state.value!=null && !model.busy.value }
+            model.foreground(true);model.pageVisible("training")
+            model.region("LOW") {}
+            drainUntil { model.state.value?.active!=null && !model.busy.value }
+            val task=model.state.value!!.active!!.task
+            assertTrue(task.adaptive!!.scaffolded)
+            model.taskDisplayed(task.id)
+            shadowOf(Looper.getMainLooper()).idleFor(1,TimeUnit.SECONDS)
+            model.answer(task.id,symbol=task.constraint.symbol)
+            drainUntil { !model.busy.value && repo.value.attempts.isNotEmpty() }
+            assertEquals(TimingQuality.VALID,repo.value.responseObservations.getValue(task.id).quality)
+            assertTrue(ResponseTiming.timely(repo.value,repo.value.attempts.last()))
+            assertFalse(repo.value.attempts.last().independent)
+        } finally { model.foreground(false);store.clear() }
+    }
+    @Test fun rotationKeepsTaskAndAutoplayOwnership() {
+        val task=ChordLessons.make(ChordShapes.am,"chord-am",TaskSource.DEMONSTRATION)
+        run(task) { model,repo,output ->
+            val original=repo.value.active
+            val plays=output.requests.size
+            model.rotateChord();drainUntil { !model.busy.value && repo.value.chordVertical }
+            model.taskDisplayed(task.id)
+            shadowOf(Looper.getMainLooper()).idleFor(1,TimeUnit.SECONDS)
+            assertEquals(original,repo.value.active)
+            assertEquals(plays,output.requests.size)
+            model.rotateChord();drainUntil { !model.busy.value && !repo.value.chordVertical }
+            assertEquals(original,repo.value.active)
+            assertEquals(plays,output.requests.size)
+        }
+    }
     @Test fun autoplayWaitsForDisplayAndFourHundredMilliseconds() = run(reverse(), rendered = false) { model, _, output ->
         assertTrue(output.requests.isEmpty())
         model.taskDisplayed("b3")
