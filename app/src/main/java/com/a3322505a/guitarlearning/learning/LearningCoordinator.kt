@@ -71,11 +71,12 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             feedback = if (a.hintLevel > 0) a.task.explanation else if (a.task.relation != null) "先看参考音和题目语境；听觉题可重复播放。再次提示可查看关系。" else if (a.task.mappingNote != null) "先分清固定唱名还是调内级数；级数要先看主音。再次提示可查看对应关系。" else "先看琴弦粗细、弦枕和定位圆点；再点一次提示可查看答案。"))
     }
 
-    fun playbackStarted(state: LearnerState, taskId: String): LearnerState {
+    fun playbackStarted(state: LearnerState, taskId: String, now: Long = System.currentTimeMillis()): LearnerState {
         val active = state.active?.takeIf { it.task.id == taskId } ?: return state
         val relation = active.task.relation
         if (relation == null && active.task.notation?.score == null && active.task.chordProgression.isEmpty()) return state
-        return state.copy(active = active.copy(audioReady = false,
+        val exposed = if (relation?.ear != true) AdaptiveEvidence.expose(state, active.task, now, true) else state
+        return exposed.copy(active = active.copy(audioReady = false,
             hintLevel = if (relation?.ear == true || active.task.guided) active.hintLevel else maxOf(1, active.hintLevel)))
     }
 
@@ -134,8 +135,9 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,
             introductions = if (completed && active.task.introductionId != null) state.introductions + active.task.introductionId else state.introductions)
-        val exposed = if (old == null || completed && !old.completed) AdaptiveEvidence.expose(updated, active.task, now, explanation = result == ClickResult.WRONG || active.task.guided) else updated
-        return AdaptiveMix.transition(AdaptiveTraining.transition(MasteryPolicy.update(exposed, now, attempt.localDay), now), now)
+        val exposed = if (active.task.completion == CompletionKind.SEQUENCE || old == null || completed && !old.completed)
+            AdaptiveEvidence.exposeAnswer(updated, active.task, active.sequenceIndex, now, result == ClickResult.WRONG || active.task.guided) else updated
+        return FamilyAdaptation.transition(AdaptiveMix.transition(AdaptiveTraining.transition(MasteryPolicy.update(exposed, now, attempt.localDay), now), now), now)
     }
 
     fun next(state: LearnerState, expectedTaskId: String, now: Long): LearnerState {

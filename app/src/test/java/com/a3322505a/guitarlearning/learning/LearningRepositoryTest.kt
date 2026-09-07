@@ -16,6 +16,38 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun familyMemberFailureAndConfigurationCommitAtomicallyAndRestoreRejectsInvalidRun() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "family-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val initial = repo.load()
+        val session = LearningSession(startedAt = 1)
+        val base = initial.copy(currentNode = "tab02", sessionId = session.id, sessions = listOf(session),
+            introductions = setOf("reading:tab02:intro"))
+        val seed = ReadingLessons.phrase("tab02", ReadingLessons.positions.take(3), TaskSource.MAIN)
+        val scope = FamilyAdaptation.scope(base, seed)
+        val task = seed.copy(adaptive = AdaptiveTask(AdaptiveRun(mixStage = 1).config, PracticePurpose.NORMAL, 1, familyScope = scope))
+        val started = repo.commit(initial, AdaptiveEvidence.present(base, task, 10))
+        val changed = LearningCoordinator().answer(started, coordinate = Coordinate(1, 2), now = 20)
+        assertEquals(1, changed.weakPoints.size)
+        assertEquals(1, changed.attempts.single().members.size)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_family BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(started, changed) }
+        assertEquals(started, repo.load())
+        assertEquals(0, db.learningDao().evidenceCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_family")
+        val saved = repo.commit(started, changed)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().evidenceCount())
+        assertFails { repo.commit(started, changed) }
+        val bad = saved.copy(familyRuns = saved.familyRuns.mapValues { (_, c) -> c.copy(run = c.run.copy(mixStage = 2)) })
+        assertFails { repo.restore(saved, LearningCodec.encode(bad)) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun adaptiveFailureAndExposureRollBackTogetherAndMalformedRestoreKeepsTheProfile() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "adaptive-${newId()}.db"

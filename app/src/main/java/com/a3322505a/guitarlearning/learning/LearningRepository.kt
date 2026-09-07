@@ -62,6 +62,12 @@ object LearningCodec {
         require(state.knowledgeExposures.all { it.taskId.isNotBlank() && it.target.isNotBlank() && it.at >= 0 })
         require(state.weakPoints.all { (key, point) -> key == point.unit && point.target.isNotBlank() && point.observedAt >= 0 &&
             (point.confirmedAt == null || point.confirmedAt >= point.observedAt) && (point.resolvedAt == null || point.resolvedAt >= point.observedAt) })
+        require(state.familyRuns.all { (key, context) ->
+            val run = context.run
+            key.startsWith("${context.sessionId}/${context.nodeId}") && state.sessions.any { it.id == context.sessionId } &&
+                Curriculum.nodes.any { it.id == context.nodeId } && run.generation >= 0 && run.sinceOrdinal >= 0 && run.diagnosisSince >= 0 &&
+                run.mixStage in 0..1 && run.focus.distinct().size == run.focus.size && (!run.diagnosing || run.mixStage == 0 && !run.trial)
+        })
         val paused = listOfNotNull(state.pausedTraining) + state.pausedRegions.values
         require(state.pausedRegions.all { (id, p) -> id in FretboardRegion.entries.map { it.name } && p.regionTraining?.regionId == id && p.practice == null && p.pilot == null })
         val contexts = listOf(state) + paused.map { RegionSessions.restore(state, it) }
@@ -89,8 +95,10 @@ object LearningCodec {
             require(task.targetSkillIds.isEmpty() || task.targetSkillIds.size == task.sequence.size)
             require(task.tonicPitchClass == null || task.tonicPitchClass in 0..11)
             require(task.evidenceVersion >= 0)
+            require(task.explanationTargets.all { it.isNotBlank() })
             task.adaptive?.let { adaptive ->
                 require(adaptive.stage in 0..3 && adaptive.config.isNotBlank())
+                adaptive.familyScope?.let { scope -> require(scope in state.familyRuns && state.familyRuns.getValue(scope).nodeId == task.nodeId && adaptive.stage in 0..1) }
                 if (adaptive.options.isNotEmpty()) {
                     require(task.direction == Direction.POSITION_TO_NOTE && task.coordinate != null && task.completion == CompletionKind.SINGLE)
                     require(adaptive.options.map { it.label } == task.options)
@@ -120,6 +128,7 @@ object LearningCodec {
             require(a.task.relation?.ear != true || a.firstUnassisted != true || a.audioPlayed)
             require(a.members.map { it.index }.distinct().size == a.members.size)
             require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
+            require(a.members.all { m -> m.firstUnassisted != true || !a.task.guided && (a.task.relation?.ear != true || a.audioPlayed) })
         }
         return state
     }

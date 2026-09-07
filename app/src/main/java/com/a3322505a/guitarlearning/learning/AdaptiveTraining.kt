@@ -5,6 +5,8 @@ import kotlin.random.Random
 
 /** Region adaptation shares the coordinator's transaction and the original teaching/prerequisites. */
 object AdaptiveTraining {
+    internal fun overloaded(window: List<AssessmentSample>): Boolean = window.takeLast(3).let { it.size == 3 && it.none { a -> a.correct } } ||
+        window.takeLast(8).let { it.size == 8 && it.count { a -> !a.correct } >= 4 }
     private val directions = AdaptiveEvidence.positionDirections
     private fun nextOrdinal(s: LearnerState) = (s.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
     internal fun completedScorable(s: LearnerState, view: AdaptiveEvidence.View): List<Attempt> {
@@ -20,7 +22,7 @@ object AdaptiveTraining {
         val view = AdaptiveEvidence.View(s, now)
         val points = s.weakPoints.toMutableMap()
         // First-answer identity is fixed; correction and persistence retries cannot create new failures.
-        view.samples.filter { it.unit.startsWith("position:") || it.unit.startsWith("mapping:") }.groupBy { it.unit }.forEach { (key, evidence) ->
+        view.samples.filter { it.unit.startsWith("position:") || it.unit.startsWith("mapping:") || it.unit.startsWith("family:") }.groupBy { it.unit }.forEach { (key, evidence) ->
             val last = evidence.last()
             val old = points[key]
             if (!last.correct && old?.lastFailure != last.taskId) {
@@ -48,7 +50,7 @@ object AdaptiveTraining {
         val window = scoped(s, view)
         val last = window.lastOrNull()
         val failures = window.takeLast(8)
-        val overloaded = failures.takeLast(3).let { it.size == 3 && it.none { a -> a.correct } } || failures.let { it.size == 8 && it.count { a -> !a.correct } >= 4 }
+        val overloaded = overloaded(window)
         val newFailure = last != null && !last.correct && last.taskId != run.handledFailure
         if (newFailure && !run.diagnosing && (overloaded || view.weak(requireNotNull(last).unit))) {
             val affected = failures.filter { !it.correct }.takeLast(4).flatMap { diagnosticUnits(it.task, s.attempts.first { a -> a.task.id == it.taskId }) }.distinct()

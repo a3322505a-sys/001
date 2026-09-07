@@ -12,6 +12,7 @@ import kotlin.math.roundToInt
     val config: String, val purpose: PracticePurpose, val stage: Int = 0,
     val options: List<SemanticOption> = emptyList(), val correctRepresentation: AnswerRepresentation = AnswerRepresentation.NOTE,
     val unit: String? = null,
+    val familyScope: String? = null,
 )
 @Serializable enum class RecoveryLayer { REGION, LOCAL, NATURAL, OPEN }
 @Serializable data class AdaptiveRun(
@@ -57,17 +58,28 @@ object AdaptiveEvidence {
                 }
             }
         }
-        return targets.ifEmpty { setOf("skill:${t.skillId}") }
+        return targets.ifEmpty { (t.targetSkillIds.ifEmpty { listOf(t.skillId) }).map { "skill:$it" }.toSet() }
     }
     fun unit(t: LearningTask): String? {
         if (t.completion != CompletionKind.SINGLE || t.guided) return null
         if (t.adaptive?.options?.isNotEmpty() == true) return "application:${t.coordinate?.id}:${t.adaptive.correctRepresentation.name}"
         t.coordinate?.takeIf { t.direction in positionDirections }?.let { return positionUnit(it, t.direction) }
         return MappingLessons.family(t)?.let { "$it:${t.direction.name}" }
+            ?: if (FamilyAdaptation.supported(t)) memberUnit(t.skillId, t.direction) else null
+    }
+    fun memberUnit(skill: String, direction: Direction) = "family:$skill:${direction.name}"
+    fun units(t: LearningTask): List<String> = if (t.completion == CompletionKind.SEQUENCE && FamilyAdaptation.supported(t))
+        t.targetSkillIds.map { memberUnit(it, t.direction) } else listOfNotNull(unit(t))
+    fun exposeAnswer(s: LearnerState, t: LearningTask, index: Int, now: Long, full: Boolean): LearnerState {
+        if (full || t.completion != CompletionKind.SEQUENCE) return expose(s, t, now, explanation = full)
+        val target = t.targetSkillIds.getOrNull(index) ?: return s
+        val event = KnowledgeExposure(t.id, "skill:$target", now)
+        return if (event in s.knowledgeExposures) s else s.copy(knowledgeExposures = s.knowledgeExposures + event)
     }
     fun expose(s: LearnerState, t: LearningTask, now: Long, help: Boolean = false, explanation: Boolean = help): LearnerState {
         val exposed = targets(t).toMutableSet()
         if (explanation) {
+            exposed += t.explanationTargets
             t.coordinate?.takeIf { t.direction in positionDirections }?.let { c -> exposed += LessonExplanations.positionRoute(t.nodeId, c).map(::positionTarget) }
             if (t.direction in MappingLessons.fixedDirections) exposed += MappingLessons.notes.map { "mapping:fixed:$it" }
         }
@@ -76,7 +88,7 @@ object AdaptiveEvidence {
     }
     fun present(s: LearnerState, task: LearningTask, now: Long): LearnerState {
         val t = task.copy(evidenceVersion = VERSION)
-        val next = AdaptiveTraining.onPresented(s.copy(active = ActiveTask(t)), t, now)
+        val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(s.copy(active = ActiveTask(t)), t, now), t)
         return if (t.guided) expose(next, t, now, true) else next
     }
     fun firstInput(a: Attempt) = a.inputs.firstOrNull { it.result !in listOf(ClickResult.OUTSIDE, ClickResult.REPEATED, ClickResult.EXTRA_CORRECT) }
@@ -91,7 +103,7 @@ object AdaptiveEvidence {
         (if (region == FretboardRegion.FULL) FretboardRegion.entries.flatMap { it.nodes } else region.nodes).flatMap { it.positions }.distinct()
 
     class View(s: LearnerState, val now: Long) {
-        private data class Event(val at: Long, val rank: Int, val attempt: Attempt? = null, val exposure: KnowledgeExposure? = null)
+        private data class Event(val at: Long, val rank: Int, val attempt: Attempt? = null, val exposure: KnowledgeExposure? = null, val member: TargetEvidence? = null)
         private data class Exposure(val at: Long, val completedIndex: Int)
         private val exposures = mutableMapOf<String, Exposure>()
         private val challenges = mutableMapOf<String, Long>()
@@ -103,7 +115,12 @@ object AdaptiveEvidence {
             s.knowledgeExposures.forEach { events += Event(it.at, 1, exposure = it) }
             s.attempts.forEach { a ->
                 val input = firstInput(a)
-                if (input != null && a.task.evidenceVersion == VERSION) events += Event(input.at, 0, a)
+                if (input != null && a.task.evidenceVersion == VERSION && a.task.completion == CompletionKind.SINGLE) events += Event(input.at, 0, a)
+                if (a.task.evidenceVersion == VERSION && FamilyAdaptation.supported(a.task)) a.members.forEach { m ->
+                    events += Event(m.at, 0, a, member = m)
+                    val completion = a.inputs.firstOrNull { it.targetIndex == m.index && it.result in listOf(ClickResult.CORRECT, ClickResult.PARTIAL, ClickResult.CORRECTION) }
+                    if (m.completed && m.firstUnassisted == true && completion != null) events += Event(completion.at, 2, a, member = m)
+                }
                 // Legacy facts can reveal exposure but cannot establish independent performance.
                 if (a.task.evidenceVersion == 0) targets(a.task).forEach {
                     events += Event(a.inputs.lastOrNull()?.at ?: a.at, 1, exposure = KnowledgeExposure(a.task.id, it, a.inputs.lastOrNull()?.at ?: a.at, a.hintLevel > 0 || a.task.guided))
@@ -118,29 +135,31 @@ object AdaptiveEvidence {
                     if (exposure.help) challenges[exposure.target] = event.at
                 } else {
                     val a = requireNotNull(event.attempt)
-                    val facts = targets(a.task)
+                    val member = event.member
+                    val facts = if (member == null) targets(a.task) else setOf("skill:${member.skillId}")
+                    val unassisted = if (member == null) a.firstUnassisted == true else member.firstUnassisted == true
                     if (event.rank == 2) {
                         // Spacing uses completed unassisted single-target responses. Requiring these
                         // other responses to be spaced too would deadlock all newly taught targets.
                         completions += facts
                     } else {
                         val input = requireNotNull(firstInput(a))
-                        val correct = input.result != ClickResult.WRONG
-                        val key = unit(a.task)
+                        val correct = member?.firstCorrect ?: (input.result != ClickResult.WRONG)
+                        val key = if (member == null) unit(a.task) else memberUnit(member.skillId, member.direction)
                         val previous = facts.mapNotNull { exposures[it] }
                         val spaced = previous.all { gap(it, facts, event.at) }
-                        if (key != null && a.firstUnassisted == true && spaced && (a.task.relation?.ear != true || a.audioPlayed)) {
+                        if (key != null && unassisted && spaced && (a.task.relation?.ear != true || a.audioPlayed)) {
                             val lastExposure = previous.maxOfOrNull { it.at }
                             collected += AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
                                 correct && lastExposure != null && event.at - lastExposure >= HOLD_MS, a.task)
                         }
-                        if (!correct && a.firstUnassisted == true) facts.forEach { challenges[it] = event.at }
+                        if (!correct && unassisted) facts.forEach { challenges[it] = event.at }
                     }
                 }
             }
             allSamples = collected
             samples = collected.filter { it.at >= now - WINDOW_MS }.map { sample ->
-                if (sample.retention && targets(sample.task).any { (challenges[it] ?: Long.MIN_VALUE) >= sample.at }) sample.copy(retention = false) else sample
+                if (sample.retention && (challenges[sample.target] ?: Long.MIN_VALUE) >= sample.at) sample.copy(retention = false) else sample
             }
         }
         private fun gap(previous: Exposure, targets: Set<String>, at: Long = now): Boolean = at - previous.at >= HOLD_MS ||

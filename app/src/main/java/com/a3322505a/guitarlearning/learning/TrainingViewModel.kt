@@ -119,7 +119,12 @@ class TrainingViewModel @JvmOverloads constructor(
     fun sound(enabled: Boolean) { if (!enabled) { cancelAuto(); pausePilot() }; change { it.copy(soundEnabled = enabled) } }
     fun fingering(id: String) = change { it.copy(fingeringMode = FingeringMode.fromId(id).id) }
     fun legendSeen() = change { it.copy(fingerLegendSeen = true) }
-    fun viewChord(id: String) = change { it.copy(viewedSkills = it.viewedSkills + ("chord:$id" to (it.attempts.maxOfOrNull { a -> a.ordinal } ?: 0))) }
+    fun viewChord(id: String) = change { state ->
+        val now = System.currentTimeMillis()
+        val events = (1..6).map { string -> KnowledgeExposure("chord-view:$id:$now", "skill:${ChordLessons.skill(ChordShapes.all.first { it.id == id }, string)}", now, true) }
+        state.copy(viewedSkills = state.viewedSkills + ("chord:$id" to (state.attempts.maxOfOrNull { it.ordinal } ?: 0)),
+            knowledgeExposures = state.knowledgeExposures + events)
+    }
     fun playShape(shape: ChordShape) {
         if (page != "chord-examples") return
         startPlayback(TaskAudioPolicy.shape(shape))

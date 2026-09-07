@@ -82,6 +82,7 @@ data class LearningTask(
     val referenceScore: ShortScore? = null,
     val evidenceVersion: Int = 0,
     val adaptive: AdaptiveTask? = null,
+    val explanationTargets: Set<String> = emptySet(),
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -133,7 +134,8 @@ data class Attempt(
 
 @Serializable
 data class TargetEvidence(val index: Int, val skillId: String, val direction: Direction, val coordinate: Coordinate?,
-    val firstCorrect: Boolean, val independent: Boolean, val at: Long, val completed: Boolean)
+    val firstCorrect: Boolean, val independent: Boolean, val at: Long, val completed: Boolean,
+    val firstUnassisted: Boolean? = null)
 
 @Serializable
 data class NodeProgress(val masteredAt: Long? = null, val retainedOn: String? = null, val needsReview: Boolean = false)
@@ -190,6 +192,7 @@ data class LearnerState(
     val pausedRegions: Map<String, PausedTraining> = emptyMap(),
     val knowledgeExposures: List<KnowledgeExposure> = emptyList(),
     val weakPoints: Map<String, WeakPoint> = emptyMap(),
+    val familyRuns: Map<String, FamilyContext> = emptyMap(),
 )
 
 data class CurriculumNode(
