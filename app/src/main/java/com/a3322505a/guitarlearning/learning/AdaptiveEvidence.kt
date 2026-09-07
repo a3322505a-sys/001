@@ -90,7 +90,7 @@ object AdaptiveEvidence {
     }
     fun present(s: LearnerState, task: LearningTask, now: Long): LearnerState {
         val t = task.copy(evidenceVersion = VERSION)
-        val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(s.copy(active = ActiveTask(t)), t, now), t)
+        val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(RegionRounds.present(s.copy(active = ActiveTask(t)), t), t, now), t)
         return if (t.guided) expose(next, t, now, true) else next
     }
     fun firstInput(a: Attempt) = a.inputs.firstOrNull { it.result !in listOf(ClickResult.OUTSIDE, ClickResult.REPEATED, ClickResult.EXTRA_CORRECT) }

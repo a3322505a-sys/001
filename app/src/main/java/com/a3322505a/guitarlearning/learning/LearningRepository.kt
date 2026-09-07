@@ -68,6 +68,8 @@ object LearningCodec {
                 Curriculum.nodes.any { it.id == context.nodeId } && run.generation >= 0 && run.sinceOrdinal >= 0 && run.diagnosisSince >= 0 &&
                 run.mixStage in 0..1 && run.focus.distinct().size == run.focus.size && (!run.diagnosing || run.mixStage == 0 && !run.trial)
         })
+        require(state.regionContinuations.keys.all { it in FretboardRegion.entries.map { r -> r.name } })
+        require(state.regionContinuations.values.all { it.generation >= 0 && (!it.scaffolding || it.diagnosing) })
         val paused = listOfNotNull(state.pausedTraining) + state.pausedRegions.values
         require(state.pausedRegions.all { (id, p) -> id in FretboardRegion.entries.map { it.name } && p.regionTraining?.regionId == id && p.practice == null && p.pilot == null })
         val contexts = listOf(state) + paused.map { RegionSessions.restore(state, it) }
@@ -155,6 +157,7 @@ object LearningCodec {
         }
         state.regionTraining?.let { run ->
             require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
+            require(run.issuedTasks.distinct().size == run.issuedTasks.size && run.issuedTasks.all { it.isNotBlank() })
             require(run.adaptive.generation >= 0 && run.adaptive.sinceOrdinal >= 0 && run.adaptive.diagnosisSince >= 0 && run.adaptive.mixStage in 0..3)
             require(!run.adaptive.scaffolding || run.adaptive.diagnosing)
             require(AnswerRepresentation.NOTE !in run.adaptive.excluded)

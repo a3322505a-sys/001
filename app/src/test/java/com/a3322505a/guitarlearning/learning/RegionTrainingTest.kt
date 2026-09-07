@@ -12,12 +12,13 @@ class RegionTrainingTest {
         val t = s.active!!.task
         val a = if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(s, symbol = t.constraint.symbol, now = 100)
             else co.answer(s, coordinate = AnswerEvaluator.validPositions(t).first(), now = 100)
-        return co.next(a, t.id, 101)
+        val next = co.next(a, t.id, 101)
+        return if (next.sessionId == null) co.startRegion(next, s.regionTraining!!.regionId, 102) else next
     }
-    @Test fun oneClickProbesThenIntroducesNewPointsWithoutGlobalCurriculumJump() {
+    @Test fun oneClickWarmsUpThenIntroducesNewPointsAcrossFiniteRounds() {
         var s = co.startRegion(profile(), "LOW", 10)
-        repeat(5) { assertTrue(s.active!!.task.regionProbe); s = finish(s) }
-        assertEquals(5, RegionTraining.history(s).count { it.task.regionProbe })
+        repeat(3) { assertEquals(0, s.active!!.task.coordinate!!.fret); assertEquals(it + 1, s.active!!.task.roundSlot); s = finish(s) }
+        assertEquals(4, s.active!!.task.roundSlot)
         assertFalse(s.active!!.task.regionProbe)
         assertEquals("LOW", s.regionTraining!!.regionId)
         assertEquals(3, s.progress.filterKeys { it.startsWith("p0") }.count { it.value.masteredAt != null })

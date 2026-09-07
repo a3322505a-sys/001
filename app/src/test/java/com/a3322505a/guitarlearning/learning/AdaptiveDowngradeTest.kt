@@ -19,7 +19,8 @@ class AdaptiveDowngradeTest {
         fun finish(s: LearnerState, correct: Boolean): LearnerState {
             var result = answer(s, correct)
             if (!correct) result = answer(result, true)
-            return co.next(result, result.active!!.task.id, ++now)
+            val next = co.next(result, result.active!!.task.id, ++now)
+            return if (next.sessionId == null) co.startRegion(next, s.regionTraining!!.regionId, ++now) else next
         }
         fun position(s: LearnerState, c: Coordinate, d: Direction = Direction.POSITION_TO_NOTE): LearnerState {
             val t = LessonScheduler(Random(7)).makePosition(Curriculum.nodes.first { c in it.positions }.id, c, d, TaskSource.MAIN)

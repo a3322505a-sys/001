@@ -10,11 +10,13 @@ object AdaptiveTraining {
     private fun nextOrdinal(s: LearnerState) = (s.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
     internal fun completedScorable(s: LearnerState, view: AdaptiveEvidence.View): List<Attempt> {
         val scored = view.allSamples.map { it.taskId }.toSet()
-        return s.attempts.filter { it.sessionId == s.sessionId && it.completed && it.task.id in scored && it.task.adaptive != null }
+        val sessions = s.sessions.filter { it.regionId == s.regionTraining?.regionId }.map { it.id }.toSet() + listOfNotNull(s.sessionId)
+        return s.attempts.filter { it.sessionId in sessions && it.completed && it.task.id in scored && it.task.adaptive != null }
     }
     private fun scoped(s: LearnerState, samples: List<AssessmentSample>): List<AssessmentSample> {
         val r = s.regionTraining ?: return emptyList()
-        val sessionTasks = s.attempts.filter { it.sessionId == s.sessionId }.map { it.task.id }.toSet()
+        val regionSessions = s.sessions.filter { it.regionId == s.regionTraining?.regionId }.map { it.id }.toSet() + listOfNotNull(s.sessionId)
+        val sessionTasks = s.attempts.filter { it.sessionId in regionSessions }.map { it.task.id }.toSet()
         return samples.filter { it.task.adaptive?.config == r.adaptive.config && it.ordinal >= r.adaptive.sinceOrdinal && it.taskId in sessionTasks }
     }
     internal fun overloaded(samples: List<AssessmentSample>): Boolean =
@@ -68,7 +70,8 @@ object AdaptiveTraining {
                 layer = RecoveryLayer.LOCAL, trial = false, reason = "先巩固这几个音",
                 scaffolding = last.task.adaptive?.options?.isNotEmpty() != true && last.unit.startsWith("position:"))
         } else if (run.diagnosing) {
-            val sessionTasks = s.attempts.filter { it.sessionId == s.sessionId }.map { it.task.id }.toSet()
+            val regionSessions = s.sessions.filter { it.regionId == s.regionTraining?.regionId }.map { it.id }.toSet() + listOfNotNull(s.sessionId)
+        val sessionTasks = s.attempts.filter { it.sessionId in regionSessions }.map { it.task.id }.toSet()
             val diagnosed = view.samples.filter { it.ordinal >= run.diagnosisSince && it.taskId in sessionTasks && (it.unit.startsWith("position:") || it.unit.startsWith("mapping:")) }
             val diagnosisResponses = view.responses.filter { it.ordinal >= run.diagnosisSince && it.taskId in sessionTasks }
             val basics = diagnosisResponses.filter { it.unit.startsWith("position:") }.takeLast(8)
@@ -235,7 +238,7 @@ object AdaptiveTraining {
             constraint = AnswerConstraint(ConstraintKind.PITCH, midi = MusicFacts.midi(pick.coordinate.string, pick.coordinate.fret))) else pick
         return tag(widened, purpose, key)
     }
-    private fun simplify(s: LearnerState, task: LearningTask, known: List<Coordinate>, random: Random): LearningTask {
+    internal fun simplify(s: LearnerState, task: LearningTask, known: List<Coordinate>, random: Random): LearningTask {
         val c = requireNotNull(task.coordinate)
         if (task.direction == Direction.POSITION_TO_NOTE) {
             val correct = requireNotNull(task.constraint.symbol)

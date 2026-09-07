@@ -90,8 +90,9 @@ object TrainingUiAdapter {
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
             canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
             canNext = (a.phase == Phase.CORRECTED || t.creationDurations.isNotEmpty() && a.phase == Phase.CORRECT) && !busy,
-            autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && a.phase == Phase.CORRECT && !busy) if (t.guided) 1200L else 650L else null,
+            autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && (a.phase == Phase.CORRECT || a.phase == Phase.CORRECTED && s.regionTraining != null && RegionRounds.finished(s)) && !busy) if (t.guided) 1200L else 650L else null,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio,
+            roundProgress = s.regionTraining?.let { "${RegionRounds.issued(s).size.coerceAtMost(12)}/12" },
             accessibilityPrompt = if (t.adaptive?.options?.isNotEmpty() == true) (if (t.tonicPitchClass != null) "${t.prompt}：" else "") + "选择亮起位置对应的音，选项可能使用音名、固定唱名或调内级数" else t.prompt)
     }
     fun displayLast(s: LearnerState): Int {

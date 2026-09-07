@@ -18,8 +18,9 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
 
     private fun activateRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
         val count = RegionTraining.known(state, regionId).size
-        val run = RegionRun(regionId, (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1, if (count < 2) 0 else if (count < 3) 4 else 5)
-        val session = state.sessions.lastOrNull { it.id == state.sessionId && it.endedAt == null } ?: LearningSession(startedAt = now, mode = "region")
+        val run = RegionRun(regionId, (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1, 0,
+            adaptive = state.regionContinuations[regionId] ?: AdaptiveRun(), roundEnabled = true)
+        val session = state.sessions.lastOrNull { it.id == state.sessionId && it.endedAt == null } ?: LearningSession(startedAt = now, mode = "region", regionId = regionId)
         val next = state.copy(regionTraining = run, queuedRegion = null, sessionId = session.id,
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
             active = null, reviewMode = false, endedSummary = null)
@@ -149,6 +150,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         var changed = state.copy(active = null)
         if (state.practice == null && state.queuedRegion != null) return activateRegion(changed, state.queuedRegion, now)
         if (state.practice == null && state.regionTraining != null) {
+            if (RegionRounds.finished(state)) return end(state, now, reason = "natural")
             val task = scheduler.next(changed, now)
             return AdaptiveEvidence.present(changed.copy(currentNode = task.nodeId), task, now)
         }
@@ -160,13 +162,15 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         return AdaptiveEvidence.present(changed, scheduler.next(changed, now), now)
     }
 
-    fun end(state: LearnerState, now: Long, summary: String? = null): LearnerState {
+    fun end(state: LearnerState, now: Long, summary: String? = null, reason: String = "back"): LearnerState {
         if (state.practice != null) return endPractice(state, now)
         val id = state.sessionId ?: return state
+        if (state.sessions.any { it.id == id && it.endedAt != null }) return state
         val attempts = state.attempts.filter { it.sessionId == id }
         val independent = attempts.filter { it.independent }
         return state.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
-            sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now) else it },
+            sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now, endReason = reason, regionId = state.regionTraining?.regionId ?: it.regionId) else it },
+            regionContinuations = state.regionTraining?.let { state.regionContinuations + (it.regionId to it.adaptive) } ?: state.regionContinuations,
             endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
     }
 }

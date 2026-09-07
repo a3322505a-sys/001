@@ -18,5 +18,5 @@ object RegionTraining {
     val directions = listOf(Direction.NOTE_TO_POSITION, Direction.POSITION_TO_NOTE)
 
     fun next(s: LearnerState, scheduler: LessonScheduler, random: Random, now: Long): LearningTask =
-        AdaptiveMix.apply(s, AdaptiveTraining.next(s, scheduler, random, now), random, now)
+        RegionRounds.next(s, scheduler, random, now)
 }

@@ -53,11 +53,12 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "暂停并返回" }) {
+                IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "保存并结束本轮返回" }) {
                     Text("‹", fontSize = 28.sp)
                 }
                 Text(state.title, fontWeight = FontWeight.Bold, fontSize = 20.sp,
                     modifier = Modifier.weight(1f).semantics { contentDescription = state.accessibilityPrompt })
+                state.roundProgress?.let { Text(it, fontSize = 15.sp) }
                 Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) {
                     if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
                 }
@@ -77,8 +78,6 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                             text = { Text(state.hintLabel) }, enabled = !state.busy,
                             onClick = { menuOpen = false; onEvent(TrainingEvent.Hint) })
                         if (state.canReplay) DropdownMenuItem(text = { Text("重听题目") }, onClick = { menuOpen = false; onEvent(TrainingEvent.Replay) })
-                        DropdownMenuItem(text = { Text("结束练习") }, enabled = !state.busy,
-                            onClick = { menuOpen = false; onEvent(TrainingEvent.End) })
                     }
                 }
             }

@@ -169,4 +169,27 @@ class TrainingAudioIntegrationTest {
         assertEquals(1, output.requests.size) // only public reference, never the full chord
         assertEquals(0, model.state.value!!.active!!.hintLevel)
     }
+    @Test fun backDuringSaveWaitsAndEndsExactlyOnceAfterRetry() = run(reverse(), sound = false) { model, repo, _ ->
+        val gate = CountDownLatch(1)
+        repo.block = gate
+        repo.fail = true
+        model.answer("b3", symbol = "B")
+        var exits = 0
+        model.end { exits++ }
+        model.end { exits++ }
+        assertEquals(0, exits)
+        gate.countDown()
+        drainUntil { !model.busy.value && model.error.value != null }
+        assertEquals("s", model.state.value!!.sessionId)
+        assertEquals(0, exits)
+        repo.fail = false
+        repo.block = null
+        model.retry()
+        drainUntil { exits == 1 && !model.busy.value }
+        assertNull(model.state.value!!.sessionId)
+        assertEquals(1, model.state.value!!.attempts.size)
+        assertTrue(model.state.value!!.attempts.single().firstCorrect == true)
+        assertEquals(1, model.state.value!!.sessions.count { it.endedAt != null })
+    }
+
 }

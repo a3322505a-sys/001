@@ -43,7 +43,7 @@ fun LearningApp(model: TrainingViewModel) {
         onDispose { activity.setTrainingImmersive(false) }
     }
     SideEffect { activity.requestedOrientation = if (page == "training") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
-    val back: () -> Unit = { page = when {
+    val back: () -> Unit = { if (page == "training" && state?.pilot == null) model.end { page = returnPage } else page = when {
         page == "training" -> returnPage
         page.startsWith("node:") -> nodeReturnPage
         page.startsWith("practice:") -> practiceReturnPage
@@ -71,7 +71,7 @@ fun LearningApp(model: TrainingViewModel) {
                 }
             }
         } else if (page == "training") {
-            TrainingRoute(s, busy, model, onBack = { page = returnPage }, onEnd = { model.end { page = "home" } })
+            TrainingRoute(s, busy, model, onBack = { if (s.pilot != null) page = returnPage else model.end { page = returnPage } }, onEnd = { model.end { page = returnPage } })
         } else {
             Column(Modifier.safeDrawingPadding().fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -131,6 +131,9 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
         PilotControlsUi(run.mode,run.bpm,pilotPlaying,ShortScorePilot.role(run.clip) == PilotRole.PRACTICE,
             run.mode == PilotMode.SLOW && s.active?.phase in listOf(Phase.CORRECT,Phase.CORRECTED),pilotLoop,pilotMetronome,pilotCompare)
     }) }
+    LaunchedEffect(s.sessionId, s.endedSummary, busy) {
+        if (!busy && s.sessionId == null && s.endedSummary != null) onBack()
+    }
     LaunchedEffect(ui.taskId, foreground) {
         if (foreground && ui.taskId != null) {
             withFrameNanos { }

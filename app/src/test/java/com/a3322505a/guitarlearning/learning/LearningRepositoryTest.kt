@@ -406,4 +406,31 @@ class LearningRepositoryTest {
         db.close(); context.deleteDatabase(name)
     }
 
+    @Test fun roundEndAndContinuationRollBackTogetherThenRetryOnce() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "round-end-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val base = LearnerState(progress = Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions = Curriculum.nodes.flatMap { it.positions }.map { "position:${it.id}" }.toSet())
+        val active = co.startRegion(base, "LOW", 10).let { it.copy(regionTraining = it.regionTraining!!.copy(
+            adaptive = AdaptiveRun(diagnosing = true, scaffolding = true, generation = 2))) }
+        val saved = repo.commit(repo.load(), active)
+        val ended = co.end(saved, 20)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_end BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved, ended) }
+        assertEquals(saved, repo.load())
+        assertNull(repo.load().sessions.last().endedAt)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_end")
+        val committed = repo.commit(saved, ended)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(committed, repo.load())
+        assertEquals(committed, co.end(committed, 30))
+        val restarted = co.startRegion(repo.load(), "LOW", 40)
+        assertTrue(restarted.regionTraining!!.adaptive.scaffolding)
+        assertEquals(1, restarted.active!!.task.roundSlot)
+        db.close(); context.deleteDatabase(name)
+    }
+
 }
