@@ -56,7 +56,7 @@ class ExperiencePolicyTest {
             val t = RegionProtection.next(s, Random(slot), 3000L+slot*1000)!!
             assertTrue(t.adaptive!!.scaffolded || t.adaptive.originalProbe)
             assertTrue(t.adaptive.options.isEmpty())
-            if (t.adaptive.scaffolded) assertEquals(2,t.options.size)
+            if (t.adaptive.scaffolded) assertEquals(7,t.options.size)
             s = AdaptiveEvidence.present(s,t.copy(roundSlot=slot),3000L+slot*1000)
             s = correct(s,3500L+slot*1000)
         }

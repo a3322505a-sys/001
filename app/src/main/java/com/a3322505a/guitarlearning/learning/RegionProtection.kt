@@ -39,7 +39,14 @@ object RegionProtection {
         val updated = next.positionProtections.mapValues { (key, p) ->
             val samples = view.samples.filter { it.unit == p.unit && it.at > p.since && it.task.adaptive?.protectionKey == key && it.task.adaptive.originalProbe }
             val lastSignalAt = next.attempts.firstOrNull { it.task.id == p.signal }?.at ?: next.longThoughts[p.signal]?.at ?: p.since
-            if (p.resolvedAt == null && (if (p.isolated) samples.lastOrNull()?.let { it.correct && it.at > lastSignalAt } == true else AdaptiveEvidence.recovered(samples) && samples.takeLast(2).all { it.at > lastSignalAt })) p.copy(resolvedAt = now) else p
+            val required = if (p.isolated) 1 else 3
+            val recovered = samples.takeLast(required).let { window -> window.size == required && window.all { sample ->
+                sample.correct && sample.at > lastSignalAt && next.attempts.firstOrNull { it.task.id == sample.taskId }?.let { attempt ->
+                    ResponseTiming.timely(next,attempt) && next.responseObservations[attempt.task.id]?.replayed == false &&
+                        ExperiencePolicy.plain(attempt.task) && NaturalRecognition.current(attempt.task)
+                } == true
+            } }
+            if (p.resolvedAt == null && recovered) p.copy(resolvedAt = now) else p
         }
         next = next.copy(positionProtections = updated)
         val r = next.regionTraining ?: return next
@@ -62,31 +69,35 @@ object RegionProtection {
         return targets.fold(s) { state, t -> protect(state, t, now) }
     }
     fun next(s: LearnerState, random: Random, now: Long): LearningTask? {
-        val pending = active(s).sortedBy { it.since }.take(2)
+        val pending = active(s).sortedBy { it.since }
         if (pending.isEmpty()) return null
-        // Restrict target set before choosing any slot. Rotate pairs; no full-strength empty fallback.
+        // Rotate every unresolved target; no permanently preferred oldest pair.
         val p = pending.minBy { p -> s.attempts.lastOrNull { it.task.adaptive?.protectionKey == key(p.original) }?.ordinal ?: -1 }
         val key = key(p.original)
         val evidence = s.attempts.filter { it.task.adaptive?.protectionKey == key && it.at > p.since && it.completed && !it.task.guided }
         val lastProbe = evidence.lastOrNull { it.task.adaptive?.originalProbe == true }
-        val simple = evidence.filter { it.task.adaptive?.scaffolded == true && it.ordinal > (lastProbe?.ordinal ?: -1) }.takeLast(4)
+        val lastFailure = evidence.lastOrNull { it.firstCorrect != true || !ResponseTiming.timely(s,it) }
+        val simple = evidence.filter { it.task.adaptive?.scaffolded == true && it.ordinal > (lastFailure?.ordinal ?: -1) }.takeLast(2)
         val before = s.attempts.lastOrNull()
-        val ready = p.isolated || simple.size == 4 && simple.count { it.firstCorrect == true && it.hintLevel == 0 } >= 3 && simple.takeLast(2).all { it.firstCorrect == true && it.hintLevel == 0 }
+        val ready = p.isolated || (lastProbe != null && lastProbe.ordinal > (lastFailure?.ordinal ?: -1)) || simple.size == 2 && simple.all { ResponseTiming.timely(s,it) && !s.responseObservations.getValue(it.task.id).replayed }
         val baseEligible = AdaptiveEvidence.View(s, now).eligible(p.original)
-        val probe = ready && baseEligible && before?.task?.adaptive?.scaffolded == true && before.completed
+        val probe = ready && baseEligible
         if (ready && !probe) {
             // Two distinct taught easy targets supply real spacing before an original-condition probe.
             val known = RegionTraining.known(s, requireNotNull(s.regionTraining).regionId)
             val fillers = known.filter { it.second != p.original.coordinate }
-                .sortedBy { kotlin.math.abs(it.second.fret - p.original.coordinate!!.fret) + kotlin.math.abs(it.second.string - p.original.coordinate.string) * 2 }.take(2)
+            if (fillers.size < 2) RegionProgression.introduce(s, LessonScheduler(random))?.let { return it }
             if (fillers.isNotEmpty()) {
                 val (node, c) = fillers.minBy { pair -> s.attempts.lastOrNull { it.task.coordinate == pair.second }?.ordinal ?: -1 }
-                val base = LessonScheduler(random).makePosition(node, c, p.original.direction, TaskSource.REVIEW)
-                return AdaptiveTraining.simplify(s, base, fillers.map { it.second }, random).copy(
-                    adaptive = AdaptiveTask("protected-familiar:$key", PracticePurpose.FAMILIAR, scaffolded = true, unit = AdaptiveEvidence.unit(base)))
+                val direction = AdaptiveEvidence.positionDirections.minBy { d -> s.attempts.takeLast(6).count { it.task.direction == d } }
+                val protected = pending.firstOrNull { it.original.coordinate == c && it.original.direction == direction }
+                val base = LessonScheduler(random).makePosition(node, c, direction, TaskSource.REVIEW)
+                return base.copy(adaptive = AdaptiveTask("protected-familiar:$key", PracticePurpose.FAMILIAR,
+                    scaffolded = protected != null, unit = AdaptiveEvidence.unit(base),
+                    protectionKey = protected?.let { RegionProtection.key(it.original) }))
             }
         }
-        val base = p.original.copy(id = newId(), source = TaskSource.REVIEW, introductionId = null, roundSlot = null)
+        val base = NaturalRecognition.normalize(p.original).copy(id = newId(), source = TaskSource.REVIEW, introductionId = null, roundSlot = null)
         val task = if (probe) base else AdaptiveTraining.simplify(s, base,
             pending.mapNotNull { it.original.coordinate }, random)
         val repeatedDifficulty = evidence.takeLast(2).let { it.size == 2 && it.none { a -> a.firstCorrect == true } }

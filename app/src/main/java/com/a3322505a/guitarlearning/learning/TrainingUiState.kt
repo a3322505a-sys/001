@@ -22,6 +22,8 @@ data class FretboardUiState(
     val stringLabel: String? = null,
     val fretLabel: Pair<Int, String>? = null,
     val answerPositions: Set<Coordinate> = interactivePositions,
+    val chordVertical: Boolean = false,
+    val chordTitle: String = "",
 )
 data class PositionTapped(val viewId: String, val coordinate: Coordinate)
 
@@ -60,6 +62,7 @@ sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
     data class Answer(val symbol: String) : TrainingEvent
     data object Obstructed : TrainingEvent
+    data object RotateChord : TrainingEvent
     data class Fingering(val id: String) : TrainingEvent
     data object PilotPlay : TrainingEvent
     data class PilotFinish(val rating: String?, val comment: String) : TrainingEvent

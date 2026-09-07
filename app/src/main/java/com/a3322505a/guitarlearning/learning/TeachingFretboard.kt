@@ -39,6 +39,7 @@ private val WrongPink = Color(0xFFFF668D)
 
 @Composable
 fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> Unit, modifier: Modifier = Modifier) {
+    if (state.chord != null) { ChordDiagram(state, onPosition, modifier); return }
     val geometry = remember(state.firstFret, state.lastFret) { TeachingGeometry(state.firstFret, state.lastFret) }
     val inherited = LocalViewConfiguration.current
     val hitConfiguration = remember(inherited) { object : ViewConfiguration by inherited {
@@ -115,7 +116,7 @@ private fun DrawScope.drawInstrument(g: TeachingGeometry, left: Float, top: Floa
     // Neck edge and a restrained shadow give the slab thickness.
     drawRect(Color.Black.copy(alpha = 0.17f), Offset(nut, top + 4.dp.toPx()), Size(end - nut, height))
     drawRect(Color(0xFFC59D62), Offset(nut, top - 2.dp.toPx()), Size(end - nut, height + 4.dp.toPx()))
-    drawPath(board, Brush.verticalGradient(listOf(Color(0xFF35251F), Color(0xFF51352A), Color(0xFF30221E)), top, bottom))
+    drawPath(board, Brush.verticalGradient(listOf(Color(0xFF251B18), Color(0xFF4E342B), Color(0xFF684637), Color(0xFF392720), Color(0xFF201815)), top, bottom))
     clipPath(board) { woodGrain(nut, top, end - nut, height, Color(0xFFC48D57).copy(alpha = 0.08f)) }
     drawLine(Color(0xFF977A51), Offset(nut, top), Offset(end, top), 1.dp.toPx())
     drawLine(Color(0xFF211812), Offset(nut, bottom), Offset(end, bottom), 2.dp.toPx())
@@ -168,9 +169,13 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
         lineTo(nut, bottom)
         close()
     }
-    drawPath(head, Brush.verticalGradient(listOf(Color(0xFFE5C48D), Color(0xFFC49555), Color(0xFFE3BD7B)), top, bottom))
+    drawPath(head, Color(0xFF6F4527), style = Stroke(5.dp.toPx()))
+    drawPath(head, Brush.linearGradient(listOf(Color(0xFFF4D6A1), Color(0xFFD7AA6F), Color(0xFFEAC58D), Color(0xFFAD7946)), Offset(0f,top), Offset(nut,bottom)))
     clipPath(head) { woodGrain(0f, top, nut, height, Color(0xFF795027).copy(alpha = 0.12f)) }
-    drawPath(head, Color(0xFF916337), style = Stroke(1.4.dp.toPx()))
+    drawPath(head, Color(0xFFF8DFAD).copy(alpha=.7f), style = Stroke(1.dp.toPx()))
+    // Recessed truss-rod opening stays behind the nut and outside the answer area.
+    drawOval(Color(0xFF765032), Offset(nut-height*.20f,top+height*.44f), Size(height*.15f,height*.12f))
+    drawOval(Color(0xFF241B17), Offset(nut-height*.18f,top+height*.46f), Size(height*.11f,height*.08f))
     val postRadius = minOf(5.5.dp.toPx(), height / 28, nut / 24)
     (1..6).forEach { s ->
         val x = nut * (0.20f + (6 - s) * 0.115f)
@@ -183,21 +188,29 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
         drawRoundRect(metal, Offset(keyX - postRadius * 1.5f, keyY - postRadius), Size(postRadius * 3, postRadius * 1.8f), CornerRadius(postRadius * 0.6f))
         // The open-string touch region sits on these strings immediately before the nut.
         drawLine(Color(0xFFBDC5C7), Offset(x, y), Offset(nut, y), (0.65f + (s - 1) * 0.38f).dp.toPx())
-        drawCircle(Color(0xFF7A674F), postRadius * 1.3f, Offset(x, y))
+        drawCircle(Color.Black.copy(alpha=.25f), postRadius * 1.65f, Offset(x+1.dp.toPx(),y+2.dp.toPx()))
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFF4F7F7),Color(0xFF4F5559),Color(0xFFD5DEE1)),Offset(x-postRadius*.3f,y-postRadius*.3f),postRadius*1.8f),postRadius*1.5f,Offset(x,y))
         drawCircle(metal, postRadius, Offset(x, y))
         drawCircle(Color(0xFF475055), postRadius * 0.43f, Offset(x, y))
         drawLine(Color(0xFFE1E7E7), Offset(x - postRadius * 0.5f, y), Offset(x + postRadius * 0.5f, y), 0.8.dp.toPx())
+        drawCircle(Color(0xFF4C5356),postRadius*.22f,Offset(keyX,keyY))
+        drawLine(Color(0xFFDFE6E8),Offset(keyX-postRadius*.17f,keyY),Offset(keyX+postRadius*.17f,keyY),.5.dp.toPx())
     }
 }
 
 private fun DrawScope.woodGrain(left: Float, top: Float, width: Float, height: Float, color: Color) {
-    repeat(16) { row ->
+    // Deterministic irregular fibres, with occasional branching; no bitmap or redraw randomness.
+    repeat(58) { row ->
         val path = Path()
-        repeat(25) { step ->
-            val x = left + width * step / 24
-            val y = top + height * (row + 0.5f) / 16 + sin(step * 0.45f + row * 1.7f) * height * 0.008f
-            if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        val base = (row + .35f + sin(row*7.13f)*.25f) / 58
+        repeat(49) { step ->
+            val u = step / 48f
+            val x = left + width*u
+            val wave = sin(u*5.7f+row*1.39f)*.007f + sin(u*17.2f+row*.83f)*.002f
+            val knot = sin(u*3.14f)*sin(row*.61f)*.014f
+            val y = top+height*(base+wave+knot)
+            if(step==0) path.moveTo(x,y) else path.lineTo(x,y)
         }
-        drawPath(path, color, style = Stroke(if (row % 4 == 0) 0.9.dp.toPx() else 0.45.dp.toPx()))
+        drawPath(path,color.copy(alpha=color.alpha*(.35f+(row%7)/7f)),style=Stroke((if(row%9==0) .85f else .35f).dp.toPx()))
     }
 }

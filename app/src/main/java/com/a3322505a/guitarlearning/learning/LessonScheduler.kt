@@ -129,7 +129,7 @@ class LessonScheduler(private val random: Random = Random.Default) {
     fun makePosition(node: String, c: Coordinate, direction: Direction, source: TaskSource): LearningTask {
         val name = MusicFacts.note(c.string, c.fret)
         val reverse = direction == Direction.POSITION_TO_NOTE
-        val knownOptions = (Curriculum.noteOptions(node) + name).distinct()
+        val knownOptions = NaturalRecognition.options
         val octaveDemo = c.fret == 12 && source == TaskSource.DEMONSTRATION
         val first = if (octaveDemo || c.fret <= 4) 0 else if (c.fret <= 8) 5 else 9
         val last = if (c.fret <= 4) 4 else if (c.fret <= 8) 8 else 12
@@ -139,6 +139,6 @@ class LessonScheduler(private val random: Random = Random.Default) {
             constraint = if (reverse) AnswerConstraint(ConstraintKind.SYMBOL, symbol = name) else if (octaveDemo) AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c) else AnswerConstraint(ConstraintKind.NOTE_CLASS, symbol = name),
             range = PhysicalRange(first, last, strings = setOf(c.string)), source = source,
             referenceCoordinates = if (octaveDemo) listOf(Coordinate(c.string, 0)) else emptyList(),
-            options = if (reverse) knownOptions.shuffled(random) else emptyList())
+            options = if (reverse) knownOptions else emptyList())
     }
 }

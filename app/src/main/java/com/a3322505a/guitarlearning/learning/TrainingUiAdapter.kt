@@ -36,7 +36,7 @@ object TrainingUiAdapter {
                 if ((visible || confirmedMute || Coordinate(string, 0) in a.confirmed) && (fret == null || fret == 0)) string to if (fret == null) "X" else "O" else null
             }.toMap()
             ChordOverlayUiState(
-                if (visible && mode != FingeringMode.NOTES) shape.fingers.map { FingerUiSpan(it.finger, it.fret, it.firstString, it.lastString) } else emptyList(),
+                if (visible) shape.fingers.map { FingerUiSpan(it.finger, it.fret, it.firstString, it.lastString) } else emptyList(),
                 if (visible) shape.sounding().filter { it.fret > 0 }.map { c -> ChordToneUi(c,
                     when (mode) { FingeringMode.COLORS -> ""; FingeringMode.NUMBERS -> shape.fingerAt(c)?.toString().orEmpty(); FingeringMode.NOTES -> MusicFacts.note(c.string, c.fret) },
                     mode == FingeringMode.NOTES && MusicFacts.midi(c.string, c.fret) % 12 == shape.root, mode == FingeringMode.COLORS) } else emptyList(), labels)
@@ -50,7 +50,9 @@ object TrainingUiAdapter {
         }
         return FretboardUiState(t.id, display.firstFret, display.lastFret, display.positions().toSet(), interaction, marks, chord,
             t.constraint.string?.takeIf { teaching && !t.hideStringLabels }?.let { "第${it}弦" },
-            t.constraint.fret?.takeIf { teaching && !t.hideFretLabels && t.constraint.string == null }?.let { it to if (it == 0) "空弦" else "${it}品" }, answerPositions = t.range.positions().toSet())
+            t.constraint.fret?.takeIf { teaching && !t.hideFretLabels && t.constraint.string == null }?.let { it to if (it == 0) "空弦" else "${it}品" }, answerPositions = t.range.positions().toSet(), chordTitle = t.chord?.title.orEmpty()).let { b ->
+                if (t.chord == null) b else b.copy(firstFret = t.range.firstFret, lastFret = t.range.lastFret)
+            }
     }
 
     fun training(s: LearnerState, busy: Boolean, audio: AudioUiState): TrainingUiState {
@@ -84,7 +86,7 @@ object TrainingUiAdapter {
         val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.phase == Phase.CORRECTING -> CorrectionPresentation.message(a, s.introductions); a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> s.familyRuns[t.adaptive?.familyScope]?.run?.reason }
         val plainRecognition = t.direction == Direction.POSITION_TO_NOTE && !t.guided && t.tonicPitchClass == null
         return TrainingUiState(t.id, if (plainRecognition) "" else t.prompt, busy = busy,
-            board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s), s.introductions) else null,
+            board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s), s.introductions).copy(chordVertical = s.chordVertical) else null,
             tab = t.coordinate.takeIf { t.showTab }, notation = t.notation ?: t.referenceScore?.notation(NotationKind.TAB), notationIndex = if(t.referenceScore != null) -1 else a.sequenceIndex,
             message = message?.let(::fretboardInstruction), wrong = a.firstCorrect == false, options = options, relation = extraRelation, chordControls = controls,
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,

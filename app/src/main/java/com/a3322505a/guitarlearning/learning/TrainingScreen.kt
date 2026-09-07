@@ -58,6 +58,8 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 }
                 Text(state.title, fontWeight = FontWeight.Bold, fontSize = 20.sp,
                     modifier = Modifier.weight(1f).semantics { contentDescription = state.accessibilityPrompt })
+                if (state.hasChord) IconButton(onClick = { onEvent(TrainingEvent.RotateChord) }, enabled = !state.busy,
+                    modifier = Modifier.semantics { contentDescription = "旋转和弦图" }) { Text("↻", fontSize = 25.sp) }
                 state.roundProgress?.let { Text(it, fontSize = 15.sp) }
                 Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) {
                     if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }

@@ -78,7 +78,7 @@ internal object LearningPageAdapter {
         val shape = ChordShapes.get(id)
         val board = TrainingUiAdapter.board(ActiveTask(ChordLessons.make(shape, "chord-am", TaskSource.DEMONSTRATION)), FingeringMode.fromId(s.fingeringMode))
         return ChordExamplesUiState(ChordShapes.all.map { ChoiceUi(it.id, it.title) }, shape.title,
-            board.copy(viewId = "example:$id", interaction = BoardInteraction.DISABLED, interactivePositions = emptySet()), s.fingeringMode, s.soundEnabled, busy, audio)
+            board.copy(chordVertical = s.chordVertical, viewId = "example:$id", interaction = BoardInteraction.DISABLED, interactivePositions = emptySet()), s.fingeringMode, s.soundEnabled, busy, audio)
     }
     fun practice(s: LearnerState, scope: List<String>, selected: List<String>?, kindName: String?, busy: Boolean): PracticeUiState {
         val available = scope.map(Curriculum::node).filter { PracticeLessons.eligible(s, it) }

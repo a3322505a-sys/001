@@ -6,10 +6,10 @@ import kotlin.random.Random
 object RegionTraining {
     fun region(id: String) = FretboardRegion.valueOf(id)
     fun owner(node: String) = FretboardRegion.entries.firstOrNull { node in it.nodeIds }
-    fun available(s: LearnerState, id: String) = region(id).nodes.any { Curriculum.available(s, it) }
+    fun available(s: LearnerState, id: String) = region(id).nodes.any { RegionProgression.available(s, it) }
     fun nodes(id: String): List<CurriculumNode> = FretboardRegion.entries
         .take(region(id).ordinal + 1).flatMap { it.nodes }
-    fun known(s: LearnerState, id: String) = nodes(id).filter { Curriculum.available(s, it) }
+    fun known(s: LearnerState, id: String) = nodes(id).filter { RegionProgression.available(s, it) }
         .flatMap { n -> PracticeLessons.introducedPositions(s, n).map { n.id to it } }
     fun history(s: LearnerState): List<Attempt> {
         val run = s.regionTraining ?: return emptyList()

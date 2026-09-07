@@ -83,12 +83,13 @@ fun FingeringSettings(selectedId: String, busy: Boolean, select: (String) -> Uni
 }
 
 @Composable
-fun ChordExamples(state: ChordExamplesUiState, select: (String) -> Unit, play: () -> Unit, fingering: (String) -> Unit) {
+fun ChordExamples(state: ChordExamplesUiState, select: (String) -> Unit, play: () -> Unit, fingering: (String) -> Unit, rotate: () -> Unit = {}) {
     state.choices.chunked(2).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         row.forEach { item -> OutlinedButton(onClick = { select(item.id) }, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text(item.title, fontSize = 13.sp) } }
     } }
     Text("${state.title} · O 空弦 / X 不弹；这里查看的是推荐形态。", fontSize = 13.sp)
     Text("青蓝 1 食指 · 金黄 2 中指\n浅紫 3 无名指 · 粉色 4 小指", fontSize = 13.sp)
+    OutlinedButton(onClick = rotate, enabled = !state.busy) { Text(if (state.board.chordVertical) "↻ 横向和弦图" else "↻ 竖向和弦图") }
     TeachingFretboard(state.board, {}, Modifier.fillMaxWidth().height(250.dp))
     Button(onClick = play, enabled = state.soundEnabled) { Text("试听形态") }
     state.audio.message?.let { Text(it, fontSize = 13.sp) }
