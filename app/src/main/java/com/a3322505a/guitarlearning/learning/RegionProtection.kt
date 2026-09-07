@@ -45,7 +45,7 @@ object RegionProtection {
         val r = next.regionTraining ?: return next
         val pending = active(next)
         return next.copy(regionTraining = r.copy(adaptive = r.adaptive.copy(diagnosing = pending.isNotEmpty(),
-            scaffolding = pending.isNotEmpty(), focus = pending.map { it.unit },
+            scaffolding = pending.isNotEmpty(), focus = pending.map { it.unit }.distinct(),
             layer = if (pending.isEmpty()) RecoveryLayer.REGION else RecoveryLayer.LOCAL,
             mixStage = if (pending.isEmpty()) r.adaptive.mixStage else 0,
             trial = pending.isEmpty() && updated.values.any { it.resolvedAt == now },

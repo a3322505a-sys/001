@@ -91,7 +91,7 @@ object RoundExperience {
 object Fluency {
     fun score(s: LearnerState, unit: String, now: Long, view: AdaptiveEvidence.View): Double {
         if (s.positionProtections.values.any { it.unit == unit && it.resolvedAt == null }) return 0.0
-        val since = s.positionProtections.values.filter { it.unit == unit }.maxOfOrNull { it.since } ?: 0L
+        val since = s.positionProtections.values.filter { it.unit == unit && !it.isolated }.maxOfOrNull { it.since } ?: 0L
         val ids = view.samples.filter { it.unit == unit && it.at > since }.map { it.taskId }.toSet()
         val recent = s.attempts.filter { it.task.id in ids && ExperiencePolicy.plain(it.task) && s.responseObservations[it.task.id]?.replayed == false }.takeLast(ExperiencePolicy.FLUENT_WINDOW)
         val good = recent.filter { ResponseTiming.timely(s,it) && (s.responseObservations[it.task.id]?.durationMs ?: Long.MAX_VALUE) <= ExperiencePolicy.fast(it.task.direction) }
@@ -102,7 +102,7 @@ object Fluency {
     fun ready(s: LearnerState, unit: String, now: Long, view: AdaptiveEvidence.View = AdaptiveEvidence.View(s, now)): Boolean {
         val protections = s.positionProtections.values.filter { it.unit == unit }
         if (protections.any { it.resolvedAt == null }) return false
-        val after = protections.maxOfOrNull { it.since } ?: 0L
+        val after = protections.filterNot { it.isolated }.maxOfOrNull { it.since } ?: 0L
         val ids = view.samples.filter { it.unit == unit && it.at > after }.map { it.taskId }.toSet()
         val attempts = s.attempts.filter { it.task.id in ids && ExperiencePolicy.plain(it.task) && s.responseObservations[it.task.id]?.replayed == false }
             .takeLast(ExperiencePolicy.FLUENT_WINDOW)
