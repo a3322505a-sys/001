@@ -5,33 +5,41 @@ import kotlin.random.Random
 
 /** Region adaptation shares the coordinator's transaction and the original teaching/prerequisites. */
 object AdaptiveTraining {
-    internal fun overloaded(window: List<AssessmentSample>): Boolean = window.takeLast(3).let { it.size == 3 && it.none { a -> a.correct } } ||
-        window.takeLast(8).let { it.size == 8 && it.count { a -> !a.correct } >= 4 }
+    const val POLICY_VERSION = 2
     private val directions = AdaptiveEvidence.positionDirections
     private fun nextOrdinal(s: LearnerState) = (s.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
     internal fun completedScorable(s: LearnerState, view: AdaptiveEvidence.View): List<Attempt> {
         val scored = view.allSamples.map { it.taskId }.toSet()
         return s.attempts.filter { it.sessionId == s.sessionId && it.completed && it.task.id in scored && it.task.adaptive != null }
     }
-    private fun scoped(s: LearnerState, view: AdaptiveEvidence.View): List<AssessmentSample> {
+    private fun scoped(s: LearnerState, samples: List<AssessmentSample>): List<AssessmentSample> {
         val r = s.regionTraining ?: return emptyList()
         val sessionTasks = s.attempts.filter { it.sessionId == s.sessionId }.map { it.task.id }.toSet()
-        return view.samples.filter { it.task.adaptive?.config == r.adaptive.config && it.ordinal >= r.adaptive.sinceOrdinal && it.taskId in sessionTasks }
+        return samples.filter { it.task.adaptive?.config == r.adaptive.config && it.ordinal >= r.adaptive.sinceOrdinal && it.taskId in sessionTasks }
     }
+    internal fun overloaded(samples: List<AssessmentSample>): Boolean =
+        samples.takeLast(3).let { it.size == 3 && it.none { a -> a.correct } } ||
+            samples.takeLast(8).let { it.size == 8 && it.count { a -> !a.correct } >= 4 }
     fun transition(s: LearnerState, now: Long): LearnerState {
         val view = AdaptiveEvidence.View(s, now)
         val points = s.weakPoints.toMutableMap()
         // First-answer identity is fixed; correction and persistence retries cannot create new failures.
-        view.samples.filter { it.unit.startsWith("position:") || it.unit.startsWith("mapping:") || it.unit.startsWith("family:") }.groupBy { it.unit }.forEach { (key, evidence) ->
-            val last = evidence.last()
+        // P3 region signals are immediate; P6 retains its qualified per-member window.
+        fun familySignal(a: AssessmentSample) = a.unit.startsWith("family:") || a.task.adaptive?.familyScope != null
+        val weakSignals = (view.responses.filterNot(::familySignal) + view.samples.filter(::familySignal))
+            .sortedWith(compareBy<AssessmentSample> { it.at }.thenBy { it.ordinal })
+        weakSignals.filter { it.unit.startsWith("position:") || it.unit.startsWith("mapping:") || it.unit.startsWith("family:") }.groupBy { it.unit }.forEach { (key, responses) ->
+            val last = responses.last()
             val old = points[key]
             if (!last.correct && old?.lastFailure != last.taskId) {
                 val active = old?.takeIf { it.resolvedAt == null }
                 points[key] = (active ?: WeakPoint(key, last.target, last.at)).copy(
-                    confirmedAt = active?.confirmedAt ?: last.at.takeIf { view.weak(key) }, lastFailure = last.taskId)
+                    confirmedAt = active?.confirmedAt ?: last.at.takeIf { AdaptiveEvidence.weak(responses) }, lastFailure = last.taskId,
+                    taughtAt = active?.taughtAt?.takeUnless { taught -> AdaptiveEvidence.weak(responses.filter { it.at > taught }) })
             } else if (old != null && old.resolvedAt == null) {
-                val after = evidence.filter { it.at > (old.confirmedAt ?: old.observedAt) }
-                if (old.confirmedAt == null && view.ready(key) || old.confirmedAt != null && AdaptiveEvidence.recovered(after) && !view.weak(key) && after.any { it.retention })
+                val after = view.samples.filter { it.unit == key && it.at > (old.confirmedAt ?: old.observedAt) }
+                if (old.confirmedAt == null && view.ready(key) && last.correct || old.confirmedAt != null && AdaptiveEvidence.recovered(after) &&
+                    !AdaptiveEvidence.weak(responses) && after.takeLast(2).all { it.at > (responses.lastOrNull { a -> !a.correct }?.at ?: 0L) } && after.any { it.retention })
                     points[key] = old.copy(resolvedAt = now)
             }
         }
@@ -47,25 +55,28 @@ object AdaptiveTraining {
             if (measurement.measured.toDouble() / measurement.total >= 0.6 && representatives.size == 7)
                 run = run.copy(sevenQualifiedAt = now, representatives = representatives)
         }
-        val window = scoped(s, view)
-        val last = window.lastOrNull()
-        val failures = window.takeLast(8)
-        val overloaded = overloaded(window)
+        val window = scoped(s, view.samples)
+        val responses = scoped(s, view.responses)
+        val last = responses.lastOrNull()
+        val failures = responses.takeLast(8)
         val newFailure = last != null && !last.correct && last.taskId != run.handledFailure
-        if (newFailure && !run.diagnosing && (overloaded || view.weak(requireNotNull(last).unit))) {
+        if (newFailure && !run.diagnosing && (overloaded(failures) || AdaptiveEvidence.weak(responses.filter { it.unit == requireNotNull(last).unit }))) {
             val affected = failures.filter { !it.correct }.takeLast(4).flatMap { diagnosticUnits(it.task, s.attempts.first { a -> a.task.id == it.taskId }) }.distinct()
             run = run.copy(generation = run.generation + 1, sinceOrdinal = nextOrdinal(s), diagnosing = true,
                 diagnosisSince = nextOrdinal(s), handledFailure = last!!.taskId, focus = affected,
                 previousLayer = if (run.layer == RecoveryLayer.REGION) run.layer else run.previousLayer,
-                layer = RecoveryLayer.LOCAL, trial = false, reason = "先巩固这几个音")
+                layer = RecoveryLayer.LOCAL, trial = false, reason = "先巩固这几个音",
+                scaffolding = last.task.adaptive?.options?.isNotEmpty() != true && last.unit.startsWith("position:"))
         } else if (run.diagnosing) {
             val sessionTasks = s.attempts.filter { it.sessionId == s.sessionId }.map { it.task.id }.toSet()
             val diagnosed = view.samples.filter { it.ordinal >= run.diagnosisSince && it.taskId in sessionTasks && (it.unit.startsWith("position:") || it.unit.startsWith("mapping:")) }
-            val basics = diagnosed.filter { it.unit.startsWith("position:") }.takeLast(8)
-            val broad = basics.size == 8 && basics.count { !it.correct } >= 4 && basics.filter { !it.correct }.map { it.target }.distinct().size >= 3
+            val diagnosisResponses = view.responses.filter { it.ordinal >= run.diagnosisSince && it.taskId in sessionTasks }
+            val basics = diagnosisResponses.filter { it.unit.startsWith("position:") }.takeLast(8)
+            val broad = overloaded(basics) && basics.filter { !it.correct }.map { it.target }.distinct().size >= 2
             val relevant = run.focus.mapNotNull { points[it] }.filter { it.confirmedAt != null && it.resolvedAt == null }
             val mappings = relevant.filter { it.unit.startsWith("mapping:") }
-            val foundationReady = run.focus.filter { it.startsWith("position:") }.all { key -> view.ready(key) && diagnosed.any { it.unit == key } }
+            val foundationReady = run.focus.filter { it.startsWith("position:") }.all { key -> view.ready(key) && diagnosed.any { it.unit == key } &&
+                !AdaptiveEvidence.weak(diagnosisResponses.filter { it.unit == key }) }
             val recoveryCoordinates = when (run.layer) {
                 RecoveryLayer.OPEN -> known.filter { it.fret == 0 && (run.focus.isEmpty() || run.focus.any { key -> key.contains("s${it.string}:") }) }
                 RecoveryLayer.NATURAL -> run.representatives
@@ -76,21 +87,28 @@ object AdaptiveTraining {
             if (mappings.isNotEmpty() && foundationReady) {
                 val excluded = mappings.map { if (it.unit.startsWith("mapping:fixed:")) AnswerRepresentation.FIXED else AnswerRepresentation.DEGREE }.toSet()
                 run = run.copy(generation = run.generation + 1, sinceOrdinal = nextOrdinal(s), diagnosing = false,
-                    layer = run.previousLayer, excluded = run.excluded + excluded, reason = "先巩固这几个音")
+                    layer = run.previousLayer, excluded = run.excluded + excluded, reason = "先巩固这几个音", scaffolding = false)
             } else if (recoveryKeys.isNotEmpty() && recoveryKeys.all { view.ready(it) } && recoveryChecks.size >= 8 && recoveryChecks.takeLast(8).count { it.correct } >= 7) {
                 // Stable simpler foundations lead back to the original local targets before the old mix.
                 run = run.copy(layer = RecoveryLayer.LOCAL, generation = run.generation + 1,
-                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s))
-            } else if (broad || run.layer == RecoveryLayer.NATURAL && basics.lastOrNull()?.let { !it.correct && view.weak(it.unit) && it.taskId != run.handledFailure } == true) {
+                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s), scaffolding = false)
+            } else if (newFailure && (broad || run.layer == RecoveryLayer.NATURAL && basics.lastOrNull()?.let { !it.correct && AdaptiveEvidence.weak(basics.filter { a -> a.unit == it.unit }) } == true) && run.layer != RecoveryLayer.OPEN) {
                 val layer = if (run.layer == RecoveryLayer.NATURAL || run.sevenQualifiedAt == null) RecoveryLayer.OPEN else RecoveryLayer.NATURAL
                 if (layer != run.layer) run = run.copy(layer = layer, generation = run.generation + 1,
-                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s), handledFailure = basics.last().taskId)
+                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s), handledFailure = basics.last().taskId, scaffolding = true)
+            } else if (run.scaffolding && AdaptiveEvidence.ready(responses.filter { it.task.adaptive?.scaffolded == true })) {
+                // Easier answers only withdraw support; original-condition retests must still pass.
+                run = run.copy(scaffolding = false, generation = run.generation + 1,
+                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s))
+            } else if (!run.scaffolding && newFailure && last!!.unit.startsWith("position:") && AdaptiveEvidence.weak(responses.filter { it.unit == last.unit })) {
+                run = run.copy(scaffolding = true, generation = run.generation + 1,
+                    sinceOrdinal = nextOrdinal(s), diagnosisSince = nextOrdinal(s), handledFailure = last.taskId)
             } else if (run.focus.isNotEmpty() && run.focus.all { key ->
                 val weak = points[key]?.takeIf { it.confirmedAt != null && it.resolvedAt == null }
                 if (weak == null) view.ready(key) && diagnosed.any { it.unit == key } else targetedRecovery(view, weak)
             }) {
                 run = run.copy(generation = run.generation + 1, sinceOrdinal = nextOrdinal(s), diagnosing = false,
-                    layer = run.previousLayer, trial = true, reason = null,
+                    layer = run.previousLayer, trial = true, reason = null, scaffolding = false,
                     mixStage = if (relevant.isEmpty() && run.focus.any { it.startsWith("mapping:") }) (run.mixStage - 1).coerceAtLeast(0) else run.mixStage)
             }
         } else if (run.trial && window.size >= 8 && window.takeLast(8).count { it.correct } >= 7) {
@@ -105,8 +123,11 @@ object AdaptiveTraining {
         result = result.copy(regionTraining = region.copy(adaptive = run))
         return result
     }
-    private fun targetedRecovery(view: AdaptiveEvidence.View, point: WeakPoint): Boolean = AdaptiveEvidence.recovered(
-        view.samples.filter { it.unit == point.unit && it.at > requireNotNull(point.confirmedAt) && it.task.adaptive?.purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS, PracticePurpose.RETEST, PracticePurpose.MAPPING) })
+    private fun targetedRecovery(view: AdaptiveEvidence.View, point: WeakPoint): Boolean {
+        val samples = view.samples.filter { it.unit == point.unit && it.at > requireNotNull(point.confirmedAt) && it.task.adaptive?.purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS, PracticePurpose.RETEST, PracticePurpose.MAPPING) }
+        val lastFailure = view.responses.lastOrNull { it.unit == point.unit && !it.correct }?.at ?: 0L
+        return AdaptiveEvidence.recovered(samples) && samples.takeLast(2).all { it.at > lastFailure }
+    }
     private fun diagnosticUnits(t: LearningTask, attempt: Attempt): List<String> {
         if (t.adaptive?.options?.isNotEmpty() != true) return listOfNotNull(AdaptiveEvidence.unit(t))
         val c = t.coordinate ?: return emptyList()
@@ -132,14 +153,16 @@ object AdaptiveTraining {
         val view = AdaptiveEvidence.View(s, now)
         val known = RegionTraining.known(s, region.regionId).distinctBy { it.second }
         val history = RegionTraining.history(s)
-        val probe = history.count { it.task.regionProbe } < region.probeSize
-        val completed = completedScorable(s, view)
+        val probe = !run.diagnosing && history.count { it.task.regionProbe } < region.probeSize
+        val responseIds = view.responses.map { it.taskId }.toSet()
+        val completed = if (run.diagnosing) s.attempts.filter { it.sessionId == s.sessionId && it.ordinal >= region.startOrdinal && it.completed && it.task.id in responseIds }
+            else completedScorable(s, view)
         val slot = completed.size % 6
         val block = completed.size / 6
         val pending = RegionTraining.region(region.regionId).nodes.firstOrNull { Curriculum.available(s, it) && !Curriculum.mastered(s, it.id) }
         val unseen = pending?.positions?.firstOrNull { "position:${it.id}" !in s.introductions }
-        fun tag(t: LearningTask, purpose: PracticePurpose, key: String? = AdaptiveEvidence.unit(t)) = t.copy(
-            regionProbe = probe, adaptive = AdaptiveTask(run.config, purpose, run.mixStage, unit = key))
+        fun tag(t: LearningTask, purpose: PracticePurpose, key: String? = AdaptiveEvidence.unit(t), supported: Boolean = false) = t.copy(
+            regionProbe = probe, adaptive = AdaptiveTask(run.config, purpose, run.mixStage, unit = key, scaffolded = supported))
         fun introduce() = tag(scheduler.makePosition(requireNotNull(pending).id, requireNotNull(unseen), Direction.NOTE_TO_POSITION, TaskSource.DEMONSTRATION)
             .copy(introductionId = "position:${unseen.id}"), PracticePurpose.NEXT)
         if (known.isEmpty()) return introduce()
@@ -149,14 +172,21 @@ object AdaptiveTraining {
                 view.lastExposure(point.target)?.let { now - it < AdaptiveEvidence.HOLD_MS } == true
         }.map { it.target }.toSet()
         val eligible = all.filter { view.eligible(it) && AdaptiveEvidence.targets(it).none { target -> target in waiting } }
-        if (unseen != null && !probe && (eligible.isEmpty() || slot == 5 && block % 3 == 2)) return introduce()
+        if (unseen != null && !probe && (!run.diagnosing || !run.scaffolding && known.size < 3) &&
+            (eligible.isEmpty() || slot == 5 && block % 3 == 2)) return introduce()
         val candidates = eligible.ifEmpty { all.filter { it.coordinate != s.attempts.lastOrNull()?.task?.coordinate }.ifEmpty { all } }
         val scopedKeys = all.mapNotNull { AdaptiveEvidence.unit(it) }.toSet()
         val weak = s.weakPoints.values.filter { it.resolvedAt == null && it.target !in waiting && (it.unit in scopedKeys || it.unit.startsWith("mapping:") && it.unit in run.focus) }
             .sortedWith(compareBy<WeakPoint> { if (it.confirmedAt != null && targetedRecovery(view, it) && (view.lastExposure(it.target)?.let { at -> now - at < AdaptiveEvidence.HOLD_MS } == true)) 2 else if (it.confirmedAt != null) 0 else 1 }.thenBy { it.observedAt })
         val blockTargets = completed.takeLast(slot).filter { it.task.adaptive?.purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS, PracticePurpose.MAPPING) }.mapNotNull { it.task.adaptive?.unit }.distinct()
-        val focused = (blockTargets + weak.map { it.unit } + run.focus.filter { key -> waiting.none { key.startsWith("$it:") } }).distinct().take(2)
-        var purpose = if (probe) PracticePurpose.COVERAGE else when (slot) {
+        val dueFocus = run.focus.filter { key ->
+            val point = s.weakPoints[key]
+            waiting.none { key.startsWith("$it:") } && (point?.resolvedAt == null &&
+                (point?.confirmedAt == null || !targetedRecovery(view, point)) || !view.ready(key))
+        }
+        val focused = (blockTargets + dueFocus + weak.map { it.unit }).distinct().take(2)
+        val firstInConfiguration = s.attempts.none { it.sessionId == s.sessionId && it.ordinal >= run.sinceOrdinal && it.task.adaptive?.config == run.config }
+        var purpose = if (run.diagnosing && firstInConfiguration) PracticePurpose.DIAGNOSIS else if (probe) PracticePurpose.COVERAGE else when (slot) {
             0, 2, 4 -> if (run.diagnosing) PracticePurpose.DIAGNOSIS else PracticePurpose.WEAK
             1, 3 -> PracticePurpose.FAMILIAR
             else -> listOf(PracticePurpose.COVERAGE, PracticePurpose.RETEST, PracticePurpose.NEXT)[block % 3]
@@ -170,10 +200,12 @@ object AdaptiveTraining {
                 return if (point?.confirmedAt != null && point.taughtAt == null) tag(t.copy(source = TaskSource.DEMONSTRATION), purpose, key) else tag(t, purpose, key)
             }
         }
-        val local = candidates.filter { AdaptiveEvidence.unit(it) in focused }
+        // Supported practice is not a mastery test and must not vanish behind the exposure gate.
+        val recoveryCandidates = if (run.scaffolding) all else candidates
+        val local = recoveryCandidates.filter { AdaptiveEvidence.unit(it) in focused }
         val recoveryPool = when (run.layer) {
-            RecoveryLayer.NATURAL -> candidates.filter { it.coordinate in run.representatives }
-            RecoveryLayer.OPEN -> candidates.filter { task -> val c = requireNotNull(task.coordinate); c.fret == 0 && (run.focus.isEmpty() || run.focus.any { key -> key.contains("s${c.string}:") }) }.ifEmpty { candidates.filter { it.coordinate?.fret == 0 } }
+            RecoveryLayer.NATURAL -> recoveryCandidates.filter { it.coordinate in run.representatives }
+            RecoveryLayer.OPEN -> recoveryCandidates.filter { task -> val c = requireNotNull(task.coordinate); c.fret == 0 && (run.focus.isEmpty() || run.focus.any { key -> key.contains("s${c.string}:") }) }.ifEmpty { recoveryCandidates.filter { it.coordinate?.fret == 0 } }
             else -> local
         }
         val familiar = candidates.filter { AdaptiveEvidence.unit(it)?.let { key -> view.ready(key) } == true }
@@ -187,17 +219,38 @@ object AdaptiveTraining {
             val evidence = view.unit(requireNotNull(AdaptiveEvidence.unit(t)))
             when (purpose) {
                 PracticePurpose.COVERAGE, PracticePurpose.NEXT -> evidence.size.toLong() * AdaptiveEvidence.HOLD_MS + (view.lastExposure(AdaptiveEvidence.targets(t).first()) ?: 0L)
-                else -> evidence.lastOrNull()?.at ?: 0L
+                else -> view.responses.lastOrNull { it.unit == AdaptiveEvidence.unit(t) }?.at ?: 0L
             }
         }
         val key = requireNotNull(AdaptiveEvidence.unit(pick))
         val point = s.weakPoints[key]
-        if (!probe && purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS) && point?.confirmedAt != null && point.resolvedAt == null && point.taughtAt == null)
-            return tag(pick.copy(source = TaskSource.DEMONSTRATION), purpose, key)
+        val supported = run.scaffolding && purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS)
+        val practice = if (supported) simplify(s, pick, known.map { it.second }, random) else pick
+        if (!probe && purpose in listOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS) && point != null &&
+            (point.confirmedAt != null || supported) && point.resolvedAt == null && point.taughtAt == null)
+            return tag(practice.copy(source = TaskSource.DEMONSTRATION), purpose, key, supported)
+        if (supported) return tag(practice, purpose, key, true)
         val widened = if (run.wide && run.layer == RecoveryLayer.REGION && view.ready(key) && pick.direction == Direction.NOTE_TO_POSITION) pick.copy(
             range = PhysicalRange(0, 12, setOf(requireNotNull(pick.coordinate).string)),
             constraint = AnswerConstraint(ConstraintKind.PITCH, midi = MusicFacts.midi(pick.coordinate.string, pick.coordinate.fret))) else pick
         return tag(widened, purpose, key)
+    }
+    private fun simplify(s: LearnerState, task: LearningTask, known: List<Coordinate>, random: Random): LearningTask {
+        val c = requireNotNull(task.coordinate)
+        if (task.direction == Direction.POSITION_TO_NOTE) {
+            val correct = requireNotNull(task.constraint.symbol)
+            val confusion = s.attempts.asReversed().firstNotNullOfOrNull { a ->
+                AdaptiveEvidence.firstInput(a)?.takeIf { a.task.coordinate == c && it.result == ClickResult.WRONG }?.symbol
+                    ?.takeIf { it in task.options && it != correct }
+            }
+            val other = confusion ?: task.options.firstOrNull { it != correct } ?: return task
+            return task.copy(options = listOf(correct, other).shuffled(random))
+        }
+        // Keep the whole neck visible and state the smaller answer range explicitly.
+        val companion = known.filter { it.string == c.string && it != c && task.range.contains(it) }.minByOrNull { kotlin.math.abs(it.fret - c.fret) }
+        val otherFret = companion?.fret ?: if (c.fret > task.range.firstFret) c.fret - 1 else c.fret + 1
+        val range = task.range.copy(firstFret = minOf(c.fret, otherFret), lastFret = maxOf(c.fret, otherFret))
+        return task.copy(range = range, prompt = "在第${c.string}弦的${range.firstFret}–${range.lastFret}品内找到 ${MusicFacts.note(c.string, c.fret)}")
     }
     fun mappingTask(unit: String): LearningTask? {
         if (!unit.startsWith("mapping:")) return null

@@ -6,7 +6,8 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
-- 当前应用版本：**2.0.0-alpha19（versionCode 36，P6 施工分支）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。P6 接续尚未合并的 PR #55；main 的合并事实仍以远端为准。适配维度与验证路径见 [P6 记录](docs/p6-alpha19.md)。
+- 当前应用版本：**2.0.0-alpha21（versionCode 38，P3 + P6 整合分支）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。同时包含 v36 的 P6（PR #56）与 v37 的 P3 返工（PR #57），以及共同基线 PR #55；main 的合并事实仍以远端为准。整合边界见 [整合记录](docs/p3-p6-alpha21.md)。
+- 指板首错可即时触发局部补教：认音缩成两个选项，找位缩小答题范围，撤辅助后再验证恢复；读谱、和弦、关系、听辨与转换保留 P6 的逐成员证据和各自配置。历史交付分别见 [P6 记录](docs/p6-alpha19.md) 与 [P3 返工记录](docs/p3-downgrade-alpha20.md)。
 - alpha04 从 `c1b06f6`（PR #40 后的 main）接续，实现 [R1 区域折叠与四套主题](docs/r1-regions-themes.md)。alpha03 的 PR #37–#39 与 legacy 边界整理已完成；接手时仍需获取远端最新 `main`。
 - 已完成 Draft 0.4 的 A+B：统一判题、首个学习闭环、Room 学习档案、知识树、备份恢复与长期签名；alpha02/03 已继续修正指板和页面。
 - 首页为「吉他入门／指板训练／进阶应用／知识树」四入口；吉他入门收纳认识吉他、基础认识和读谱入门。课程前置条件由节点决定，首页分类顺序不等于整类课程的通关顺序。

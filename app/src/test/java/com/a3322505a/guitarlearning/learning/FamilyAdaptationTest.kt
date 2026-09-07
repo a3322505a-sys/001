@@ -89,6 +89,7 @@ class FamilyAdaptationTest {
         assertEquals(listOf(true, false, true), s.attempts.single().members.map { it.firstCorrect })
         assertEquals(listOf(true, true, false), s.attempts.single().members.map { it.firstUnassisted })
         assertEquals(listOf(true, false), AdaptiveEvidence.View(s, 51).samples.map { it.correct })
+        assertEquals(listOf(true, false), AdaptiveEvidence.View(s, 51).responses.map { it.correct })
         assertEquals(s, LearningCodec.decode(LearningCodec.encode(s)))
     }
 
@@ -203,7 +204,61 @@ class FamilyAdaptationTest {
         val restored = LearningCodec.decode(legacy)
         assertEquals(state, restored)
         assertTrue(AdaptiveEvidence.View(restored, 20).samples.isEmpty())
+        assertTrue(AdaptiveEvidence.View(restored, 20).responses.isEmpty())
         assertNull(restored.attempts.single().members.single().firstUnassisted)
+    }
+
+    @Test fun regionDowngradeAndPausedFamilyRecoverySurviveOneProfileRoundTrip() {
+        val task = cases().first()
+        var family = finish(profile(task.nodeId), task, false, gap)
+        family = finish(family, task, false, gap * 2)
+        family = AdaptiveEvidence.present(family.copy(active = null), scheduler.next(family.copy(active = null), gap * 3), gap * 3)
+        val familyTask = family.active
+        val familyRuns = family.familyRuns
+        val members = family.attempts.flatMap { it.members }
+        var region = co.startRegion(family, "LOW", gap * 4)
+        val position = scheduler.makePosition("p01", Coordinate(1, 0), Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+        repeat(2) { index ->
+            val at = gap * 4 + index * 10 + 1
+            region = AdaptiveEvidence.present(region, position.copy(id = newId(), adaptive = AdaptiveTask(
+                region.regionTraining!!.adaptive.config, PracticePurpose.NORMAL, unit = AdaptiveEvidence.unit(position))), at)
+            region = co.answer(region, symbol = "F", now = at + 1)
+            region = co.answer(region, symbol = "E", now = at + 2)
+        }
+        assertTrue(region.regionTraining!!.adaptive.scaffolding)
+        region = co.next(region, region.active!!.task.id, gap * 4 + 30)
+        assertTrue(region.active!!.task.adaptive!!.scaffolded)
+        val regionTask = region.active
+        val regionRun = region.regionTraining
+        val returned = co.start(LearningCodec.decode(LearningCodec.encode(region)), task.nodeId, gap * 4 + 40)
+        assertEquals(familyTask, returned.active)
+        assertEquals(familyRuns, returned.familyRuns)
+        assertEquals(members, returned.attempts.flatMap { it.members })
+        val reentered = co.startRegion(LearningCodec.decode(LearningCodec.encode(returned)), "LOW", gap * 4 + 50)
+        assertEquals(regionTask, reentered.active)
+        assertEquals(regionRun, reentered.regionTraining)
+        assertEquals(familyRuns, reentered.familyRuns)
+    }
+
+    @Test fun eitherPreIntegrationFormatRestoresItsOwnAdaptiveState() {
+        fun without(element: JsonElement, keys: Set<String>): JsonElement = when (element) {
+            is JsonObject -> JsonObject(element.filterKeys { it !in keys }.mapValues { without(it.value, keys) })
+            is JsonArray -> JsonArray(element.map { without(it, keys) })
+            else -> element
+        }
+        val task = cases().first()
+        val v36 = finish(profile(task.nodeId), task, false, gap)
+        val old36 = without(LearningCodec.json.parseToJsonElement(LearningCodec.encode(v36)), setOf("scaffolded", "scaffolding"))
+        assertEquals(v36, LearningCodec.decode(old36.toString()))
+
+        val position = scheduler.makePosition("p01", Coordinate(1, 0), Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+            .copy(options = listOf("E", "F"), adaptive = AdaptiveTask(AdaptiveRun(scaffolding = true).config,
+                PracticePurpose.DIAGNOSIS, scaffolded = true))
+        val v37 = profile("p01").copy(active = ActiveTask(position), regionTraining = RegionRun("LOW", 1, 0,
+            adaptive = AdaptiveRun(diagnosing = true, scaffolding = true)))
+        val old37 = without(LearningCodec.json.parseToJsonElement(LearningCodec.encode(v37)), setOf("familyRuns", "familyScope", "explanationTargets"))
+        assertEquals(v37, LearningCodec.decode(old37.toString()))
+        assertTrue(LearningCodec.decode(old37.toString()).active!!.task.adaptive!!.scaffolded)
     }
 
     @Test fun readingDoesNotTreatOneIntroPhraseAsTeachingAllSixNotes() {
