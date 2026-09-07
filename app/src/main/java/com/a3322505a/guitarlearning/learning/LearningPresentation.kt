@@ -7,8 +7,9 @@ enum class FretboardRegion(val title: String, val rangeLabel: String, val nodeId
     FULL("全指板", "0–12 品", listOf("full") + (2..7).map { "h0$it" });
 
     val nodes: List<CurriculumNode> get() = nodeIds.map(Curriculum::node)
-    fun progressLabel(state: LearnerState): String = if (nodes.none { it.implemented }) "规划中"
-        else "${nodes.count { Curriculum.mastered(state, it.id) }}/${nodes.size} 已掌握"
+    fun progressLabel(state: LearnerState, now: Long = System.currentTimeMillis()): String =
+        AdaptiveEvidence.View(state, now).region(this).label
+
 }
 
 enum class NodeVisualState(val symbol: String, val label: String) {

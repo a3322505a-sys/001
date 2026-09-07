@@ -16,6 +16,99 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun downgradeTriggerCommitsAtomicallyAndSurvivesReopen() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "downgrade-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val session = LearningSession(startedAt = 1)
+        val task = LessonScheduler().makePosition("p01", Coordinate(1, 0), Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+            .copy(evidenceVersion = 1, adaptive = AdaptiveTask(AdaptiveRun().config, PracticePurpose.NORMAL))
+        var saved = repo.commit(repo.load(), LearnerState(currentNode = "p01", sessionId = session.id, sessions = listOf(session),
+            active = ActiveTask(task), regionTraining = RegionRun("LOW", 1, 0)))
+        saved = repo.commit(saved, co.answer(saved, symbol = "F", now = 100))
+        saved = repo.commit(saved, saved.copy(active = ActiveTask(task.copy(id = newId()))))
+        val changed = co.answer(saved, symbol = "F", now = 200)
+        assertTrue(changed.regionTraining!!.adaptive.scaffolding)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_downgrade BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved, changed) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_downgrade")
+        saved = repo.commit(saved, changed)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(2, db.learningDao().attemptCount())
+        val malformed = saved.copy(regionTraining = saved.regionTraining!!.copy(adaptive = saved.regionTraining!!.adaptive.copy(diagnosing = false)))
+        assertFails { repo.restore(saved, LearningCodec.encode(malformed)) }
+        assertEquals(saved, repo.load())
+        db.close(); context.deleteDatabase(name)
+    }
+    @Test fun familyMemberFailureAndConfigurationCommitAtomicallyAndRestoreRejectsInvalidRun() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "family-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val initial = repo.load()
+        val session = LearningSession(startedAt = 1)
+        val base = initial.copy(currentNode = "tab02", sessionId = session.id, sessions = listOf(session),
+            introductions = setOf("reading:tab02:intro"))
+        val seed = ReadingLessons.phrase("tab02", ReadingLessons.positions.take(3), TaskSource.MAIN)
+        val scope = FamilyAdaptation.scope(base, seed)
+        val task = seed.copy(adaptive = AdaptiveTask(AdaptiveRun(mixStage = 1).config, PracticePurpose.NORMAL, 1, familyScope = scope))
+        val started = repo.commit(initial, AdaptiveEvidence.present(base, task, 10))
+        val changed = LearningCoordinator().answer(started, coordinate = Coordinate(1, 2), now = 20)
+        assertEquals(1, changed.weakPoints.size)
+        assertEquals(1, changed.attempts.single().members.size)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_family BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(started, changed) }
+        assertEquals(started, repo.load())
+        assertEquals(0, db.learningDao().evidenceCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_family")
+        val saved = repo.commit(started, changed)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().evidenceCount())
+        assertFails { repo.commit(started, changed) }
+        val bad = saved.copy(familyRuns = saved.familyRuns.mapValues { (_, c) -> c.copy(run = c.run.copy(mixStage = 2)) })
+        assertFails { repo.restore(saved, LearningCodec.encode(bad)) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
+    @Test fun adaptiveFailureAndExposureRollBackTogetherAndMalformedRestoreKeepsTheProfile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "adaptive-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val initial = repo.load()
+        val c = Coordinate(1, 0)
+        val task = LessonScheduler().makePosition("p01", c, Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+            .copy(evidenceVersion = 1, adaptive = AdaptiveTask(AdaptiveRun().config, PracticePurpose.NORMAL))
+        val session = LearningSession(startedAt = 1)
+        val started = repo.commit(initial, initial.copy(currentNode = "p01", sessionId = session.id,
+            sessions = listOf(session), active = ActiveTask(task), regionTraining = RegionRun("LOW", 1, 0)))
+        val next = LearningCoordinator().answer(started, symbol = task.options.first { it != task.constraint.symbol }, now = 2000)
+        assertFalse(next.attempts.single().firstCorrect!!)
+        assertTrue(next.knowledgeExposures.isNotEmpty())
+        assertTrue(next.weakPoints.isNotEmpty())
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_adaptive BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(started, next) }
+        assertEquals(started, repo.load())
+        assertEquals(0, db.learningDao().attemptCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_adaptive")
+        val saved = repo.commit(started, next)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(listOf(false), AdaptiveEvidence.View(repo.load(), 2001).samples.map { it.correct })
+        assertFails { repo.commit(started, next) }
+        val bad = saved.copy(regionTraining = saved.regionTraining!!.copy(adaptive = AdaptiveRun(mixStage = 4)))
+        assertFails { repo.restore(saved, LearningCodec.encode(bad)) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun closeReopenKeepsTaskProfileSettingsAndEvidenceExactlyOnce() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "test-${newId()}.db"
@@ -310,6 +403,33 @@ class LearningRepositoryTest {
         val damaged = saved.copy(pausedTraining = saved.pausedTraining!!.copy(sessionId = "missing-session"))
         assertFails { repo.restore(saved, LearningCodec.encode(damaged)) }
         assertEquals(saved, repo.load())
+        db.close(); context.deleteDatabase(name)
+    }
+
+    @Test fun roundEndAndContinuationRollBackTogetherThenRetryOnce() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "round-end-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val base = LearnerState(progress = Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions = Curriculum.nodes.flatMap { it.positions }.map { "position:${it.id}" }.toSet())
+        val active = co.startRegion(base, "LOW", 10).let { it.copy(regionTraining = it.regionTraining!!.copy(
+            adaptive = AdaptiveRun(diagnosing = true, scaffolding = true, generation = 2))) }
+        val saved = repo.commit(repo.load(), active)
+        val ended = co.end(saved, 20)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_end BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved, ended) }
+        assertEquals(saved, repo.load())
+        assertNull(repo.load().sessions.last().endedAt)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_end")
+        val committed = repo.commit(saved, ended)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(committed, repo.load())
+        assertEquals(committed, co.end(committed, 30))
+        val restarted = co.startRegion(repo.load(), "LOW", 40)
+        assertTrue(restarted.regionTraining!!.adaptive.scaffolding)
+        assertEquals(1, restarted.active!!.task.roundSlot)
         db.close(); context.deleteDatabase(name)
     }
 

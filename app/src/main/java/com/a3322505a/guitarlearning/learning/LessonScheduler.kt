@@ -5,8 +5,12 @@ import kotlin.random.Random
 
 class LessonScheduler(private val random: Random = Random.Default) {
     fun next(state: LearnerState, now: Long): LearningTask {
+        return FamilyAdaptation.next(state, originalNext(state, now), random, now)
+    }
+
+    private fun originalNext(state: LearnerState, now: Long): LearningTask {
         if (state.practice != null) return PracticeLessons.next(state, this, random)
-        if (state.regionTraining != null) return RegionTraining.next(state, this, random)
+        if (state.regionTraining != null) return RegionTraining.next(state, this, random, now)
         val node = Curriculum.node(state.currentNode)
         val source = if (state.reviewMode) TaskSource.REVIEW else TaskSource.MAIN
         if (node.id in StructureLessons.ids) return StructureLessons.next(state, node.id, source, random)

@@ -5,8 +5,8 @@ import kotlin.test.*
 class LearningPresentationTest {
     @Test fun regionsCountTheirActualNodesAndKeepPrerequisites() {
         val s = LearnerState(progress = listOf("p01", "p02", "p03").associateWith { NodeProgress(masteredAt = 1L) })
-        assertEquals("3/9 已掌握", FretboardRegion.LOW.progressLabel(s))
-        assertEquals("0/8 已掌握", FretboardRegion.MIDDLE.progressLabel(s))
+        assertEquals("音位熟练度 · 评估中", FretboardRegion.LOW.progressLabel(s))
+        assertEquals("音位熟练度 · 评估中", FretboardRegion.MIDDLE.progressLabel(s))
         assertEquals("0–12 品", FretboardRegion.FULL.rangeLabel)
         assertEquals(Curriculum.nodes.filter { it.category == Category.FRETBOARD }.map { it.id }.toSet(),
             FretboardRegion.entries.flatMap { it.nodeIds }.toSet())

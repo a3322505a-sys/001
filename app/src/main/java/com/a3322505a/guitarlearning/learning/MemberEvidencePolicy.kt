@@ -11,11 +11,14 @@ object MemberEvidencePolicy {
         val previous = members.firstOrNull { it.index == index }
         val member = if (previous != null) previous.copy(completed = previous.completed || result != ClickResult.WRONG, coordinate = if (result != ClickResult.WRONG) coordinate else previous.coordinate)
         else TargetEvidence(index, skill, task.direction, if (result != ClickResult.WRONG) coordinate else null, result != ClickResult.WRONG,
-            independent(state, active, skill), now, result != ClickResult.WRONG)
+            independent(state, active, skill), now, result != ClickResult.WRONG,
+            firstUnassisted = !task.guided && active.hintLevel == 0 && !active.hintRequested && active.phase == Phase.ANSWERING)
         return if (previous == null) members + member else members.map { if (it.index == index) member else it }
     }
 
     private fun independent(state: LearnerState, active: ActiveTask, skill: String): Boolean {
+        // A reduced phrase diagnoses its members; it does not pass the original full task.
+        if (active.task.adaptive?.familyScope != null && active.task.adaptive.stage == 0) return false
         if (active.task.guided || active.hintLevel > 0 || active.phase != Phase.ANSWERING) return false
         val viewed = active.task.chord?.let { state.viewedSkills["chord:${it.id}"] }
         if (viewed != null && state.attempts.count { it.ordinal > viewed } < 3) return false

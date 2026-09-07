@@ -44,12 +44,12 @@ class TrainingAudioIntegrationTest {
     }
     private fun drainUntil(check: () -> Boolean) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(6)
-        while (!check() && System.nanoTime() < deadline) { shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(5) }
+        while (!check() && System.nanoTime() < deadline) { shadowOf(Looper.getMainLooper()).idleFor(10, TimeUnit.MILLISECONDS); Thread.sleep(5) }
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue("asynchronous operation timed out", check())
     }
     private fun state(task: LearningTask) = LearnerState(currentNode = task.nodeId, active = ActiveTask(task), sessionId = "s", sessions = listOf(LearningSession("s", 1)))
-    private fun run(task: LearningTask, sound: Boolean = true, body: (TrainingViewModel, MemoryRepository, FakeOutput) -> Unit) {
+    private fun run(task: LearningTask, sound: Boolean = true, rendered: Boolean = true, body: (TrainingViewModel, MemoryRepository, FakeOutput) -> Unit) {
         val repo = MemoryRepository(state(task).copy(soundEnabled = sound))
         val output = FakeOutput()
         val model = TrainingViewModel(ApplicationProvider.getApplicationContext<Application>(), repo, output)
@@ -57,13 +57,51 @@ class TrainingAudioIntegrationTest {
         try {
             drainUntil { model.state.value != null && !model.busy.value }
             model.foreground(true); model.pageVisible("training")
-            drainUntil { !model.busy.value }
+            if (rendered) model.taskDisplayed(task.id)
+            drainUntil { !model.busy.value && (!rendered || !sound || TaskAudioPolicy.prompt(ActiveTask(task)) == null || output.requests.isNotEmpty()) }
             body(model, repo, output)
         } finally { model.foreground(false); store.clear() }
     }
     private fun reverse() = LearningTask(id = "b3", nodeId = "p09", skillId = "b3", coordinate = Coordinate(3, 4),
         direction = Direction.POSITION_TO_NOTE, prompt = "这是什么音", explanation = "B3",
         constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "B"), options = listOf("A", "B"))
+
+    @Test fun autoplayWaitsForDisplayAndFourHundredMilliseconds() = run(reverse(), rendered = false) { model, _, output ->
+        assertTrue(output.requests.isEmpty())
+        model.taskDisplayed("b3")
+        shadowOf(Looper.getMainLooper()).idleFor(399, TimeUnit.MILLISECONDS)
+        assertTrue(output.requests.isEmpty())
+        shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.MILLISECONDS)
+        assertEquals(1, output.requests.size)
+    }
+    @Test fun answerAndManualPlaybackCancelPendingAutoplay() {
+        run(reverse(), rendered = false) { model, _, output ->
+            model.taskDisplayed("b3")
+            model.answer("b3", symbol = "B")
+            drainUntil { !model.busy.value }
+            shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.SECONDS)
+            assertTrue(output.requests.isEmpty())
+        }
+        run(reverse(), rendered = false) { model, _, output ->
+            model.taskDisplayed("b3"); model.replay("b3")
+            assertEquals(1, output.requests.size)
+            shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.SECONDS)
+            assertEquals(1, output.requests.size)
+        }
+    }
+    @Test fun backgroundAndSoundOffCancelPendingAutoplay() {
+        run(reverse(), rendered = false) { model, _, output ->
+            model.taskDisplayed("b3"); model.foreground(false)
+            shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.SECONDS)
+            assertTrue(output.requests.isEmpty())
+        }
+        run(reverse(), rendered = false) { model, _, output ->
+            model.taskDisplayed("b3"); model.sound(false)
+            drainUntil { !model.busy.value }
+            shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.SECONDS)
+            assertTrue(output.requests.isEmpty())
+        }
+    }
 
     @Test fun reverseAuditionDoesNotWriteAnswersAndWorksDuringSave() = run(reverse()) { model, repo, output ->
         assertEquals(1, output.requests.size)
@@ -131,4 +169,31 @@ class TrainingAudioIntegrationTest {
         assertEquals(1, output.requests.size) // only public reference, never the full chord
         assertEquals(0, model.state.value!!.active!!.hintLevel)
     }
+    @Test fun backDuringSaveWaitsAndEndsExactlyOnceAfterRetry() = run(reverse(), sound = false) { model, repo, _ ->
+        val gate = CountDownLatch(1)
+        repo.block = gate
+        repo.fail = true
+        model.answer("b3", symbol = "B")
+        var exits = 0
+        model.end { exits++ }
+        model.end { exits++ }
+        assertEquals(0, exits)
+        gate.countDown()
+        drainUntil { !model.busy.value && model.error.value != null }
+        assertEquals("s", model.state.value!!.sessionId)
+        assertEquals(0, exits)
+        model.dismissError()
+        model.end { exits++ }
+        assertEquals("s", model.state.value!!.sessionId)
+        assertNotNull(model.error.value)
+        repo.fail = false
+        repo.block = null
+        model.retry()
+        drainUntil { exits == 1 && !model.busy.value }
+        assertNull(model.state.value!!.sessionId)
+        assertEquals(1, model.state.value!!.attempts.size)
+        assertTrue(model.state.value!!.attempts.single().firstCorrect == true)
+        assertEquals(1, model.state.value!!.sessions.count { it.endedAt != null })
+    }
+
 }

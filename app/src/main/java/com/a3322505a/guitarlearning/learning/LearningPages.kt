@@ -78,7 +78,7 @@ internal fun NodeRow(node: NodeRowUi, onClick: (() -> Unit)? = null, start: (() 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(node.title, color = pair.ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             if (status == NodeVisualState.REVIEW) {
-                Text("需复习 · 已掌握", color = colors.review.ink, fontSize = 12.sp,
+                Text("需复习", color = colors.review.ink, fontSize = 12.sp,
                     modifier = Modifier.background(colors.review.background).padding(horizontal = 6.dp, vertical = 3.dp))
             } else Text(node.statusLabel,
                 color = pair.ink, fontSize = 12.sp)
@@ -135,10 +135,8 @@ internal fun CatalogContent(state: CatalogUiState, start: (String) -> Unit, deta
 @Composable
 internal fun TreeContent(rows: List<NodeRowUi>, detail: (String) -> Unit, history: () -> Unit) {
     val colors = LocalGuitarColors.current
-    Text("绿色已掌握 · 蓝色可学习 · 灰色未解锁 · 虚线规划中", fontSize = 13.sp, color = colors.muted)
     OutlinedButton(onClick = history) { Text("查看练习历史") }
     rows.forEach { row ->
-        if (row.prerequisites.isNotEmpty()) Text("来自：${row.prerequisites} ↓", fontSize = 12.sp, color = colors.muted)
         NodeRow(row, { detail(row.id) })
     }
 }

@@ -80,6 +80,10 @@ data class LearningTask(
     val chordProgression: List<List<Int>> = emptyList(),
     val auditoryScore: ShortScore? = null,
     val referenceScore: ShortScore? = null,
+    val evidenceVersion: Int = 0,
+    val adaptive: AdaptiveTask? = null,
+    val explanationTargets: Set<String> = emptySet(),
+    val roundSlot: Int? = null,
 ) {
     val guided: Boolean get() = source == TaskSource.DEMONSTRATION || source == TaskSource.PREVIEW
 }
@@ -106,6 +110,7 @@ data class ActiveTask(
     val feedback: String = "",
     val hintRequested: Boolean = false,
     val audioReady: Boolean = false,
+    val firstUnassisted: Boolean? = null,
 )
 
 @Serializable
@@ -125,17 +130,19 @@ data class Attempt(
     val policyVersion: Int = 1,
     val members: List<TargetEvidence> = emptyList(),
     val audioPlayed: Boolean = false,
+    val firstUnassisted: Boolean? = null,
 )
 
 @Serializable
 data class TargetEvidence(val index: Int, val skillId: String, val direction: Direction, val coordinate: Coordinate?,
-    val firstCorrect: Boolean, val independent: Boolean, val at: Long, val completed: Boolean)
+    val firstCorrect: Boolean, val independent: Boolean, val at: Long, val completed: Boolean,
+    val firstUnassisted: Boolean? = null)
 
 @Serializable
 data class NodeProgress(val masteredAt: Long? = null, val retainedOn: String? = null, val needsReview: Boolean = false)
 
 @Serializable
-data class LearningSession(val id: String = newId(), val startedAt: Long, val endedAt: Long? = null, val mode: String = "learning")
+data class LearningSession(val id: String = newId(), val startedAt: Long, val endedAt: Long? = null, val mode: String = "learning", val endReason: String? = null, val regionId: String? = null)
 
 @Serializable enum class PracticeKind(val title: String) {
     POSITION_MIXED("音位双向混合"), FIND_POSITION("音名找位置"), NAME_NOTE("看位置认音名"),
@@ -144,7 +151,7 @@ data class LearningSession(val id: String = newId(), val startedAt: Long, val en
 @Serializable data class PracticePlan(val nodeIds: List<String>, val kind: PracticeKind)
 @Serializable data class SuspendedLesson(val currentNode: String, val sessionId: String?, val active: ActiveTask?, val reviewMode: Boolean)
 
-@Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int)
+@Serializable data class RegionRun(val regionId: String, val startOrdinal: Int, val probeSize: Int, val adaptive: AdaptiveRun = AdaptiveRun(), val roundEnabled: Boolean = false, val issuedTasks: List<String> = emptyList())
 
 /** Paused task context only; attempts, progress and material exposure remain in the one profile. */
 @Serializable data class PausedTraining(
@@ -184,6 +191,10 @@ data class LearnerState(
     val physicalReports: List<PhysicalReport> = emptyList(),
     val pausedTraining: PausedTraining? = null,
     val pausedRegions: Map<String, PausedTraining> = emptyMap(),
+    val knowledgeExposures: List<KnowledgeExposure> = emptyList(),
+    val weakPoints: Map<String, WeakPoint> = emptyMap(),
+    val familyRuns: Map<String, FamilyContext> = emptyMap(),
+    val regionContinuations: Map<String, AdaptiveRun> = emptyMap(),
 )
 
 data class CurriculumNode(

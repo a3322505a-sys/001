@@ -108,4 +108,44 @@ class TrainingContractsTest {
         assertEquals(TrainingUiAdapter.training(state, false, AudioUiState()).relation?.lines,
             TrainingUiAdapter.training(state.copy(active = ActiveTask(ear, audioReady = true)), false, AudioUiState()).relation?.lines)
     }
+    @Test fun correctionRevealsTargetAndOnlyAnActuallyTaughtAnchorEvenForOldSnapshots() {
+        val t = position().copy(direction = Direction.POSITION_TO_NOTE,
+            constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "B"), options = listOf("A", "B"),
+            explanation = "旧快照中的长讲解不应显示")
+        val a = ActiveTask(t, phase = Phase.CORRECTING, firstCorrect = false,
+            inputs = listOf(InputRecord(100, symbol = "A", result = ClickResult.WRONG)))
+        val s = LearnerState(active = a, introductions = setOf("position:s3:f0", "position:s3:f2"))
+        val ui = TrainingUiAdapter.training(s, false, AudioUiState())
+        assertEquals("B", ui.board!!.marks.single { it.coordinate == Coordinate(3, 4) }.label)
+        assertEquals("A", ui.board.marks.single { it.coordinate == Coordinate(3, 2) }.label)
+        assertFalse(ui.board.marks.any { it.coordinate == Coordinate(3, 0) })
+        assertEquals("向右两品，升高一个全音。", ui.message)
+        val exposed = CorrectionPresentation.expose(s, a, 100).knowledgeExposures.map { it.target }.toSet()
+        assertTrue("position:s3:f2" in exposed)
+        assertFalse("position:s3:f0" in exposed)
+        assertEquals(1, TrainingUiAdapter.training(s.copy(introductions = emptySet()), false, AudioUiState()).board!!.marks.size)
+        assertEquals("?", TrainingUiAdapter.training(s.copy(active = ActiveTask(t)), false, AudioUiState()).board!!.marks.single().label)
+    }
+
+    @Test fun tabMemberCorrectionDoesNotExposeUnshownFutureMembers() {
+        val t = ReadingLessons.phrase("tab02", listOf(Coordinate(1, 0), Coordinate(1, 1)), TaskSource.MAIN)
+        val a = ActiveTask(t, phase = Phase.CORRECTING, firstCorrect = false)
+        val s = LearnerState(active = a)
+        val exposed = CorrectionPresentation.expose(s, a, 100).knowledgeExposures.map { it.target }
+        assertTrue("skill:${t.targetSkillIds[0]}" in exposed)
+        assertFalse("skill:${t.targetSkillIds[1]}" in exposed)
+        assertEquals("按谱线找弦，按数字找品。", CorrectionPresentation.message(a, emptySet()))
+    }
+
+    @Test fun mappingCorrectionKeepsTheSameFactInBothDirections() {
+        for (d in MappingLessons.fixedDirections) {
+            val t = MappingLessons.make("B", d, TaskSource.MAIN)
+            assertEquals("B 对应固定唱名 Si。", CorrectionPresentation.message(ActiveTask(t), emptySet()))
+        }
+        for (d in MappingLessons.degreeDirections) {
+            val t = MappingLessons.make("E", d, TaskSource.MAIN)
+            assertEquals("C大调：E 是第3级。", CorrectionPresentation.message(ActiveTask(t), emptySet()))
+        }
+    }
+
 }

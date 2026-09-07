@@ -26,14 +26,16 @@ class GuitarSampler(private val load: (Int) -> ByteArray) {
             sample(root) to (22050.0 / sampleRate * 2.0.pow((p.noteNumber - root) / 12.0))
         }
         val count = sampleRate * durationMs / 1000
-        val release = minOf(count / 3, sampleRate * 35 / 1000).coerceAtLeast(1)
+        val release = minOf(count / 3, sampleRate * 60 / 1000).coerceAtLeast(1)
         val mix = DoubleArray(count) { i ->
             val value = voices.sumOf { (wave, step) ->
                 val at = i * step
                 val index = at.toInt()
                 if (index >= wave.lastIndex) 0.0 else wave[index] + (wave[index + 1] - wave[index]) * (at - index)
             } / sqrt(voices.size.toDouble())
-            val envelope = minOf(1.0, i / (sampleRate * 0.002), (count - i - 1).toDouble() / release).coerceAtLeast(0.0)
+            val attack = (i / (sampleRate * 0.008)).coerceIn(0.0, 1.0)
+            val tail = ((count - i - 1).toDouble() / release).coerceIn(0.0, 1.0)
+            val envelope = (attack * attack * (3 - 2 * attack)) * (tail * tail * (3 - 2 * tail))
             value * envelope
         }
         // Shared mix gain preserves voicing; headroom prevents integer wrap or chord clipping.

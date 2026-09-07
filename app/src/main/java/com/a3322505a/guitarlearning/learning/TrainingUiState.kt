@@ -53,6 +53,8 @@ data class TrainingUiState(
     val canReplay: Boolean = false,
     val audio: AudioUiState = AudioUiState(),
     val pilot: PilotControlsUi? = null,
+    val accessibilityPrompt: String = title,
+    val roundProgress: String? = null,
 )
 sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
