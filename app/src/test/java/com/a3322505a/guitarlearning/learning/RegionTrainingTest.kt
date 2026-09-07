@@ -107,7 +107,7 @@ class RegionTrainingTest {
             repeat(15) {
                 val t = s.active!!.task
                 assertTrue(t.nodeId in RegionTraining.nodes(region.name).map { it.id })
-                assertTrue(Curriculum.available(s, Curriculum.node(t.nodeId)))
+                assertTrue(RegionProgression.available(s, Curriculum.node(t.nodeId)))
                 if (!t.guided) assertTrue("position:${t.coordinate!!.id}" in s.introductions)
                 s = finish(s)
             }

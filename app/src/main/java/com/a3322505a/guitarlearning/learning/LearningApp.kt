@@ -42,7 +42,7 @@ fun LearningApp(model: TrainingViewModel) {
         activity.setTrainingImmersive(page == "training")
         onDispose { activity.setTrainingImmersive(false) }
     }
-    SideEffect { activity.requestedOrientation = if (page == "training") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+    SideEffect { activity.requestedOrientation = if (page == "training" || page == "chord-examples") ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
     val back: () -> Unit = { if (page == "training" && state?.pilot == null) model.end(state?.sessionId) { page = returnPage } else page = when {
         page == "training" -> returnPage
         page.startsWith("node:") -> nodeReturnPage
@@ -151,6 +151,7 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
             is TrainingEvent.Position -> model.positionTapped(event.tap)
             is TrainingEvent.Answer -> model.answer(id, symbol = event.symbol)
             is TrainingEvent.Fingering -> model.fingering(event.id)
+            TrainingEvent.RotateChord -> model.rotateChord()
             TrainingEvent.PilotPlay -> model.playPilot()
             is TrainingEvent.PilotFinish -> model.finishPilot(event.rating,event.comment,onBack)
             is TrainingEvent.PilotTempo -> model.pilotTempo(event.bpm)
@@ -177,7 +178,7 @@ private fun ChordExamplesRoute(s: LearnerState, busy: Boolean, model: TrainingVi
     var shapeId by rememberSaveable { mutableStateOf(ChordShapes.am.id) }
     val audio by model.audio.collectAsState()
     LaunchedEffect(shapeId) { model.stopAudio(); model.viewChord(shapeId) }
-    ChordExamples(LearningPageAdapter.examples(s, shapeId, busy, audio), { shapeId = it }, { model.playShape(ChordShapes.get(shapeId)) }, model::fingering)
+    ChordExamples(LearningPageAdapter.examples(s, shapeId, busy, audio), { shapeId = it }, { model.playShape(ChordShapes.get(shapeId)) }, model::fingering, model::rotateChord)
 }
 
 @Composable

@@ -168,6 +168,7 @@ class TrainingViewModel @JvmOverloads constructor(
         }) { s -> if (s.sessionId == exit.first) coordinator.end(s, System.currentTimeMillis()) else s }
     }
     fun sound(enabled: Boolean) { if (!enabled) { cancelAuto(); pausePilot() }; change { it.copy(soundEnabled = enabled) } }
+    fun rotateChord() = change { it.copy(chordVertical = !it.chordVertical) }
     fun fingering(id: String) = change { it.copy(fingeringMode = FingeringMode.fromId(id).id) }
     fun legendSeen() = change { it.copy(fingerLegendSeen = true) }
     fun viewChord(id: String) = change { state ->
@@ -220,6 +221,10 @@ class TrainingViewModel @JvmOverloads constructor(
         if (!trainingVisible() || _state.value?.active?.task?.id != taskId) return
         displayedTaskId = taskId
         val a = _state.value?.active
+        // Supported responses need timing to withdraw support, but are never mastery samples.
+        if (!_busy.value && a?.phase == Phase.ANSWERING && !a.task.guided &&
+            a.task.direction in AdaptiveEvidence.positionDirections && a.task.coordinate != null)
+            responseClock.displayed(taskId, monotonic(), restoredTask == taskId)
         if (!_busy.value && a?.phase == Phase.ANSWERING && a.firstCorrect == null && a.hintLevel == 0 && a.task.id !in _state.value!!.longThoughts && ExperiencePolicy.plain(a.task)) {
             responseClock.displayed(taskId, monotonic(), restoredTask == taskId)
             if (timingOwner != taskId) { timingJob?.cancel(); timingOwner = taskId }

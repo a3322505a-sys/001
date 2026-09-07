@@ -12,9 +12,10 @@ class AdaptiveDowngradeTest {
         fun answer(s: LearnerState, correct: Boolean): LearnerState {
             val t = requireNotNull(s.active).task
             now += 5_000
-            return if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(s,
+            val timed = ResponseTiming.record(s,t.id,2000L to TimingQuality.VALID)
+            return if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(timed,
                 symbol = if (correct) t.constraint.symbol else t.options.first { it != t.constraint.symbol }, now = now)
-            else co.answer(s, coordinate = t.range.positions().first { AnswerEvaluator.matches(it, t.constraint) == correct }, now = now)
+            else co.answer(timed, coordinate = t.range.positions().first { AnswerEvaluator.matches(it, t.constraint) == correct }, now = now)
         }
         fun finish(s: LearnerState, correct: Boolean): LearnerState {
             var result = answer(s, correct)
@@ -83,7 +84,7 @@ class AdaptiveDowngradeTest {
         var s = r.co.startRegion(beginner, "LOW", r.now)
         repeat(3) { if (!s.regionTraining!!.adaptive.diagnosing) s = r.finish(s, false) }
         assertTrue(s.regionTraining!!.adaptive.diagnosing)
-        assertTrue(s.active!!.task.adaptive!!.scaffolded)
+        assertTrue(s.active!!.task.guided || s.active!!.task.adaptive!!.scaffolded)
         assertFalse(s.active!!.task.regionProbe)
         assertEquals(1, s.positionProtections.size)
     }
@@ -101,8 +102,8 @@ class AdaptiveDowngradeTest {
             assertEquals(direction, supported.direction)
             assertTrue(supported.adaptive!!.scaffolded)
             if (direction == Direction.POSITION_TO_NOTE) {
-                assertEquals(2, supported.options.size)
-                assertTrue(original.options.size > supported.options.size)
+                assertEquals(7, supported.options.size)
+                assertEquals(original.options, supported.options)
                 assertEquals(1, supported.options.count { it == supported.constraint.symbol })
             } else {
                 assertTrue(supported.range.positions().size < original.range.positions().size)
@@ -120,11 +121,11 @@ class AdaptiveDowngradeTest {
                     s = r.finish(s, true)
                 }
             }
-            assertTrue("support must withdraw after successful practice", supportAnswers >= 4)
-            assertTrue("one probe must not withdraw all support", s.regionTraining!!.adaptive.scaffolding)
+            assertTrue("support must withdraw after successful practice", supportAnswers >= 2)
+            assertFalse("three spaced successful probes release support", s.regionTraining!!.adaptive.scaffolding)
             assertTrue(s.attempts.any { it.task.adaptive?.originalProbe == true })
-            assertTrue("isolated probes are not full recovery", s.regionTraining!!.adaptive.diagnosing)
-            assertFalse(s.regionTraining!!.adaptive.trial)
+            assertFalse("local recovery is separate from retention", s.regionTraining!!.adaptive.diagnosing)
+            assertTrue(s.regionTraining!!.adaptive.trial)
             val helpedIds = s.attempts.filter { it.task.adaptive?.scaffolded == true }.map { it.task.id }.toSet()
             assertTrue(s.attempts.filter { it.task.id in helpedIds }.none { it.independent })
             assertTrue(AdaptiveEvidence.View(s, r.now).samples.none { it.taskId in helpedIds })

@@ -172,7 +172,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         return evaluated.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
             sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now, endReason = reason, regionId = state.regionTraining?.regionId ?: it.regionId) else it },
             regionContinuations = state.regionTraining?.let { state.regionContinuations + (it.regionId to it.adaptive) } ?: state.regionContinuations,
-            endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
+            endedSummary = summary ?: (if (state.regionTraining != null) RegionProgression.summary(state) else null) ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")
     }
 }
 

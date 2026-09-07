@@ -91,7 +91,7 @@ object AdaptiveEvidence {
         return s.copy(knowledgeExposures = s.knowledgeExposures + events.filterNot { it in s.knowledgeExposures })
     }
     fun present(s: LearnerState, task: LearningTask, now: Long): LearnerState {
-        val t = task.copy(evidenceVersion = VERSION)
+        val t = NaturalRecognition.normalize(task).copy(evidenceVersion = VERSION)
         val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(RegionRounds.present(s.copy(active = ActiveTask(t), responseObservations = s.responseObservations + (t.id to ResponseObservation(t, s.sessionId.orEmpty()))), t), t, now), t)
         return if (t.guided) expose(next, t, now, true) else next
     }
@@ -161,7 +161,7 @@ object AdaptiveEvidence {
                             val response = AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
                                 correct && lastExposure != null && event.at - lastExposure >= HOLD_MS, a.task)
                             answered += response.copy(retention = false)
-                            if (spaced && a.task.adaptive?.scaffolded != true && a.task.id !in s.longThoughts) collected += response
+                            if (spaced && NaturalRecognition.current(a.task) && a.task.adaptive?.scaffolded != true && a.task.id !in s.longThoughts) collected += response
                         }
                         if (!correct && unassisted) facts.forEach { challenges[it] = event.at }
                     }

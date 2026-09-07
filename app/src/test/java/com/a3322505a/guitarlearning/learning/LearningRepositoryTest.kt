@@ -16,6 +16,28 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun chordOrientationUsesAtomicProfileWriteAndKeepsTaskHistory() {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val name="rotation-${newId()}.db"
+        var db=openTest(context,name);var repo=RoomLearningRepository(db)
+        val co=LearningCoordinator()
+        val base=repo.load().copy(progress=Curriculum.nodes.associate { it.id to NodeProgress(1) })
+        val saved=repo.commit(repo.load(),co.start(base,"chord-am",1000))
+        val changed=saved.copy(chordVertical=true)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_rotation BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved,changed) }
+        assertEquals(saved,repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_rotation")
+        val committed=repo.commit(saved,changed)
+        db.close();db=openTest(context,name);repo=RoomLearningRepository(db)
+        assertEquals(committed,repo.load())
+        assertEquals(saved.active,repo.load().active)
+        assertEquals(saved.attempts,repo.load().attempts)
+        val twice=repo.commit(committed,committed.copy(chordVertical=false))
+        assertEquals(saved.active,twice.active)
+        assertFalse(twice.chordVertical)
+        db.close();context.deleteDatabase(name)
+    }
     @Test fun longThoughtAndProtectionRollbackTogetherAndSurviveReopen() {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val name="long-${newId()}.db"

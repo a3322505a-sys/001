@@ -257,7 +257,12 @@ class FamilyAdaptationTest {
         val v37 = profile("p01").copy(active = ActiveTask(position), regionTraining = RegionRun("LOW", 1, 0,
             adaptive = AdaptiveRun(diagnosing = true, scaffolding = true)))
         val old37 = without(LearningCodec.json.parseToJsonElement(LearningCodec.encode(v37)), setOf("familyRuns", "familyScope", "explanationTargets"))
-        assertEquals(v37, LearningCodec.decode(old37.toString()))
+        val restored37 = LearningCodec.decode(old37.toString())
+        assertEquals(v37.active!!.task.id, restored37.active!!.task.id)
+        assertEquals(NaturalRecognition.options, restored37.active!!.task.options)
+        assertEquals(v37.regionTraining, restored37.regionTraining)
+        assertEquals(v37.attempts, restored37.attempts)
+        assertEquals(v37.familyRuns, restored37.familyRuns)
         assertTrue(LearningCodec.decode(old37.toString()).active!!.task.adaptive!!.scaffolded)
     }
 

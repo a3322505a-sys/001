@@ -242,13 +242,7 @@ object AdaptiveTraining {
     internal fun simplify(s: LearnerState, task: LearningTask, known: List<Coordinate>, random: Random): LearningTask {
         val c = requireNotNull(task.coordinate)
         if (task.direction == Direction.POSITION_TO_NOTE) {
-            val correct = requireNotNull(task.constraint.symbol)
-            val confusion = s.attempts.asReversed().firstNotNullOfOrNull { a ->
-                AdaptiveEvidence.firstInput(a)?.takeIf { a.task.coordinate == c && it.result == ClickResult.WRONG }?.symbol
-                    ?.takeIf { it in task.options && it != correct }
-            }
-            val other = confusion ?: task.options.firstOrNull { it != correct } ?: return task
-            return task.copy(options = listOf(correct, other).shuffled(random))
+            return NaturalRecognition.normalize(task)
         }
         // Keep the whole neck visible and state the smaller answer range explicitly.
         val companion = known.filter { it.string == c.string && it != c && task.range.contains(it) }.minByOrNull { kotlin.math.abs(it.fret - c.fret) }

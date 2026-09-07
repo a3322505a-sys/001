@@ -21,6 +21,7 @@ object RegionRounds {
         val run = requireNotNull(s.regionTraining)
         val slot = issued(s).size + 1
         check(slot <= SIZE) { "本轮已结束。" }
+        RegionProgression.next(s, scheduler, now)?.let { return it.copy(roundSlot = slot) }
         RegionProtection.next(s, random, now)?.let { return it.copy(roundSlot = slot) }
         val known = RegionTraining.known(s, run.regionId).distinctBy { it.second }
         val pool = when {
@@ -32,7 +33,7 @@ object RegionRounds {
             else -> emptyList()
         }
         val task = if (slot <= 3 && pool.isEmpty()) {
-            val available = RegionTraining.nodes(run.regionId).filter { Curriculum.available(s, it) }
+            val available = RegionTraining.nodes(run.regionId).filter { RegionProgression.available(s, it) }
             val earliest = available.firstNotNullOfOrNull { n -> n.positions.firstOrNull { it.fret == 0 }?.let { n.id to it } }
             if (earliest == null) AdaptiveTraining.next(s, scheduler, random, now) else
                 scheduler.makePosition(earliest.first, earliest.second, Direction.NOTE_TO_POSITION, TaskSource.DEMONSTRATION)

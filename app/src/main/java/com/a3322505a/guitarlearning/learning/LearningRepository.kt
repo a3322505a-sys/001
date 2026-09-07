@@ -111,7 +111,7 @@ object LearningCodec {
                     require(task.direction in AdaptiveEvidence.positionDirections && task.coordinate != null && task.completion == CompletionKind.SINGLE)
                     require(adaptive.options.isEmpty())
                     require(task.range.contains(task.coordinate) && task.range.positions().size >= 2)
-                    if (task.direction == Direction.POSITION_TO_NOTE) require(task.options.size == 2 && task.options.distinct().size == 2 && task.constraint.symbol in task.options)
+                    if (task.direction == Direction.POSITION_TO_NOTE) require(task.options.size in listOf(2, 7) && task.options.distinct().size == task.options.size && task.constraint.symbol in task.options)
                 }
                 if (adaptive.options.isNotEmpty()) {
                     require(task.direction == Direction.POSITION_TO_NOTE && task.coordinate != null && task.completion == CompletionKind.SINGLE)
@@ -144,7 +144,7 @@ object LearningCodec {
             require(a.members.all { it.index in a.task.sequence.indices && a.task.targetSkillIds.getOrNull(it.index) == it.skillId })
             require(a.members.all { m -> m.firstUnassisted != true || !a.task.guided && (a.task.relation?.ear != true || a.audioPlayed) })
         }
-        return state
+        return NaturalRecognition.resume(state)
     }
 
     private fun validateContext(state: LearnerState) {

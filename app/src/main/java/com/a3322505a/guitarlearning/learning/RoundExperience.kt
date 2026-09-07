@@ -18,7 +18,7 @@ object RoundExperience {
         val region = s.regionTraining?.regionId ?: return null
         val id = s.sessionId ?: return null
         val observations = s.responseObservations.values.filter { it.sessionId == id && it.task.id in RegionRounds.issued(s) }
-        val standard = observations.filter { it.task.roundSlot in 4..10 && ExperiencePolicy.plain(it.task) }
+        val standard = observations.filter { it.task.roundSlot in 4..10 && ExperiencePolicy.plain(it.task) && NaturalRecognition.current(it.task) }
         val measured = standard.filter { it.quality == TimingQuality.VALID }
         val byId = s.attempts.associateBy { it.task.id }
         fun timely(o: ResponseObservation) = byId[o.task.id]?.let { ResponseTiming.timely(s, it) } == true
@@ -46,7 +46,7 @@ object RoundExperience {
         val down = warm.take(2).let { it.size == 2 && it.all { a -> a.warmCount == 3 && a.warmTimely <= 2 } }
         val stage = when { r.protected -> old.warmStage; down -> (old.warmStage - 1).coerceAtLeast(0); up -> (old.warmStage + 1).coerceAtMost(6); else -> old.warmStage }
         var next = s.copy(roundEvidence = rounds, roundLoads = s.roundLoads + (r.region to RoundLoad(stage, advance, if (advance) now else old.decidedAt)))
-        if (complete && r.region == "LOW" && next.middleRecommendedAt == null && MiddleReadiness.ready(next, now))
+        if (complete && r.region == "LOW" && next.middleRecommendedAt == null && (MiddleReadiness.ready(next, now) || RegionProgression.middleTrial(next)))
             next = next.copy(middleRecommendedAt = now)
         return next
     }
@@ -57,32 +57,23 @@ object RoundExperience {
         val fast = known.filter { Fluency.ready(s, AdaptiveEvidence.positionUnit(it.second, direction), now) }
         val replacement = if (stage <= 3) fast.filter { it.second.fret in 1..4 } else fast
         val replace = slot <= if (stage <= 3) stage else stage - 3
-        return if (replace && replacement.isNotEmpty()) replacement else open.ifEmpty { fast }.ifEmpty { known }
+        return if (RegionProgression.quick(s)) known else if (replace && replacement.isNotEmpty()) replacement else open.ifEmpty { fast }.ifEmpty { known }
     }
     fun main(s: LearnerState, scheduler: LessonScheduler, random: Random, now: Long, slot: Int): LearningTask {
         val region = requireNotNull(s.regionTraining).regionId
         val known = RegionTraining.known(s, region).distinctBy { it.second }
-        val nextNode = RegionTraining.nodes(region).firstOrNull { n -> Curriculum.available(s, n) && n.positions.any { AdaptiveEvidence.positionTarget(it) !in s.introductions } }
-        val newPoint = nextNode?.positions?.firstOrNull { AdaptiveEvidence.positionTarget(it) !in s.introductions }
-        // At most one introduction/probe in seven main slots. Middle begins with its existing two-point lesson.
-        if (slot == 7 && newPoint != null && (load(s, region).advance || known.size < 2 || region == "MIDDLE" && known.none { it.second.fret in 5..8 }))
-            return scheduler.makePosition(nextNode.id, newPoint, Direction.NOTE_TO_POSITION, TaskSource.DEMONSTRATION)
-                .copy(introductionId = AdaptiveEvidence.positionTarget(newPoint), adaptive = AdaptiveTask("round:$region", PracticePurpose.NEXT))
         if (known.isEmpty()) return AdaptiveTraining.next(s, scheduler, random, now)
         val current = s.attempts.filter { it.sessionId == s.sessionId }
         val standardCurrent = current.filter { it.task.roundSlot in 4..10 }
         val d = AdaptiveEvidence.positionDirections.minBy { direction -> standardCurrent.count { it.task.direction == direction } }
         val view = AdaptiveEvidence.View(s, now)
-        var pool = known
-        if (region == "MIDDLE" && known.count { it.second.fret in 5..8 } <= 2 && slot != 7)
-            pool = known.filter { it.second.fret <= 4 }.ifEmpty { known }
+        val pool = known
         val (node, c) = pool.shuffled(random).minWith(compareBy<Pair<String, Coordinate>> {
             current.count { a -> a.task.coordinate == it.second }
         }.thenBy { view.unit(AdaptiveEvidence.positionUnit(it.second, d)).size }
             .thenBy { view.lastExposure(AdaptiveEvidence.positionTarget(it.second)) ?: 0L })
         val base = scheduler.makePosition(node, c, d, TaskSource.MAIN)
-        val choices = known.map { com.a3322505a.guitarlearning.core.MusicFacts.note(it.second.string, it.second.fret) }.distinct()
-        val task = base.copy(options = if (d == Direction.POSITION_TO_NOTE && choices.size >= 2) choices.shuffled(random) else base.options, adaptive = AdaptiveTask(requireNotNull(s.regionTraining).adaptive.config, PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
+        val task = base.copy(adaptive = AdaptiveTask(requireNotNull(s.regionTraining).adaptive.config, PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
         return if (slot == 10 && standardCurrent.all { ExperiencePolicy.plain(it.task) }) AdaptiveMix.apply(s, task, random, now) else task
     }
 }
@@ -134,7 +125,7 @@ object MiddleReadiness {
         if (units.any { view.unit(it).size < 2 } || units.count { view.ready(it) } < 29 ||
             units.any { s.weakPoints[it]?.let { p -> p.confirmedAt != null && p.resolvedAt == null } == true }) return false
         val sessionIds = rounds.map { it.sessionId }.toSet()
-        val standard = s.attempts.filter { it.sessionId in sessionIds && it.task.roundSlot in 4..10 && ExperiencePolicy.plain(it.task) && it.firstUnassisted == true }
+        val standard = s.attempts.filter { it.sessionId in sessionIds && it.task.roundSlot in 4..10 && ExperiencePolicy.plain(it.task) && NaturalRecognition.current(it.task) && it.firstUnassisted == true }
         if (rounds.any { r -> standard.count { it.sessionId == r.sessionId } < 6 }) return false
         for (d in AdaptiveEvidence.positionDirections) {
             val correct = standard.filter { it.task.direction == d && it.firstCorrect == true }

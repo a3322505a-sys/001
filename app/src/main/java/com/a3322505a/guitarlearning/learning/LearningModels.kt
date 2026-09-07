@@ -181,6 +181,7 @@ data class LearnerState(
     val suspendedLesson: SuspendedLesson? = null,
     val fingeringMode: String = "colors",
     val fingerLegendSeen: Boolean = false,
+    val chordVertical: Boolean = false,
     val viewedSkills: Map<String, Int> = emptyMap(),
     val regionTraining: RegionRun? = null,
     val queuedRegion: String? = null,
