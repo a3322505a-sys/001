@@ -134,8 +134,8 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
     LaunchedEffect(s.sessionId, s.endedSummary, busy) {
         if (!busy && s.sessionId == null && s.endedSummary != null) onBack()
     }
-    LaunchedEffect(ui.taskId, foreground) {
-        if (foreground && ui.taskId != null) {
+    LaunchedEffect(ui.taskId, foreground, busy) {
+        if (!busy && foreground && ui.taskId != null) {
             withFrameNanos { }
             model.taskDisplayed(ui.taskId)
         }
@@ -161,6 +161,7 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
             TrainingEvent.RetryAudio -> model.retryAudio(id)
             TrainingEvent.Demonstrate -> model.demonstrate(id)
             TrainingEvent.Hint -> model.hint()
+            TrainingEvent.Obstructed -> model.obstructed()
             TrainingEvent.Next -> model.next(id)
             TrainingEvent.OpenString -> ui.chordControls?.let { model.positionTapped(PositionTapped(id, Coordinate(it.string, 0))) }
             TrainingEvent.MuteString -> model.answer(id, symbol = "X")

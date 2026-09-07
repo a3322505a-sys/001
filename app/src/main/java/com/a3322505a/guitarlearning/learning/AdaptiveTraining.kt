@@ -28,7 +28,7 @@ object AdaptiveTraining {
         // First-answer identity is fixed; correction and persistence retries cannot create new failures.
         // P3 region signals are immediate; P6 retains its qualified per-member window.
         fun familySignal(a: AssessmentSample) = a.unit.startsWith("family:") || a.task.adaptive?.familyScope != null
-        val weakSignals = (view.responses.filterNot(::familySignal) + view.samples.filter(::familySignal))
+        val weakSignals = (view.responses)
             .sortedWith(compareBy<AssessmentSample> { it.at }.thenBy { it.ordinal })
         weakSignals.filter { it.unit.startsWith("position:") || it.unit.startsWith("mapping:") || it.unit.startsWith("family:") }.groupBy { it.unit }.forEach { (key, responses) ->
             val last = responses.last()
@@ -47,6 +47,7 @@ object AdaptiveTraining {
         }
         var result = s.copy(weakPoints = points)
         val region = s.regionTraining ?: return result
+        if (region.roundEnabled) return RegionProtection.transition(result, now)
         var run = region.adaptive
         val known = RegionTraining.known(s, region.regionId).map { it.second }.distinct()
         if (run.sevenQualifiedAt == null) {
@@ -252,7 +253,7 @@ object AdaptiveTraining {
         // Keep the whole neck visible and state the smaller answer range explicitly.
         val companion = known.filter { it.string == c.string && it != c && task.range.contains(it) }.minByOrNull { kotlin.math.abs(it.fret - c.fret) }
         val otherFret = companion?.fret ?: if (c.fret > task.range.firstFret) c.fret - 1 else c.fret + 1
-        val range = task.range.copy(firstFret = minOf(c.fret, otherFret), lastFret = maxOf(c.fret, otherFret))
+        val range = task.range.copy(firstFret = minOf(c.fret, otherFret).coerceAtLeast(0), lastFret = maxOf(c.fret, otherFret).coerceAtMost(15), strings = setOf(c.string))
         return task.copy(range = range, prompt = "在第${c.string}弦的${range.firstFret}–${range.lastFret}品内找到 ${MusicFacts.note(c.string, c.fret)}")
     }
     fun mappingTask(unit: String): LearningTask? {

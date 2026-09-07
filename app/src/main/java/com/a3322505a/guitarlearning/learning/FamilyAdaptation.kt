@@ -16,12 +16,15 @@ object FamilyAdaptation {
         (t.nodeId in ReadingLessons.ids || t.nodeId == "tab01" || t.nodeId == "mapping" ||
             ChordLessons.shapes(t.nodeId).isNotEmpty() || t.nodeId in StructureLessons.ids)
 
-    fun scope(s: LearnerState, t: LearningTask): String = "${s.sessionId}/${t.nodeId}" +
+    fun scope(s: LearnerState, t: LearningTask): String = "family/${t.nodeId}" +
         if (t.nodeId == "mapping") "/${if (t.direction in MappingLessons.fixedDirections) "fixed" else "degree:${t.tonicPitchClass}"}" else ""
 
     fun onPresented(s: LearnerState, t: LearningTask): LearnerState {
         val key = t.adaptive?.familyScope ?: return s
         if (key in s.familyRuns) return s
+        val legacy = s.familyRuns.values.lastOrNull { it.nodeId == t.nodeId && it.run.diagnosing &&
+            (t.nodeId != "mapping" || (it.anchor in MappingLessons.fixedDirections) == (t.direction in MappingLessons.fixedDirections)) }
+        if (legacy != null) return s.copy(familyRuns = s.familyRuns + (key to legacy))
         return s.copy(familyRuns = s.familyRuns + (key to FamilyContext(requireNotNull(s.sessionId), t.nodeId, t.direction)))
     }
 
@@ -38,7 +41,7 @@ object FamilyAdaptation {
 
     // Eight tasks means eight tasks, never eight members of one long phrase.
     internal fun taskWindow(s: LearnerState, view: AdaptiveEvidence.View, scope: String, run: AdaptiveRun): List<AssessmentSample> =
-        view.samples.filter { it.task.adaptive?.familyScope == scope && it.task.adaptive.config == run.config && it.ordinal >= run.sinceOrdinal }
+        view.responses.filter { it.task.adaptive?.familyScope == scope && it.task.adaptive.config == run.config && it.ordinal >= run.sinceOrdinal }
             .groupBy { it.taskId }.mapNotNull { (id, members) ->
                 val a = s.attempts.first { it.task.id == id }
                 members.firstOrNull { !it.correct } ?: members.lastOrNull()?.takeIf {
@@ -144,7 +147,7 @@ object FamilyAdaptation {
 
     fun next(s: LearnerState, original: LearningTask, random: Random, now: Long): LearningTask {
         if (!supported(original) || s.sessionId == null || s.regionTraining != null || s.pilot != null) return original
-        val pending = s.familyRuns.entries.firstOrNull { (_, c) -> c.sessionId == s.sessionId && c.nodeId == original.nodeId && c.run.diagnosing }
+        val pending = s.familyRuns.entries.firstOrNull { (_, c) -> c.nodeId == original.nodeId && c.run.diagnosing }
         val seed = if (original.nodeId == "mapping" && pending != null)
             s.attempts.lastOrNull { it.task.adaptive?.familyScope == pending.key }?.task?.copy(source = original.source, introductionId = null) ?: original
         else original
@@ -159,7 +162,8 @@ object FamilyAdaptation {
             val known = readingPositions(s, seed.nodeId).map { "skill:${ReadingLessons.skill(seed.nodeId, it)}" }.toSet()
             if (AdaptiveEvidence.targets(seed).any { it !in known }) return tag(seed.copy(source = TaskSource.DEMONSTRATION), PracticePurpose.NEXT)
         }
-        if (full.isEmpty() || seed.guided && !run.diagnosing) return tag(seed, PracticePurpose.NEXT)
+        if (full.isEmpty()) return tag(seed.copy(source = TaskSource.DEMONSTRATION), PracticePurpose.NEXT)
+        if (seed.guided && !run.diagnosing) return tag(seed, PracticePurpose.NEXT)
         val candidates = if (run.mixStage == 0) {
             if (seed.nodeId == "mapping") full.filter { it.direction == context.anchor } else full.flatMap(::reduce)
         } else full

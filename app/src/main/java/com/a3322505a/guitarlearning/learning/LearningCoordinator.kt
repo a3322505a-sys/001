@@ -23,8 +23,9 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val next = state.copy(regionTraining = run, queuedRegion = null, sessionId = session.id,
             sessions = if (session in state.sessions) state.sessions else state.sessions + session,
             active = null, reviewMode = false, endedSummary = null)
-        val task = scheduler.next(next, now)
-        return AdaptiveEvidence.present(next.copy(currentNode = task.nodeId), task, now)
+        val adopted = RegionProtection.adopt(next, scheduler, now)
+        val task = scheduler.next(adopted, now)
+        return AdaptiveEvidence.present(adopted.copy(currentNode = task.nodeId), task, now)
     }
 
     fun start(state: LearnerState, nodeId: String, now: Long): LearnerState {
@@ -167,7 +168,8 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         if (state.sessions.any { it.id == id && it.endedAt != null }) return state
         val attempts = state.attempts.filter { it.sessionId == id }
         val independent = attempts.filter { it.independent }
-        return state.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
+        val evaluated = RoundExperience.finish(state, now, reason == "natural")
+        return evaluated.copy(sessionId = null, active = null, regionTraining = null, queuedRegion = null,
             sessions = state.sessions.map { if (it.id == id) it.copy(endedAt = now, endReason = reason, regionId = state.regionTraining?.regionId ?: it.regionId) else it },
             regionContinuations = state.regionTraining?.let { state.regionContinuations + (it.regionId to it.adaptive) } ?: state.regionContinuations,
             endedSummary = summary ?: "本次完成${attempts.count { it.completed }}个任务，独立回答${independent.size + attempts.sumOf { it.members.count { m -> m.independent } }}项，正确${independent.count { it.firstCorrect == true } + attempts.sumOf { it.members.count { m -> m.independent && m.firstCorrect } }}项。进度已保存。")

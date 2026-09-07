@@ -4,6 +4,7 @@ object MasteryPolicy {
     fun independent(state: LearnerState, active: ActiveTask, ordinal: Int): Boolean {
         val t = active.task
         if (t.relation?.ear == true && !active.audioReady) return false
+        if (t.id in state.longThoughts) return false
         if (t.guided || t.adaptive?.scaffolded == true || active.hintLevel > 0 || active.firstCorrect == null) return false
         val viewedAt = t.coordinate?.let { state.viewedPositions[it.id] }
         if (viewedAt != null && ordinal - viewedAt < 3) return false

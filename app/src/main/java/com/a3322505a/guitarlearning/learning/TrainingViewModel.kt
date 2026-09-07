@@ -57,6 +57,24 @@ class TrainingViewModel @JvmOverloads constructor(
     private var retryAction: (() -> Unit)? = null
     private var displayedTaskId: String? = null
     private var pendingAuto: Job? = null
+    private val responseClock = ResponseClock()
+    private var timingJob: Job? = null
+    private var timingOwner: String? = null
+    private var restoredTask: String? = null
+    private val pendingLong = linkedMapOf<String, LongThought>()
+    private fun monotonic() = android.os.SystemClock.elapsedRealtime()
+    private fun captureDeadline() {
+        val a = _state.value?.active ?: return
+        if (!trainingVisible() || a.phase != Phase.ANSWERING || a.firstCorrect != null || a.hintLevel > 0 || !ExperiencePolicy.plain(a.task)) return
+        val (ms, quality) = responseClock.sample(a.task.id, monotonic())
+        if (quality == TimingQuality.VALID && ms != null && ms >= ExperiencePolicy.deadline(a.task.direction) && a.task.id !in _state.value!!.longThoughts)
+            pendingLong.putIfAbsent(a.task.id, LongThought(a.task, System.currentTimeMillis(), ms))
+    }
+    fun obstructed() { captureDeadline(); responseClock.interrupt(); flushDeadline() }
+    private fun flushDeadline() {
+        if (pendingLong.isEmpty()) return
+        viewModelScope.launch { _busy.first { !it }; if (pendingLong.isNotEmpty() && retryAction == null) change { it } }
+    }
     private var pendingExit: Pair<String, () -> Unit>? = null
 
     init { reload() }
@@ -67,6 +85,7 @@ class TrainingViewModel @JvmOverloads constructor(
         viewModelScope.launch {
             try {
                 _state.value = withContext(Dispatchers.IO) { repository.load() }
+                restoredTask = _state.value?.active?.task?.id
                 _error.value = null
                 retryAction = null
             } catch (e: Exception) {
@@ -86,11 +105,14 @@ class TrainingViewModel @JvmOverloads constructor(
                 val elapsed = pendingPilotMs
                 val playback = pendingPilotPlayback
                 val timed = previous.copy(pilot = previous.pilot?.let { it.copy(elapsedMs = it.elapsedMs + elapsed, playbackMs = playback ?: it.playbackMs) })
-                val next = operation(timed)
+                val deadlines = pendingLong.toMap()
+                val protected = deadlines.values.fold(timed) { state, event -> ResponseTiming.long(state, event) }
+                val next = operation(protected)
                 val saved = withContext(Dispatchers.IO) {
                     if (next == previous) previous else repository.commit(previous, next)
                 }
                 _state.value = saved
+                deadlines.keys.forEach { pendingLong.remove(it) }
                 pendingPilotMs = (pendingPilotMs - elapsed).coerceAtLeast(0)
                 if (pendingPilotPlayback == playback) pendingPilotPlayback = null
                 _error.value = null
@@ -108,17 +130,28 @@ class TrainingViewModel @JvmOverloads constructor(
     fun start(nodeId: String, onDone: () -> Unit) = change(onDone) { coordinator.start(it, nodeId, System.currentTimeMillis()) }
     fun region(id: String, onDone: () -> Unit) = change(onDone) { coordinator.startRegion(it, id, System.currentTimeMillis()) }
     fun practice(selection: PracticePlan, onDone: () -> Unit) = change(onDone) { coordinator.startPractice(it, selection, System.currentTimeMillis()) }
-    fun hint() { cancelAuto(); change { coordinator.hint(it) } }
+    fun hint() {
+        if (_busy.value) return
+        val id = _state.value?.active?.task?.id ?: return
+        captureDeadline(); val sample = responseClock.stop(id, monotonic())
+        cancelAuto(); change { RegionProtection.transition(coordinator.hint(ResponseTiming.record(it, id, sample, help = true)), System.currentTimeMillis()) }
+    }
     fun answer(taskId: String, coordinate: Coordinate? = null, symbol: String? = null) {
         if (_busy.value || pendingExit != null || !trainingVisible() || _state.value?.active?.task?.id != taskId) return
         if (_state.value?.active?.task?.relation?.ear == true && _audio.value.playing) return
         cancelAuto()
+        val a = _state.value?.active ?: return
+        val result = AnswerEvaluator.evaluate(a, coordinate, symbol)
+        if (result in listOf(ClickResult.OUTSIDE, ClickResult.REPEATED, ClickResult.EXTRA_CORRECT)) return
+        captureDeadline()
+        val sample = responseClock.stop(taskId, monotonic())
         val inputAt = System.currentTimeMillis()
-        change { if (it.active?.task?.id != taskId) it else coordinator.answer(it, coordinate, symbol, inputAt) }
+        change { if (it.active?.task?.id != taskId) it else coordinator.answer(ResponseTiming.record(it, taskId, sample), coordinate, symbol, inputAt) }
     }
     fun next(taskId: String) { if (trainingVisible() && pendingExit == null) change { coordinator.next(it, taskId, System.currentTimeMillis()) } }
     fun end(expectedSessionId: String? = null, onDone: () -> Unit) {
         if (expectedSessionId != null && _state.value?.sessionId != expectedSessionId) return
+        captureDeadline(); responseClock.interrupt()
         stopAudio()
         val id = _state.value?.sessionId ?: return onDone()
         if (pendingExit == null) pendingExit = id to onDone
@@ -159,6 +192,7 @@ class TrainingViewModel @JvmOverloads constructor(
     fun clearSummary() = change { it.copy(endedSummary = null) }
     private fun trainingVisible() = page == "training" && _foreground.value
     fun pageVisible(value: String) {
+        if (value != "training") obstructed()
         capturePilotTime(); page = value
         if (!trainingVisible()) pausePilot()
         syncPilotClock(); syncAudio()
@@ -185,6 +219,18 @@ class TrainingViewModel @JvmOverloads constructor(
     fun taskDisplayed(taskId: String) {
         if (!trainingVisible() || _state.value?.active?.task?.id != taskId) return
         displayedTaskId = taskId
+        val a = _state.value?.active
+        if (!_busy.value && a?.phase == Phase.ANSWERING && a.firstCorrect == null && a.hintLevel == 0 && ExperiencePolicy.plain(a.task)) {
+            responseClock.displayed(taskId, monotonic(), restoredTask == taskId)
+            if (timingOwner != taskId) { timingJob?.cancel(); timingOwner = taskId }
+            if (timingJob?.isActive != true) timingJob = viewModelScope.launch {
+                while (_state.value?.active?.task?.id == taskId && trainingVisible()) {
+                    delay(100); captureDeadline()
+                    if (pendingLong.isNotEmpty()) { flushDeadline(); break }
+                    if (_state.value?.active?.firstCorrect != null) break
+                }
+            }
+        }
         syncAudio()
     }
     private fun cancelAuto() { pendingAuto?.cancel(); pendingAuto = null; _state.value?.active?.task?.id?.let { audioSession.markPrompt(it) } }
@@ -206,6 +252,8 @@ class TrainingViewModel @JvmOverloads constructor(
         val a = _state.value?.active?.takeIf { it.task.id == taskId && trainingVisible() } ?: return
         if (a.task.relation?.ear == true && (_audio.value.playing || _busy.value)) return
         val spec = TaskAudioPolicy.prompt(a) ?: return
+        val sample = responseClock.sample(taskId, monotonic())
+        if (!_busy.value) change { ResponseTiming.record(it, taskId, sample, replay = true) }
         audioSession.markPrompt(taskId)
         startPlayback(spec)
     }
@@ -272,6 +320,7 @@ class TrainingViewModel @JvmOverloads constructor(
     }
     fun stopAudio() { cancelAuto(); audioSession.invalidate(); player.stop(); _audio.value = AudioUiState(); _playing.value = false }
     fun foreground(active: Boolean) {
+        if (!active) obstructed()
         capturePilotTime(); _foreground.value = active
         if (!active) pausePilot()
         syncPilotClock(); syncAudio()
@@ -389,5 +438,5 @@ class TrainingViewModel @JvmOverloads constructor(
         }
     }
 
-    override fun onCleared() { pendingAuto?.cancel(); pilotPlayer.release(); audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
+    override fun onCleared() { timingJob?.cancel(); pendingAuto?.cancel(); pilotPlayer.release(); audioSession.invalidate(); player.release(); db?.close(); super.onCleared() }
 }

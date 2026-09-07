@@ -64,12 +64,18 @@ object LearningCodec {
             (point.confirmedAt == null || point.confirmedAt >= point.observedAt) && (point.resolvedAt == null || point.resolvedAt >= point.observedAt) })
         require(state.familyRuns.all { (key, context) ->
             val run = context.run
-            key.startsWith("${context.sessionId}/${context.nodeId}") && state.sessions.any { it.id == context.sessionId } &&
+            (key.startsWith("${context.sessionId}/${context.nodeId}") || key.startsWith("family/${context.nodeId}")) && state.sessions.any { it.id == context.sessionId } &&
                 Curriculum.nodes.any { it.id == context.nodeId } && run.generation >= 0 && run.sinceOrdinal >= 0 && run.diagnosisSince >= 0 &&
                 run.mixStage in 0..1 && run.focus.distinct().size == run.focus.size && (!run.diagnosing || run.mixStage == 0 && !run.trial)
         })
         require(state.regionContinuations.keys.all { it in FretboardRegion.entries.map { r -> r.name } })
         require(state.regionContinuations.values.all { it.generation >= 0 && (!it.scaffolding || it.diagnosing) })
+        require(state.positionProtections.all { (key, p) -> key == RegionProtection.key(p.original) && p.since >= 0 && p.original.coordinate != null && p.unit == AdaptiveEvidence.positionUnit(p.original.coordinate, p.original.direction) })
+        require(state.longThoughts.all { (id, e) -> id == e.task.id && ExperiencePolicy.plain(e.task) && e.at >= 0 && e.durationMs >= ExperiencePolicy.deadline(e.task.direction) })
+        require(state.responseObservations.all { (id, o) -> id == o.task.id && state.sessions.any { it.id == o.sessionId } && (o.durationMs == null || o.durationMs >= 0) && (o.quality != TimingQuality.VALID || o.durationMs != null && o.durationMs >= ExperiencePolicy.MIN_INPUT_MS) })
+        require(state.roundEvidence.map { it.sessionId }.distinct().size == state.roundEvidence.size)
+        require(state.roundEvidence.all { it.timely in 0..it.standard && it.standard in 0..7 && it.warmTimely in 0..it.warmCount && it.warmCount in 0..3 && state.sessions.any { session -> session.id == it.sessionId } })
+        require(state.roundLoads.values.all { it.warmStage in 0..6 && it.decidedAt >= 0 })
         val paused = listOfNotNull(state.pausedTraining) + state.pausedRegions.values
         require(state.pausedRegions.all { (id, p) -> id in FretboardRegion.entries.map { it.name } && p.regionTraining?.regionId == id && p.practice == null && p.pilot == null })
         val contexts = listOf(state) + paused.map { RegionSessions.restore(state, it) }

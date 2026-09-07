@@ -195,6 +195,12 @@ data class LearnerState(
     val weakPoints: Map<String, WeakPoint> = emptyMap(),
     val familyRuns: Map<String, FamilyContext> = emptyMap(),
     val regionContinuations: Map<String, AdaptiveRun> = emptyMap(),
+    val positionProtections: Map<String, PositionProtection> = emptyMap(),
+    val longThoughts: Map<String, LongThought> = emptyMap(),
+    val responseObservations: Map<String, ResponseObservation> = emptyMap(),
+    val roundEvidence: List<RoundEvidence> = emptyList(),
+    val roundLoads: Map<String, RoundLoad> = emptyMap(),
+    val middleRecommendedAt: Long? = null,
 )
 
 data class CurriculumNode(

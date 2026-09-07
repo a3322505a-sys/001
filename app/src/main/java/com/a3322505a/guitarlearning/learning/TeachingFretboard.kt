@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -46,11 +47,11 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
     BoxWithConstraints(modifier) {
         val availableWidth = maxWidth
         val availableHeight = maxHeight
-        val boardLeft = if (geometry.first == 0) minOf(96.dp, availableHeight * 0.48f) else 0.dp
-        val minimumWidth = 40.dp / (geometry.right(geometry.last) - geometry.left(geometry.last))
-        val boardWidth = maxOf(availableWidth - boardLeft, minimumWidth)
-        val boardHeight = availableHeight * 0.88f
-        val boardTop = (availableHeight - boardHeight) / 2
+        val layout = geometry.layout(availableHeight.value, 40f)
+        val boardLeft = layout.left.dp
+        val boardWidth = layout.width.dp
+        val boardHeight = layout.height.dp
+        val boardTop = layout.top.dp
         // One continuous viewport: never scroll to a hidden answer when a task changes.
         Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
           Box(Modifier.width(boardWidth + boardLeft).height(availableHeight)) {
@@ -66,7 +67,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
             val target = mark?.role in listOf(MarkRole.TARGET, MarkRole.REFERENCE)
             val correct = mark?.role == MarkRole.CORRECT
             val wrong = mark?.role == MarkRole.WRONG
-            Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(f), y = boardTop + boardHeight * ((s - 1) / 6f))
+            key(state.viewId, state.marks, state.interaction) { Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(f), y = boardTop + boardHeight * ((s - 1) / 6f))
                 .width(boardWidth * (geometry.right(f) - geometry.left(f))).height(boardHeight / 6)
                 .semantics { contentDescription = "${s}弦${if (f == 0) "空弦" else "${f}品格"}${if (correct) "，已确认" else ""}" }
                 .clickable(enabled = state.interaction != BoardInteraction.DISABLED && c in state.interactivePositions) { onPosition(PositionTapped(state.viewId, c)) }, contentAlignment = Alignment.Center) {
@@ -90,7 +91,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
                     if (symbol.isNotEmpty()) Text(symbol, color = MarkerInk, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        } }
+        } } }
         state.stringLabel?.let { Text(it, color = MarkerInk, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopEnd)) }
         state.fretLabel?.let { (fret, label) ->
             Box(Modifier.absoluteOffset(x = boardLeft + boardWidth * geometry.left(fret))
@@ -139,7 +140,7 @@ private fun DrawScope.drawInstrument(g: TeachingGeometry, left: Float, top: Floa
             Offset(nut - 3.dp.toPx(), top), Size(5.dp.toPx(), height))
     }
     (1..6).forEach { s ->
-        val y = top + height * (s - 0.5f) / 6
+        val y = top + height * g.stringCenter(s)
         val gauge = (0.65f + (s - 1) * 0.38f).dp.toPx()
         drawLine(Color.Black.copy(alpha = 0.5f), Offset(left, y + 1.5.dp.toPx()), Offset(end, y + 1.5.dp.toPx()), gauge + 1.dp.toPx())
         drawLine(if (s < 4) Color(0xFFD5DDE0) else Color(0xFFADB4B6), Offset(left, y), Offset(end, y), gauge)
@@ -171,16 +172,16 @@ private fun DrawScope.drawHeadstock(left: Float, nut: Float, top: Float, height:
     drawPath(head, Color(0xFF916337), style = Stroke(1.4.dp.toPx()))
     val postRadius = minOf(5.5.dp.toPx(), height / 28, nut / 24)
     (1..6).forEach { s ->
-        val x = left * (0.18f + (6 - s) * 0.125f)
+        val x = nut * (0.20f + (6 - s) * 0.115f)
         val y = top + height * (s - 0.5f) / 6
-        val keyX = maxOf(postRadius * 1.7f, x - left * 0.10f)
+        val keyX = maxOf(postRadius * 1.7f, x - nut * 0.09f)
         val keyY = y - height * 0.075f
         val metal = Brush.linearGradient(listOf(Color(0xFF70787A), Color(0xFFF1F4F4), Color(0xFF8B959B)), Offset(keyX - postRadius, keyY), Offset(keyX + postRadius, y))
         drawLine(Color(0xFF71797D), Offset(keyX, keyY), Offset(x, y), postRadius * 1.1f)
         drawLine(Color(0xFFE5EDEF), Offset(keyX, keyY), Offset(x, y), postRadius * 0.35f)
         drawRoundRect(metal, Offset(keyX - postRadius * 1.5f, keyY - postRadius), Size(postRadius * 3, postRadius * 1.8f), CornerRadius(postRadius * 0.6f))
         // The open-string touch region sits on these strings immediately before the nut.
-        drawLine(Color(0xFFBDC5C7), Offset(x, y), Offset(left, y), (0.65f + (s - 1) * 0.38f).dp.toPx())
+        drawLine(Color(0xFFBDC5C7), Offset(x, y), Offset(nut, y), (0.65f + (s - 1) * 0.38f).dp.toPx())
         drawCircle(Color(0xFF7A674F), postRadius * 1.3f, Offset(x, y))
         drawCircle(metal, postRadius, Offset(x, y))
         drawCircle(Color(0xFF475055), postRadius * 0.43f, Offset(x, y))
