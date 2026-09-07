@@ -137,4 +137,15 @@ class TrainingContractsTest {
         assertEquals("按谱线找弦，按数字找品。", CorrectionPresentation.message(a, emptySet()))
     }
 
+    @Test fun mappingCorrectionKeepsTheSameFactInBothDirections() {
+        for (d in MappingLessons.fixedDirections) {
+            val t = MappingLessons.make("B", d, TaskSource.MAIN)
+            assertEquals("B 对应固定唱名 Si。", CorrectionPresentation.message(ActiveTask(t), emptySet()))
+        }
+        for (d in MappingLessons.degreeDirections) {
+            val t = MappingLessons.make("E", d, TaskSource.MAIN)
+            assertEquals("C大调：E 是第3级。", CorrectionPresentation.message(ActiveTask(t), emptySet()))
+        }
+    }
+
 }

@@ -17,7 +17,6 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
     }
 
     private fun activateRegion(state: LearnerState, regionId: String, now: Long): LearnerState {
-        val count = RegionTraining.known(state, regionId).size
         val run = RegionRun(regionId, (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1, 0,
             adaptive = state.regionContinuations[regionId] ?: AdaptiveRun(), roundEnabled = true)
         val session = state.sessions.lastOrNull { it.id == state.sessionId && it.endedAt == null } ?: LearningSession(startedAt = now, mode = "region", regionId = regionId)

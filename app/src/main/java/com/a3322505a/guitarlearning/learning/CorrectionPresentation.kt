@@ -35,7 +35,9 @@ object CorrectionPresentation {
         }
         if (t.direction == Direction.TAB_TO_POSITION) return "按谱线找弦，按数字找品。"
         if (t.direction == Direction.STAFF_TO_POSITION) return "按谱面音高，点击亮起位置。"
-        if (t.direction in MappingLessons.fixedDirections) return "固定唱名：${t.mappingNote ?: t.constraint.symbol.orEmpty()} 对应 ${rule?.symbol.orEmpty()}。"
+        if (t.direction in MappingLessons.fixedDirections) return "${t.mappingNote} 对应固定唱名 ${MusicFacts.fixedSolfege[t.mappingNote].orEmpty()}。"
+        if (t.direction in MappingLessons.degreeDirections && t.mappingNote != null && t.tonicPitchClass != null)
+            return "${MusicFacts.noteNames[t.tonicPitchClass]}大调：${t.mappingNote} 是第${MusicFacts.majorDegree(MusicFacts.noteNames.indexOf(t.mappingNote), t.tonicPitchClass)}级。"
         if (rule?.kind == ConstraintKind.SYMBOL) return "本项选 ${rule.symbol.orEmpty()}。"
         return "对照参照音，点击亮起位置。"
     }
