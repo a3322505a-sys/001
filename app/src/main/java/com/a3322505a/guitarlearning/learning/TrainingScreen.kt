@@ -96,12 +96,12 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                     Column(Modifier.weight(0.56f).fillMaxHeight().verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
                     key(state.message) { BoxWithConstraints(Modifier.weight(0.44f).fillMaxHeight()) {
-                        TrainingMessage(state, Modifier.heightIn(max = maxHeight), scrollable = true)
+                        TrainingMessage(state, Modifier.heightIn(max = maxHeight), scrollable = !state.wrong)
                     } }
                 }
             } else {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    content()
+                Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (hasContent) Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
                     TrainingMessage(state)
                 }
             }

@@ -136,7 +136,8 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val attempts = if (old == null) state.attempts + attempt else state.attempts.map { if (it.task.id == active.task.id) attempt else it }
         val updated = state.copy(active = changed, attempts = attempts,
             introductions = if (completed && active.task.introductionId != null) state.introductions + active.task.introductionId else state.introductions)
-        val exposed = if (active.task.completion == CompletionKind.SEQUENCE || old == null || completed && !old.completed)
+        val exposed = if (result == ClickResult.WRONG || active.phase == Phase.CORRECTING) CorrectionPresentation.expose(updated, changed, now)
+        else if (active.task.completion == CompletionKind.SEQUENCE || old == null || completed && !old.completed)
             AdaptiveEvidence.exposeAnswer(updated, active.task, active.sequenceIndex, now, result == ClickResult.WRONG || active.task.guided) else updated
         return FamilyAdaptation.transition(AdaptiveMix.transition(AdaptiveTraining.transition(MasteryPolicy.update(exposed, now, attempt.localDay), now), now), now)
     }

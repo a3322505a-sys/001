@@ -4,6 +4,8 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 ## 当前交接基线
 
+本次按 v38 体验方案推进，P0 已核验远端 main `46b2812` 与未合并的 v38 `188ddb2`（PR #58、CI 193 成功），新 feature 分支显式接入该依赖。P1 改动为纠错时显示正确音名、至多一个实际已教参照、简短反馈及同源曝光；版本 alpha22 / 39。后续 P2–P7 尚待实施，验证与合并事实见 [本次记录](docs/v38-experience-progress.md)。
+
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
 - 当前应用版本：**2.0.0-alpha21（versionCode 38，P3 + P6 整合分支）**，定义见 [app/build.gradle.kts](app/build.gradle.kts)。同时包含 v36 的 P6（PR #56）与 v37 的 P3 返工（PR #57），以及共同基线 PR #55；main 的合并事实仍以远端为准。整合边界见 [整合记录](docs/p3-p6-alpha21.md)。
