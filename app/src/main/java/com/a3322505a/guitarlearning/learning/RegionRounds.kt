@@ -21,7 +21,7 @@ object RegionRounds {
         val run = requireNotNull(s.regionTraining)
         val slot = issued(s).size + 1
         check(slot <= SIZE) { "本轮已结束。" }
-        RegionProtection.next(s, random)?.let { return it.copy(roundSlot = slot) }
+        RegionProtection.next(s, random, now)?.let { return it.copy(roundSlot = slot) }
         val known = RegionTraining.known(s, run.regionId).distinctBy { it.second }
         val pool = when {
             slot <= 3 -> RoundExperience.warmPool(s, known, slot, now)

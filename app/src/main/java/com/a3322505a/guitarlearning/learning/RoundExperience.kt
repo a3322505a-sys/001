@@ -17,7 +17,7 @@ object RoundExperience {
     fun summarize(s: LearnerState, now: Long, complete: Boolean): RoundEvidence? {
         val region = s.regionTraining?.regionId ?: return null
         val id = s.sessionId ?: return null
-        val observations = s.responseObservations.values.filter { it.sessionId == id }
+        val observations = s.responseObservations.values.filter { it.sessionId == id && it.task.id in RegionRounds.issued(s) }
         val standard = observations.filter { it.task.roundSlot in 4..10 && ExperiencePolicy.plain(it.task) }
         val measured = standard.filter { it.quality == TimingQuality.VALID }
         val byId = s.attempts.associateBy { it.task.id }
@@ -80,17 +80,29 @@ object RoundExperience {
             current.count { a -> a.task.coordinate == it.second }
         }.thenBy { view.unit(AdaptiveEvidence.positionUnit(it.second, d)).size }
             .thenBy { view.lastExposure(AdaptiveEvidence.positionTarget(it.second)) ?: 0L })
-        return scheduler.makePosition(node, c, d, TaskSource.MAIN).copy(adaptive = AdaptiveTask("round:$region", PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
+        val base = scheduler.makePosition(node, c, d, TaskSource.MAIN)
+        val choices = known.map { com.a3322505a.guitarlearning.core.MusicFacts.note(it.second.string, it.second.fret) }.distinct()
+        return base.copy(options = if (d == Direction.POSITION_TO_NOTE && choices.size >= 2) choices.shuffled(random) else base.options, adaptive = AdaptiveTask("round:$region", PracticePurpose.COVERAGE, unit = AdaptiveEvidence.positionUnit(c, d)))
     }
 }
 
 /** Current fluency uses a versioned 20-sample / one-error candidate, not a 4/4 or lifetime score. */
 object Fluency {
-    fun ready(s: LearnerState, unit: String, now: Long): Boolean {
+    fun score(s: LearnerState, unit: String, now: Long, view: AdaptiveEvidence.View): Double {
+        if (s.positionProtections.values.any { it.unit == unit && it.resolvedAt == null }) return 0.0
+        val since = s.positionProtections.values.filter { it.unit == unit }.maxOfOrNull { it.since } ?: 0L
+        val ids = view.samples.filter { it.unit == unit && it.at > since }.map { it.taskId }.toSet()
+        val recent = s.attempts.filter { it.task.id in ids && ExperiencePolicy.plain(it.task) && s.responseObservations[it.task.id]?.replayed == false }.takeLast(ExperiencePolicy.FLUENT_WINDOW)
+        val good = recent.filter { ResponseTiming.timely(s,it) && (s.responseObservations[it.task.id]?.durationMs ?: Long.MAX_VALUE) <= ExperiencePolicy.fast(it.task.direction) }
+        val coverage = minOf(1.0, good.size.toDouble() / (ExperiencePolicy.FLUENT_WINDOW - ExperiencePolicy.FLUENT_ALLOWED_ERRORS))
+        val retention = if (good.any { MiddleReadiness.retained(s,it) }) 1.0 else .8
+        return if (ready(s,unit,now,view)) 1.0 else minOf(.99,coverage*retention)
+    }
+    fun ready(s: LearnerState, unit: String, now: Long, view: AdaptiveEvidence.View = AdaptiveEvidence.View(s, now)): Boolean {
         val protections = s.positionProtections.values.filter { it.unit == unit }
         if (protections.any { it.resolvedAt == null }) return false
         val after = protections.maxOfOrNull { it.since } ?: 0L
-        val ids = AdaptiveEvidence.View(s, now).samples.filter { it.unit == unit && it.at > after }.map { it.taskId }.toSet()
+        val ids = view.samples.filter { it.unit == unit && it.at > after }.map { it.taskId }.toSet()
         val attempts = s.attempts.filter { it.task.id in ids && ExperiencePolicy.plain(it.task) && s.responseObservations[it.task.id]?.replayed == false }
             .takeLast(ExperiencePolicy.FLUENT_WINDOW)
         if (attempts.size < ExperiencePolicy.FLUENT_WINDOW) return false

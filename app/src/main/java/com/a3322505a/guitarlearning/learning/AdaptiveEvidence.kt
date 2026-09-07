@@ -189,7 +189,9 @@ object AdaptiveEvidence {
                 if (window.isEmpty()) return 0.0
                 return window.count { it.correct }.toDouble() / window.size * minOf(window.size / 4.0, 1.0) * if (held(window.first().unit)) 1.0 else 0.8
             }
-            val raw = if (positions.isEmpty()) 0.0 else (100.0 / positions.size * pairs.sumOf { ds -> ds.minOf(::score) }).coerceIn(0.0, 100.0)
+            val raw = if (positions.isEmpty()) 0.0 else 100.0 / positions.size * positions.sumOf { c ->
+                positionDirections.minOf { d -> Fluency.score(state, positionUnit(c,d), now, this) }
+            }
             val past = allSamples.any { sample -> sample.task.coordinate in positions && sample.unit.startsWith("position:") && sample.at < now - WINDOW_MS }
             val protected = state.positionProtections.values.any { it.resolvedAt == null && it.original.coordinate in positions }
             val label = if (protected) "巩固中" else if (measured.toDouble() / positions.size.coerceAtLeast(1) < 0.3) {

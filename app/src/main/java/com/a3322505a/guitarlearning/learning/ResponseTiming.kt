@@ -20,7 +20,8 @@ object ExperiencePolicy {
     fun deadline(d: Direction) = if (d == Direction.POSITION_TO_NOTE) 8_000L else 12_000L
     fun fast(d: Direction) = if (d == Direction.POSITION_TO_NOTE) 3_000L else 5_000L
     fun plain(t: LearningTask) = t.direction in AdaptiveEvidence.positionDirections && t.coordinate != null &&
-        t.completion == CompletionKind.SINGLE && !t.guided && t.adaptive?.scaffolded != true && t.adaptive?.options.isNullOrEmpty()
+        t.completion == CompletionKind.SINGLE && t.range.firstFret == (if (t.coordinate.fret <= 4) 0 else if (t.coordinate.fret <= 8) 5 else 9) &&
+        t.range.lastFret == (if (t.coordinate.fret <= 4) 4 else if (t.coordinate.fret <= 8) 8 else 12) && t.range.strings == setOf(t.coordinate.string) && !t.guided && t.adaptive?.scaffolded != true && t.adaptive?.options.isNullOrEmpty()
 }
 
 /** A task-bound monotonic clock. Interruptions never become slow or fast evidence. */

@@ -58,11 +58,11 @@ class AdaptiveDowngradeTest {
         var s = r.co.startRegion(profile(), "LOW", r.now)
         s = r.position(s, c)
         s = r.answer(s, false)
-        assertFalse(s.regionTraining!!.adaptive.diagnosing)
+        assertTrue(s.regionTraining!!.adaptive.diagnosing)
         repeat(4) { s = r.answer(s, false) }
         s = r.answer(s, true)
         assertEquals(1, AdaptiveEvidence.View(s, r.now).responses.size)
-        assertFalse(s.regionTraining!!.adaptive.diagnosing)
+        assertTrue(s.regionTraining!!.adaptive.diagnosing)
         s = r.position(s, c)
         s = r.answer(s, false)
         val view = AdaptiveEvidence.View(s, r.now)
@@ -85,7 +85,7 @@ class AdaptiveDowngradeTest {
         assertTrue(s.regionTraining!!.adaptive.diagnosing)
         assertTrue(s.active!!.task.adaptive!!.scaffolded)
         assertFalse(s.active!!.task.regionProbe)
-        assertTrue(AdaptiveEvidence.View(s, r.now).samples.size < AdaptiveEvidence.View(s, r.now).responses.size)
+        assertEquals(1, s.positionProtections.size)
     }
 
     @Test fun supportIsVisibleStableAndCannotAwardOriginalMastery() {
@@ -121,8 +121,9 @@ class AdaptiveDowngradeTest {
                 }
             }
             assertTrue("support must withdraw after successful practice", supportAnswers >= 4)
-            assertFalse(s.regionTraining!!.adaptive.scaffolding)
-            assertTrue("withdrawing support is not recovery", s.regionTraining!!.adaptive.diagnosing)
+            assertTrue("one probe must not withdraw all support", s.regionTraining!!.adaptive.scaffolding)
+            assertTrue(s.attempts.any { it.task.adaptive?.originalProbe == true })
+            assertTrue("isolated probes are not full recovery", s.regionTraining!!.adaptive.diagnosing)
             assertFalse(s.regionTraining!!.adaptive.trial)
             val helpedIds = s.attempts.filter { it.task.adaptive?.scaffolded == true }.map { it.task.id }.toSet()
             assertTrue(s.attempts.filter { it.task.id in helpedIds }.none { it.independent })
@@ -163,24 +164,21 @@ class AdaptiveDowngradeTest {
             s = r.answer(s, false)
         }
         assertTrue(AdaptiveEvidence.View(s, r.now).responses.all { it.correct })
-        assertFalse(s.regionTraining!!.adaptive.diagnosing)
+        assertTrue("asking for help remains a real difficulty signal", s.regionTraining!!.adaptive.diagnosing)
     }
 
     @Test fun continuingBroadFailureChecksFoundationsWithoutWaitingForEightSpacedSamples() {
         val r = Run()
         var s = r.co.startRegion(profile(), "LOW", r.now)
-        var errors = 0
+        var guided = 0
         repeat(14) {
-            if (s.regionTraining!!.adaptive.layer != RecoveryLayer.OPEN) {
-                val guided = s.active!!.task.guided
-                s = r.finish(s, guided)
-                if (!guided) errors++
-            }
+            if (s.active!!.task.guided) guided++
+            s = r.finish(s, s.active!!.task.guided)
+            assertTrue(s.active!!.task.adaptive?.scaffolded == true)
         }
-        assertEquals(RecoveryLayer.OPEN, s.regionTraining!!.adaptive.layer)
-        assertTrue(errors <= 8)
-        assertEquals(0, s.active!!.task.coordinate!!.fret)
-        assertTrue(s.active!!.task.adaptive!!.scaffolded)
+        assertTrue("persistent difficulty adds visible demonstration within the same bounds", guided > 0)
+        assertEquals(RecoveryLayer.LOCAL, s.regionTraining!!.adaptive.layer)
+        assertTrue(s.positionProtections.values.any { it.resolvedAt == null })
     }
 
     @Test fun oldSnapshotsDefaultSupportFieldsAndNewSnapshotsKeepTheirExactTask() {
