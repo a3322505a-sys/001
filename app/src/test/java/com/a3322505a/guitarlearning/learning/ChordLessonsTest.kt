@@ -54,7 +54,9 @@ class ChordLessonsTest {
                 val task = state.active!!.task
                 val rule = task.sequence[state.active!!.sequenceIndex]
                 state = co.answer(state, coordinate = rule.coordinate, symbol = rule.symbol, now = 10L + count)
-                if (!Curriculum.mastered(state, id) && state.active!!.phase == Phase.CORRECT) state = co.next(state, task.id, 1000L + count)
+                // Presentation precedes the next answer; a future teaching exposure must not
+                // make the fixture's subsequent answers travel backwards in time.
+                if (!Curriculum.mastered(state, id) && state.active!!.phase == Phase.CORRECT) state = co.next(state, task.id, 11L + count)
                 state = LearningCodec.decode(LearningCodec.encode(state))
                 count++
             }
