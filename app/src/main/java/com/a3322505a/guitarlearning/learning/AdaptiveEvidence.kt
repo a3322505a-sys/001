@@ -189,8 +189,12 @@ object AdaptiveEvidence {
                 if (window.isEmpty()) return 0.0
                 return window.count { it.correct }.toDouble() / window.size * minOf(window.size / 4.0, 1.0) * if (held(window.first().unit)) 1.0 else 0.8
             }
-            val raw = if (positions.isEmpty()) 0.0 else 100.0 / positions.size * positions.sumOf { c ->
-                positionDirections.minOf { d -> Fluency.score(state, positionUnit(c,d), now, this) }
+            val scores = positions.map { c -> positionDirections.minOf { d -> Fluency.score(state, positionUnit(c,d), now, this) } }
+            // Rounding one almost-ready direction must not display whole-region fluency.
+            val raw = when {
+                scores.isEmpty() -> 0.0
+                scores.all { it == 1.0 } -> 100.0
+                else -> minOf(99.0, scores.average() * 100)
             }
             val past = allSamples.any { sample -> sample.task.coordinate in positions && sample.unit.startsWith("position:") && sample.at < now - WINDOW_MS }
             val protected = state.positionProtections.values.any { it.resolvedAt == null && it.original.coordinate in positions }
