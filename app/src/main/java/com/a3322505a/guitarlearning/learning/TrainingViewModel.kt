@@ -220,7 +220,7 @@ class TrainingViewModel @JvmOverloads constructor(
         if (!trainingVisible() || _state.value?.active?.task?.id != taskId) return
         displayedTaskId = taskId
         val a = _state.value?.active
-        if (!_busy.value && a?.phase == Phase.ANSWERING && a.firstCorrect == null && a.hintLevel == 0 && ExperiencePolicy.plain(a.task)) {
+        if (!_busy.value && a?.phase == Phase.ANSWERING && a.firstCorrect == null && a.hintLevel == 0 && a.task.id !in _state.value!!.longThoughts && ExperiencePolicy.plain(a.task)) {
             responseClock.displayed(taskId, monotonic(), restoredTask == taskId)
             if (timingOwner != taskId) { timingJob?.cancel(); timingOwner = taskId }
             if (timingJob?.isActive != true) timingJob = viewModelScope.launch {
@@ -228,7 +228,7 @@ class TrainingViewModel @JvmOverloads constructor(
                     val remaining = ExperiencePolicy.deadline(a.task.direction) - (responseClock.sample(taskId, monotonic()).first ?: 0L)
                     delay(remaining.coerceAtLeast(1)); captureDeadline()
                     if (pendingLong.isNotEmpty()) { flushDeadline(); break }
-                    if (_state.value?.active?.firstCorrect != null) break
+                    if (_state.value?.active?.firstCorrect != null || taskId in _state.value!!.longThoughts) break
                 }
             }
         }
