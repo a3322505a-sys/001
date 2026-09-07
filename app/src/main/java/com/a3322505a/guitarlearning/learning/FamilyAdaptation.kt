@@ -28,6 +28,14 @@ object FamilyAdaptation {
     private fun ordinal(s: LearnerState) = (s.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
     private val targeted = setOf(PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS, PracticePurpose.RETEST)
 
+    internal fun readingPositions(s: LearnerState, id: String): List<Coordinate> {
+        if (Curriculum.mastered(s, id)) return ReadingLessons.positions
+        val exposed = s.knowledgeExposures.map { it.target }.toSet() + s.attempts.filter { it.task.nodeId == id }.flatMap { a ->
+            if (a.task.guided) AdaptiveEvidence.targets(a.task) else a.members.map { "skill:${it.skillId}" } + "skill:${a.task.skillId}"
+        }
+        return ReadingLessons.positions.filter { "skill:${ReadingLessons.skill(id, it)}" in exposed }
+    }
+
     // Eight tasks means eight tasks, never eight members of one long phrase.
     internal fun taskWindow(s: LearnerState, view: AdaptiveEvidence.View, scope: String, run: AdaptiveRun): List<AssessmentSample> =
         view.samples.filter { it.task.adaptive?.familyScope == scope && it.task.adaptive.config == run.config && it.ordinal >= run.sinceOrdinal }
@@ -82,10 +90,11 @@ object FamilyAdaptation {
         val id = seed.nodeId
         val source = if (s.practice != null) TaskSource.PRACTICE else if (s.reviewMode) TaskSource.REVIEW else TaskSource.MAIN
         return when {
-            id in ReadingLessons.ids -> if (!ReadingLessons.eligible(s, id)) emptyList() else if (id == "staff")
-                ReadingLessons.positions.map { ReadingLessons.single(it, source) }
-            else ReadingLessons.positions.indices.map { start ->
-                ReadingLessons.phrase(id, List(3) { ReadingLessons.positions[(start + it) % ReadingLessons.positions.size] }, source)
+            id in ReadingLessons.ids -> if (!ReadingLessons.eligible(s, id)) emptyList() else readingPositions(s, id).let { positions ->
+                if (id == "staff") positions.map { ReadingLessons.single(it, source) }
+                else if (positions.size < 3) emptyList() else positions.indices.map { start ->
+                    ReadingLessons.phrase(id, List(3) { positions[(start + it) % positions.size] }, source)
+                }
             }
             id == "tab01" -> if ("tab01:intro" !in s.introductions) emptyList() else listOf(Coordinate(1, 0), Coordinate(1, 1)).map { c ->
                 seed.copy(coordinate = c, skillId = "${c.id}:tab_to_position", constraint = AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c),
@@ -146,6 +155,10 @@ object FamilyAdaptation {
             t.copy(id = newId(), introductionId = if (t.guided) t.introductionId else null,
                 adaptive = AdaptiveTask(run.config, purpose, run.mixStage, unit = unit, familyScope = scope))
         val full = catalog(s, seed, random)
+        if (seed.nodeId in ReadingLessons.ids && !seed.guided && !run.diagnosing && s.practice == null) {
+            val known = readingPositions(s, seed.nodeId).map { "skill:${ReadingLessons.skill(seed.nodeId, it)}" }.toSet()
+            if (AdaptiveEvidence.targets(seed).any { it !in known }) return tag(seed.copy(source = TaskSource.DEMONSTRATION), PracticePurpose.NEXT)
+        }
         if (full.isEmpty() || seed.guided && !run.diagnosing) return tag(seed, PracticePurpose.NEXT)
         val candidates = if (run.mixStage == 0) {
             if (seed.nodeId == "mapping") full.filter { it.direction == context.anchor } else full.flatMap(::reduce)
@@ -165,7 +178,8 @@ object FamilyAdaptation {
             1, 3 -> PracticePurpose.FAMILIAR
             else -> listOf(PracticePurpose.COVERAGE, PracticePurpose.RETEST, PracticePurpose.NEXT)[block % 3]
         }
-        val eligible = candidates.filter { view.eligible(it) }.ifEmpty { candidates }
+        val spaced = candidates.filter { view.eligible(it) }
+        val eligible = spaced.ifEmpty { candidates }
         val local = eligible.filter { t -> AdaptiveEvidence.units(t).any { it in focus } }
         val familiar = eligible.filter { t -> AdaptiveEvidence.units(t).all { view.ready(it) } }
         val pool = when (purpose) {
@@ -175,8 +189,12 @@ object FamilyAdaptation {
         }
         if (purpose in targeted && local.isEmpty()) purpose = PracticePurpose.COVERAGE
         val chosen = pool.shuffled(random).minBy { t ->
-            val evidence = AdaptiveEvidence.units(t).flatMap { view.unit(it) }
-            if (purpose in listOf(PracticePurpose.COVERAGE, PracticePurpose.NEXT)) evidence.size.toLong() * AdaptiveEvidence.HOLD_MS + (evidence.maxOfOrNull { it.at } ?: 0L)
+            val units = AdaptiveEvidence.units(t).map { view.unit(it) }
+            val evidence = units.flatten()
+            // Small pools still rotate actual exposures; an unscored response must not pin a slot.
+            // Compare coverage per member, so long phrases cannot lose every slot to single items.
+            if (spaced.isEmpty()) AdaptiveEvidence.targets(t).maxOfOrNull { view.lastExposure(it) ?: 0L } ?: 0L
+            else if (purpose in listOf(PracticePurpose.COVERAGE, PracticePurpose.NEXT)) (units.minOfOrNull { it.size } ?: 0).toLong() * AdaptiveEvidence.HOLD_MS + (evidence.maxOfOrNull { it.at } ?: 0L)
             else evidence.maxOfOrNull { it.at } ?: 0L
         }
         val unit = AdaptiveEvidence.units(chosen).firstOrNull { it in focus } ?: AdaptiveEvidence.units(chosen).firstOrNull()

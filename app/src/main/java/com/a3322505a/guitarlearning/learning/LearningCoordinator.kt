@@ -125,7 +125,8 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
         val completed = phase in listOf(Phase.CORRECT, Phase.CORRECTED)
         val old = state.attempts.firstOrNull { it.task.id == active.task.id }
         val ordinal = old?.ordinal ?: (state.attempts.maxOfOrNull { it.ordinal } ?: 0) + 1
-        val independent = MasteryPolicy.independent(state, changed, ordinal) && active.task.completion == CompletionKind.SINGLE && active.task.adaptive?.options?.isNotEmpty() != true
+        val independent = MasteryPolicy.independent(state, changed, ordinal) && active.task.completion == CompletionKind.SINGLE && active.task.adaptive?.options?.isNotEmpty() != true &&
+            !(active.task.adaptive?.familyScope != null && active.task.adaptive.stage == 0)
         val attempt = Attempt(active.task, requireNotNull(state.sessionId), ordinal, old?.at ?: now,
             old?.localDay ?: Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString(),
             changed.firstCorrect, changed.hintLevel, phase == Phase.CORRECTED, completed, changed.inputs, independent,

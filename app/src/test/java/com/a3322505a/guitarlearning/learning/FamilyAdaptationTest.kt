@@ -11,7 +11,7 @@ class FamilyAdaptationTest {
     private val gap = AdaptiveEvidence.HOLD_MS + 100
     private fun profile(node: String) = LearnerState(currentNode = node, sessionId = "s", sessions = listOf(LearningSession("s", 1)), reviewMode = true,
         progress = Curriculum.nodes.associate { it.id to NodeProgress(1) },
-        introductions = ReadingLessons.ids.map { "reading:$it:intro" }.toSet() + setOf("tab01:intro", "reading:staff:clef", "reading:staff:octave") +
+        introductions = Curriculum.nodes.flatMap { it.positions }.map { "position:${it.id}" }.toSet() + ReadingLessons.ids.map { "reading:$it:intro" }.toSet() + setOf("tab01:intro", "reading:staff:clef", "reading:staff:octave") +
             ChordShapes.all.map { "chord:${it.id}:intro" } + StructureLessons.ids.flatMap { StructureLessons.tasks(it).map { t -> "${t.skillId}:intro" } } +
             MappingLessons.notes.flatMap { listOf("mapping:fixed:$it:intro", "mapping:major:0:$it:intro") })
     private fun present(s: LearnerState, t: LearningTask, at: Long, purpose: PracticePurpose = PracticePurpose.DIAGNOSIS): LearnerState {
@@ -204,5 +204,16 @@ class FamilyAdaptationTest {
         assertEquals(state, restored)
         assertTrue(AdaptiveEvidence.View(restored, 20).samples.isEmpty())
         assertNull(restored.attempts.single().members.single().firstUnassisted)
+    }
+
+    @Test fun readingDoesNotTreatOneIntroPhraseAsTeachingAllSixNotes() {
+        val task = ReadingLessons.phrase("tab02", ReadingLessons.positions.take(3), TaskSource.DEMONSTRATION)
+        var s = profile("tab02").copy(progress = emptyMap())
+        s = AdaptiveEvidence.expose(s, task, 10, true)
+        assertEquals(ReadingLessons.positions.take(3), FamilyAdaptation.readingPositions(s, "tab02"))
+        val newPhrase = ReadingLessons.phrase("tab02", ReadingLessons.positions.takeLast(3), TaskSource.MAIN)
+        val next = FamilyAdaptation.next(s, newPhrase, Random(1), 20)
+        assertTrue(next.guided)
+        assertEquals(newPhrase.sequence, next.sequence)
     }
 }
