@@ -16,6 +16,35 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun downgradeTriggerCommitsAtomicallyAndSurvivesReopen() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "downgrade-${newId()}.db"
+        var db = openTest(context, name)
+        var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val session = LearningSession(startedAt = 1)
+        val task = LessonScheduler().makePosition("p01", Coordinate(1, 0), Direction.POSITION_TO_NOTE, TaskSource.MAIN)
+            .copy(evidenceVersion = 1, adaptive = AdaptiveTask(AdaptiveRun().config, PracticePurpose.NORMAL))
+        var saved = repo.commit(repo.load(), LearnerState(currentNode = "p01", sessionId = session.id, sessions = listOf(session),
+            active = ActiveTask(task), regionTraining = RegionRun("LOW", 1, 0)))
+        saved = repo.commit(saved, co.answer(saved, symbol = "F", now = 100))
+        saved = repo.commit(saved, saved.copy(active = ActiveTask(task.copy(id = newId()))))
+        val changed = co.answer(saved, symbol = "F", now = 200)
+        assertTrue(changed.regionTraining!!.adaptive.scaffolding)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_downgrade BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved, changed) }
+        assertEquals(saved, repo.load())
+        assertEquals(1, db.learningDao().attemptCount())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_downgrade")
+        saved = repo.commit(saved, changed)
+        db.close(); db = openTest(context, name); repo = RoomLearningRepository(db)
+        assertEquals(saved, repo.load())
+        assertEquals(2, db.learningDao().attemptCount())
+        val malformed = saved.copy(regionTraining = saved.regionTraining!!.copy(adaptive = saved.regionTraining!!.adaptive.copy(diagnosing = false)))
+        assertFails { repo.restore(saved, LearningCodec.encode(malformed)) }
+        assertEquals(saved, repo.load())
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun adaptiveFailureAndExposureRollBackTogetherAndMalformedRestoreKeepsTheProfile() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "adaptive-${newId()}.db"

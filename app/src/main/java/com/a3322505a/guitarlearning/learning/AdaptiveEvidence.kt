@@ -12,6 +12,7 @@ import kotlin.math.roundToInt
     val config: String, val purpose: PracticePurpose, val stage: Int = 0,
     val options: List<SemanticOption> = emptyList(), val correctRepresentation: AnswerRepresentation = AnswerRepresentation.NOTE,
     val unit: String? = null,
+    val scaffolded: Boolean = false,
 )
 @Serializable enum class RecoveryLayer { REGION, LOCAL, NATURAL, OPEN }
 @Serializable data class AdaptiveRun(
@@ -23,7 +24,8 @@ import kotlin.math.roundToInt
     val excluded: Set<AnswerRepresentation> = emptySet(), val representationTrials: Map<AnswerRepresentation, Int> = emptyMap(),
     val reason: String? = null,
     val wide: Boolean = false,
-) { val config: String get() = "$generation:${layer.name}:M$mixStage:${excluded.sortedBy { it.name }.joinToString { it.name }}" }
+    val scaffolding: Boolean = false,
+) { val config: String get() = "$generation:${layer.name}:M$mixStage:${excluded.sortedBy { it.name }.joinToString { it.name }}" + if (scaffolding) ":supported" else "" }
 @Serializable data class WeakPoint(
     val unit: String, val target: String, val observedAt: Long, val confirmedAt: Long? = null,
     val taughtAt: Long? = null, val resolvedAt: Long? = null, val lastFailure: String? = null,
@@ -98,6 +100,8 @@ object AdaptiveEvidence {
         private val completions = mutableListOf<Set<String>>()
         val samples: List<AssessmentSample>
         val allSamples: List<AssessmentSample>
+        /** Immediate difficulty signals, never used to award mastery or recovery. */
+        val responses: List<AssessmentSample>
         init {
             val events = mutableListOf<Event>()
             s.knowledgeExposures.forEach { events += Event(it.at, 1, exposure = it) }
@@ -111,6 +115,7 @@ object AdaptiveEvidence {
                 if (a.completed && input != null && a.firstUnassisted == true && a.task.completion == CompletionKind.SINGLE) events += Event(a.inputs.last().at, 2, a)
             }
             val collected = mutableListOf<AssessmentSample>()
+            val answered = mutableListOf<AssessmentSample>()
             events.filter { it.at <= now }.sortedWith(compareBy<Event> { it.at }.thenBy { it.rank }.thenBy { it.attempt?.ordinal ?: 0 }).forEach { event ->
                 val exposure = event.exposure
                 if (exposure != null) {
@@ -129,16 +134,19 @@ object AdaptiveEvidence {
                         val key = unit(a.task)
                         val previous = facts.mapNotNull { exposures[it] }
                         val spaced = previous.all { gap(it, facts, event.at) }
-                        if (key != null && a.firstUnassisted == true && spaced && (a.task.relation?.ear != true || a.audioPlayed)) {
+                        if (key != null && a.firstUnassisted == true && (a.task.relation?.ear != true || a.audioPlayed)) {
                             val lastExposure = previous.maxOfOrNull { it.at }
-                            collected += AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
+                            val response = AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
                                 correct && lastExposure != null && event.at - lastExposure >= HOLD_MS, a.task)
+                            answered += response.copy(retention = false)
+                            if (spaced && a.task.adaptive?.scaffolded != true) collected += response
                         }
                         if (!correct && a.firstUnassisted == true) facts.forEach { challenges[it] = event.at }
                     }
                 }
             }
             allSamples = collected
+            responses = answered.filter { it.at >= now - WINDOW_MS }
             samples = collected.filter { it.at >= now - WINDOW_MS }.map { sample ->
                 if (sample.retention && targets(sample.task).any { (challenges[it] ?: Long.MIN_VALUE) >= sample.at }) sample.copy(retention = false) else sample
             }

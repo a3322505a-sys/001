@@ -91,6 +91,12 @@ object LearningCodec {
             require(task.evidenceVersion >= 0)
             task.adaptive?.let { adaptive ->
                 require(adaptive.stage in 0..3 && adaptive.config.isNotBlank())
+                if (adaptive.scaffolded) {
+                    require(task.direction in AdaptiveEvidence.positionDirections && task.coordinate != null && task.completion == CompletionKind.SINGLE)
+                    require(adaptive.options.isEmpty())
+                    require(task.range.contains(task.coordinate) && task.range.positions().size >= 2)
+                    if (task.direction == Direction.POSITION_TO_NOTE) require(task.options.size == 2 && task.options.distinct().size == 2 && task.constraint.symbol in task.options)
+                }
                 if (adaptive.options.isNotEmpty()) {
                     require(task.direction == Direction.POSITION_TO_NOTE && task.coordinate != null && task.completion == CompletionKind.SINGLE)
                     require(adaptive.options.map { it.label } == task.options)
@@ -141,6 +147,7 @@ object LearningCodec {
         state.regionTraining?.let { run ->
             require(run.regionId in FretboardRegion.entries.map { it.name } && run.startOrdinal > 0 && run.probeSize in 0..5)
             require(run.adaptive.generation >= 0 && run.adaptive.sinceOrdinal >= 0 && run.adaptive.diagnosisSince >= 0 && run.adaptive.mixStage in 0..3)
+            require(!run.adaptive.scaffolding || run.adaptive.diagnosing)
             require(AnswerRepresentation.NOTE !in run.adaptive.excluded)
             require(run.adaptive.representatives.distinct().size == run.adaptive.representatives.size && run.adaptive.representatives.all { it.fret <= 4 })
             require(run.adaptive.focus.distinct().size == run.adaptive.focus.size)
