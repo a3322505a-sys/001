@@ -182,6 +182,10 @@ class TrainingAudioIntegrationTest {
         drainUntil { !model.busy.value && model.error.value != null }
         assertEquals("s", model.state.value!!.sessionId)
         assertEquals(0, exits)
+        model.dismissError()
+        model.end { exits++ }
+        assertEquals("s", model.state.value!!.sessionId)
+        assertNotNull(model.error.value)
         repo.fail = false
         repo.block = null
         model.retry()

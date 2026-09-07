@@ -116,7 +116,8 @@ class TrainingViewModel @JvmOverloads constructor(
         change { if (it.active?.task?.id != taskId) it else coordinator.answer(it, coordinate, symbol, inputAt) }
     }
     fun next(taskId: String) { if (trainingVisible() && pendingExit == null) change { coordinator.next(it, taskId, System.currentTimeMillis()) } }
-    fun end(onDone: () -> Unit) {
+    fun end(expectedSessionId: String? = null, onDone: () -> Unit) {
+        if (expectedSessionId != null && _state.value?.sessionId != expectedSessionId) return
         stopAudio()
         val id = _state.value?.sessionId ?: return onDone()
         if (pendingExit == null) pendingExit = id to onDone
@@ -124,7 +125,9 @@ class TrainingViewModel @JvmOverloads constructor(
     }
     private fun drainExit() {
         val exit = pendingExit ?: return
-        if (_busy.value || _error.value != null) return
+        if (_busy.value) return
+        if (retryAction != null) { _error.value = "本次操作尚未保存，请先重试。"; return }
+        if (_error.value != null) return
         if (_state.value?.sessionId != exit.first) { pendingExit = null; return }
         change(onDone = {
             if (pendingExit === exit) { pendingExit = null; exit.second() }

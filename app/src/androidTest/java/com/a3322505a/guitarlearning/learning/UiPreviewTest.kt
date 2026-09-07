@@ -52,6 +52,14 @@ class UiPreviewTest {
                 instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(250)
+                // The emulator launcher occasionally ANRs while the app is healthy.
+                // Dismiss only that named system dialog, never an ANR belonging to this app.
+                val window = instrumentation.uiAutomation.rootInActiveWindow
+                if (window?.findAccessibilityNodeInfosByText("Pixel Launcher isn't responding")?.isNotEmpty() == true) {
+                    window.findAccessibilityNodeInfosByText("Close app").forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                    instrumentation.waitForIdleSync()
+                    Thread.sleep(300)
+                }
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
