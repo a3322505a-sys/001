@@ -68,6 +68,7 @@ class TrainingViewModel @JvmOverloads constructor(
             try {
                 _state.value = withContext(Dispatchers.IO) { repository.load() }
                 _error.value = null
+                retryAction = null
             } catch (e: Exception) {
                 _error.value = "无法读取学习档案，原数据已保留。${e.message.orEmpty()}"
                 retryAction = { reload() }
