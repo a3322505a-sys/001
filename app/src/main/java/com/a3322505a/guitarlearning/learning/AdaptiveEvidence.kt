@@ -14,6 +14,8 @@ import kotlin.math.roundToInt
     val unit: String? = null,
     val familyScope: String? = null,
     val scaffolded: Boolean = false,
+    val protectionKey: String? = null,
+    val originalProbe: Boolean = false,
 )
 @Serializable enum class RecoveryLayer { REGION, LOCAL, NATURAL, OPEN }
 @Serializable data class AdaptiveRun(
@@ -90,7 +92,7 @@ object AdaptiveEvidence {
     }
     fun present(s: LearnerState, task: LearningTask, now: Long): LearnerState {
         val t = task.copy(evidenceVersion = VERSION)
-        val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(RegionRounds.present(s.copy(active = ActiveTask(t)), t), t, now), t)
+        val next = FamilyAdaptation.onPresented(AdaptiveTraining.onPresented(RegionRounds.present(s.copy(active = ActiveTask(t), responseObservations = s.responseObservations + (t.id to ResponseObservation(t, s.sessionId.orEmpty()))), t), t, now), t)
         return if (t.guided) expose(next, t, now, true) else next
     }
     fun firstInput(a: Attempt) = a.inputs.firstOrNull { it.result !in listOf(ClickResult.OUTSIDE, ClickResult.REPEATED, ClickResult.EXTRA_CORRECT) }
@@ -104,7 +106,7 @@ object AdaptiveEvidence {
     fun targets(region: FretboardRegion): List<Coordinate> =
         (if (region == FretboardRegion.FULL) FretboardRegion.entries.flatMap { it.nodes } else region.nodes).flatMap { it.positions }.distinct()
 
-    class View(s: LearnerState, val now: Long) {
+    class View(private val state: LearnerState, val now: Long) {
         private data class Event(val at: Long, val rank: Int, val attempt: Attempt? = null, val exposure: KnowledgeExposure? = null, val member: TargetEvidence? = null)
         private data class Exposure(val at: Long, val completedIndex: Int)
         private val exposures = mutableMapOf<String, Exposure>()
@@ -115,6 +117,7 @@ object AdaptiveEvidence {
         /** Immediate difficulty signals, never used to award mastery or recovery. */
         val responses: List<AssessmentSample>
         init {
+            val s = state
             val events = mutableListOf<Event>()
             s.knowledgeExposures.forEach { events += Event(it.at, 1, exposure = it) }
             s.attempts.forEach { a ->
@@ -158,7 +161,7 @@ object AdaptiveEvidence {
                             val response = AssessmentSample(a.task.id, key, facts.first(), event.at, a.ordinal, correct,
                                 correct && lastExposure != null && event.at - lastExposure >= HOLD_MS, a.task)
                             answered += response.copy(retention = false)
-                            if (spaced && a.task.adaptive?.scaffolded != true) collected += response
+                            if (spaced && a.task.adaptive?.scaffolded != true && a.task.id !in s.longThoughts) collected += response
                         }
                         if (!correct && unassisted) facts.forEach { challenges[it] = event.at }
                     }
@@ -186,9 +189,16 @@ object AdaptiveEvidence {
                 if (window.isEmpty()) return 0.0
                 return window.count { it.correct }.toDouble() / window.size * minOf(window.size / 4.0, 1.0) * if (held(window.first().unit)) 1.0 else 0.8
             }
-            val raw = if (positions.isEmpty()) 0.0 else (100.0 / positions.size * pairs.sumOf { ds -> ds.minOf(::score) }).coerceIn(0.0, 100.0)
+            val scores = positions.map { c -> positionDirections.minOf { d -> Fluency.score(state, positionUnit(c,d), now, this) } }
+            // Rounding one almost-ready direction must not display whole-region fluency.
+            val raw = when {
+                scores.isEmpty() -> 0.0
+                scores.all { it == 1.0 } -> 100.0
+                else -> minOf(99.0, scores.average() * 100)
+            }
             val past = allSamples.any { sample -> sample.task.coordinate in positions && sample.unit.startsWith("position:") && sample.at < now - WINDOW_MS }
-            val label = if (measured.toDouble() / positions.size.coerceAtLeast(1) < 0.3) {
+            val protected = state.positionProtections.values.any { it.resolvedAt == null && it.original.coordinate in positions }
+            val label = if (protected) "巩固中" else if (measured.toDouble() / positions.size.coerceAtLeast(1) < 0.3) {
                 if (past) "待复测" else "评估中"
             } else "${raw.roundToInt()}%"
             return RegionAssessment(positions.size, measured, raw, "音位熟练度 · $label")

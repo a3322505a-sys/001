@@ -10,10 +10,12 @@ class RegionTrainingTest {
         introductions = FretboardRegion.LOW.nodes.take(3).flatMap { it.positions }.map { "position:${it.id}" }.toSet())
     private fun finish(s: LearnerState): LearnerState {
         val t = s.active!!.task
-        val a = if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(s, symbol = t.constraint.symbol, now = 100)
-            else co.answer(s, coordinate = AnswerEvaluator.validPositions(t).first(), now = 100)
-        val next = co.next(a, t.id, 101)
-        return if (next.sessionId == null) co.startRegion(next, s.regionTraining!!.regionId, 102) else next
+        val now = (s.attempts.maxOfOrNull { it.at } ?: 100L) + 5000
+        val timed = ResponseTiming.record(s,t.id,1000L to TimingQuality.VALID)
+        val a = if (t.constraint.kind == ConstraintKind.SYMBOL) co.answer(timed, symbol = t.constraint.symbol, now = now)
+            else co.answer(timed, coordinate = AnswerEvaluator.validPositions(t).first(), now = now)
+        val next = co.next(a, t.id, now+1)
+        return if (next.sessionId == null) co.startRegion(next, s.regionTraining!!.regionId, now+2) else next
     }
     @Test fun oneClickWarmsUpThenIntroducesNewPointsAcrossFiniteRounds() {
         var s = co.startRegion(profile(), "LOW", 10)

@@ -66,7 +66,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                     modifier = Modifier.semantics { contentDescription = "重听题目" }) { Text("♫", fontSize = 24.sp) }
                 if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Box {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "训练菜单" }) {
+                    IconButton(onClick = { menuOpen = true; onEvent(TrainingEvent.Obstructed) }, modifier = Modifier.semantics { contentDescription = "训练菜单" }) {
                         Text("⋯", fontSize = 26.sp)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -84,7 +84,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
             val content: @Composable ColumnScope.() -> Unit = {
                 state.tab?.let { TabPrompt(it, Modifier.width(160.dp)) }
                 state.notation?.let { CompactNotation(it, state.notationIndex) }
-                state.chordControls?.let { ChordInputControls(it, onEvent) }
+                key(state.taskId, state.chordControls) { state.chordControls?.let { ChordInputControls(it, onEvent) } }
                 if (state.hasChord && (state.showLegend || legendOpen)) FingerLegend { legendOpen = false; onEvent(TrainingEvent.LegendSeen) }
                 state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
             }
@@ -105,7 +105,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
                 }
             }
             }
-            if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
+            key(state.taskId) { if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth()) }
             if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }

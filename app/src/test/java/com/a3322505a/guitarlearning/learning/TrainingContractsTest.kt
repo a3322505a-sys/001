@@ -26,7 +26,7 @@ class TrainingContractsTest {
         val reverse = t.copy(direction = Direction.POSITION_TO_NOTE, constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "B"), options = listOf("A", "B"))
         val board = TrainingUiAdapter.board(ActiveTask(reverse), FingeringMode.COLORS)
         assertEquals(BoardInteraction.AUDITION, board.interaction)
-        assertEquals(listOf(BoardMark(Coordinate(3, 4), MarkRole.REFERENCE, "?")), board.marks)
+        assertEquals(listOf(BoardMark(Coordinate(3, 4), MarkRole.TARGET, "?")), board.marks)
         assertEquals(BoardInteraction.AUDITION, TrainingUiAdapter.board(ActiveTask(t), FingeringMode.COLORS, busy = true).interaction)
     }
     @Test fun chordAnswerIsHiddenUntilAssistanceAndMuteProducesNoPitch() {

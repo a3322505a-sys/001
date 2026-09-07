@@ -21,10 +21,10 @@ object RegionRounds {
         val run = requireNotNull(s.regionTraining)
         val slot = issued(s).size + 1
         check(slot <= SIZE) { "本轮已结束。" }
+        RegionProtection.next(s, random, now)?.let { return it.copy(roundSlot = slot) }
         val known = RegionTraining.known(s, run.regionId).distinctBy { it.second }
         val pool = when {
-            slot <= 3 && run.regionId == FretboardRegion.LOW.name -> known.filter { it.second.fret == 0 }
-            slot <= 3 -> known.filter { it.second in RegionTraining.region(run.regionId).nodes.flatMap { n -> n.positions } }.ifEmpty { known }
+            slot <= 3 -> RoundExperience.warmPool(s, known, slot, now)
             slot >= 11 -> {
                 val practiced = s.attempts.filter { it.sessionId == s.sessionId }.mapNotNull { it.task.coordinate }.toSet()
                 known.filter { it.second in practiced }.ifEmpty { known }
@@ -45,7 +45,7 @@ object RegionRounds {
             val practice = if (run.adaptive.scaffolding) AdaptiveTraining.simplify(s, base, known.map { it.second }, random) else base
             practice.copy(adaptive = AdaptiveTask(run.adaptive.config, PracticePurpose.FAMILIAR,
                 unit = AdaptiveEvidence.unit(base), scaffolded = run.adaptive.scaffolding))
-        } else AdaptiveMix.apply(s, AdaptiveTraining.next(s, scheduler, random, now), random, now)
+        } else RoundExperience.main(s, scheduler, random, now, slot)
         return task.copy(roundSlot = slot)
     }
 }

@@ -59,6 +59,7 @@ data class TrainingUiState(
 sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
     data class Answer(val symbol: String) : TrainingEvent
+    data object Obstructed : TrainingEvent
     data class Fingering(val id: String) : TrainingEvent
     data object PilotPlay : TrainingEvent
     data class PilotFinish(val rating: String?, val comment: String) : TrainingEvent

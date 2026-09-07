@@ -34,14 +34,14 @@ class AdaptiveEvidenceTest {
             } }
             val withoutHold = AdaptiveEvidence.View(s, now).region(region)
             assertEquals(total, withoutHold.measured)
-            assertEquals(80.0, withoutHold.raw, 0.0001)
+            assertEquals("legacy untimed evidence does not imply fast fluency", 0.0, withoutHold.raw, 0.0001)
             for (direction in AdaptiveEvidence.positionDirections) {
                 now += AdaptiveEvidence.HOLD_MS
                 for (c in positions) {
                     s = answer(s, position(c, direction), true, now); now += 100
                 }
             }
-            assertEquals(100.0, AdaptiveEvidence.View(s, now).region(region).raw, 0.0001)
+            assertEquals("retention without valid timing cannot fabricate fluency", 0.0, AdaptiveEvidence.View(s, now).region(region).raw, 0.0001)
             assertEquals("音位熟练度 · 待复测", AdaptiveEvidence.View(s, now + AdaptiveEvidence.WINDOW_MS + 1).region(region).label)
             assertEquals(profile().progress.keys, s.progress.keys)
         }

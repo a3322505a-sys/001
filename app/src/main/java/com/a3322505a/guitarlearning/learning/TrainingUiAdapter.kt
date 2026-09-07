@@ -23,7 +23,7 @@ object TrainingUiAdapter {
             val correct = c in a.confirmed
             val wrong = c == mistake && !correct
             if (!target && !correct && !wrong) null else BoardMark(c,
-                if (wrong) MarkRole.WRONG else if (correct) MarkRole.CORRECT else if (c == reference || c in references && c !in answers) MarkRole.REFERENCE else MarkRole.TARGET,
+                if (wrong) MarkRole.WRONG else if (correct) MarkRole.CORRECT else if (c != reference && c in references && c !in answers) MarkRole.REFERENCE else MarkRole.TARGET,
                 when { wrong -> "×"; correcting && (c in answers || c == reference) -> MusicFacts.note(c.string, c.fret); correct -> "✓"; c == reference -> "?"; c in references && c !in answers -> MusicFacts.note(c.string, c.fret); t.guided && t.coordinate == c -> t.constraint.symbol.orEmpty(); else -> "" },
                 target && !correct && !wrong && t.constraint.kind in listOf(ConstraintKind.STRING, ConstraintKind.FRET))
         }

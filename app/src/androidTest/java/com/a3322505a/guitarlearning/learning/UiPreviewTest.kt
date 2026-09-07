@@ -31,7 +31,7 @@ class UiPreviewTest {
             "chord-error" to chord.copy(wrong = true, message = "按亮起位置设置本弦。"),
             "tab-three-notes" to TrainingUiState("preview", "从左到右读 TAB 短句", board = board.copy(lastFret=4), notation=shortTab, wrong=true, message="按谱线找弦，按数字找品。"),
             "note-options" to TrainingUiState("preview", "", roundProgress="5/12", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(1,3),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
-            "recovery-recognition" to TrainingUiState("preview", "", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(4,2),MarkRole.REFERENCE,"?"))), options=listOf("D","E").map { AnswerOptionUi(it) }),
+            "recovery-recognition" to TrainingUiState("preview", "", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(4,2),MarkRole.TARGET,"?"))), options=listOf("D","E").map { AnswerOptionUi(it) }),
             "correction-b3" to TrainingUiAdapter.training(LearnerState(introductions=setOf("position:s3:f0", "position:s3:f2"), active=ActiveTask(LessonScheduler().makePosition("p09",Coordinate(3,4),Direction.POSITION_TO_NOTE,TaskSource.MAIN),phase=Phase.CORRECTING,firstCorrect=false)),false,AudioUiState()),
             "recovery-find" to TrainingUiState("preview", "在第4弦的2–3品内找到 E", roundProgress="5/12", board=board.copy(lastFret=4,marks=emptyList(),answerPositions=setOf(Coordinate(4,2),Coordinate(4,3)))),
             "mixed-options" to TrainingUiState("preview", "C 大调", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(6,0),MarkRole.TARGET,"?"))), options=listOf("1","re","E","4","sol","6","B").map { AnswerOptionUi(it) }),
@@ -44,7 +44,13 @@ class UiPreviewTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             instrumentation.waitForIdleSync()
             Thread.sleep(800)
+            for (wide in listOf(false, true)) {
+            if (wide) {
+                instrumentation.uiAutomation.executeShellCommand("wm size 390x840").close()
+                Thread.sleep(800)
+            }
             for(fontScale in listOf(1f, 1.3f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
+                if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
                 if (fontScale > 1f && (theme != "forest" || name !in listOf("chord-error", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
                 scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } } }
                 instrumentation.waitForIdleSync()
@@ -62,9 +68,11 @@ class UiPreviewTest {
                 }
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
-                directory.resolve("$theme-$name${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
+            }
+            instrumentation.uiAutomation.executeShellCommand("wm size reset").close()
         }
     }
 }
