@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.DpSize
 import kotlin.math.sin
 
+private val ReferenceGold = Color(0xFFFFD17B)
 private val TargetCyan = Color(0xFF45DEFF)
 private val MarkerInk = Color(0xFF062A39)
 private val CorrectMint = Color(0xFF73F0BB)
@@ -74,7 +75,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
                 if (state.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
                     fontSize = 16.sp, modifier = Modifier.align(Alignment.TopEnd).padding(2.dp))
                 if (state.chord == null && (target || correct || wrong)) {
-                    val color = if (wrong) WrongPink else if (correct) CorrectMint else TargetCyan
+                    val color = if (wrong) WrongPink else if (correct) CorrectMint else if (mark?.role == MarkRole.REFERENCE) ReferenceGold else TargetCyan
                     val band = mark?.band == true
                     Canvas(Modifier.fillMaxSize().padding(2.dp)) {
                         if (band) {
