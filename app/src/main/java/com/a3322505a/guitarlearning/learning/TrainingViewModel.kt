@@ -225,7 +225,8 @@ class TrainingViewModel @JvmOverloads constructor(
             if (timingOwner != taskId) { timingJob?.cancel(); timingOwner = taskId }
             if (timingJob?.isActive != true) timingJob = viewModelScope.launch {
                 while (_state.value?.active?.task?.id == taskId && trainingVisible()) {
-                    delay(100); captureDeadline()
+                    val remaining = ExperiencePolicy.deadline(a.task.direction) - (responseClock.sample(taskId, monotonic()).first ?: 0L)
+                    delay(remaining.coerceAtLeast(1)); captureDeadline()
                     if (pendingLong.isNotEmpty()) { flushDeadline(); break }
                     if (_state.value?.active?.firstCorrect != null) break
                 }

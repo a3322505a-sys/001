@@ -39,7 +39,7 @@ class MiddleReadinessTest {
         assertFalse(MiddleReadiness.ready(RegionProtection.protect(s,t,now),now))
     }
     @Test fun retentionIsMeasuredSinceLastExposureEvenWhenNoAnswerWasSubmitted() {
-        val s=qualified();val a=s.attempts.last()
+        val s=qualified();val a=s.attempts.dropLast(1).last()
         assertTrue(MiddleReadiness.retained(s,a))
         val exposed=s.copy(knowledgeExposures=s.knowledgeExposures+KnowledgeExposure("peek",AdaptiveEvidence.positionTarget(a.task.coordinate!!),a.at-1000,true))
         assertFalse(MiddleReadiness.retained(exposed,a))

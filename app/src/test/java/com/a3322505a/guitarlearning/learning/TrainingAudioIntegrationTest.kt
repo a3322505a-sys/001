@@ -196,4 +196,35 @@ class TrainingAudioIntegrationTest {
         assertEquals(1, model.state.value!!.sessions.count { it.endedAt != null })
     }
 
+    @Test fun deadlineSaveFailureThenImmediateBackRetainsEventAndRetriesExactlyOnce() {
+        val profile = LearnerState(soundEnabled=false, progress=Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions=Curriculum.nodes.flatMap { it.positions }.map { "position:${it.id}" }.toSet())
+        val repo=MemoryRepository(profile)
+        val model=TrainingViewModel(ApplicationProvider.getApplicationContext<Application>(),repo,FakeOutput())
+        val store=ViewModelStore().apply { put("timing",model) }
+        try {
+            drainUntil { model.state.value != null && !model.busy.value }
+            model.foreground(true);model.pageVisible("training")
+            model.region("LOW") {}
+            drainUntil { model.state.value?.active != null && !model.busy.value }
+            val id=model.state.value!!.active!!.task.id
+            model.taskDisplayed(id)
+            repo.fail=true
+            shadowOf(Looper.getMainLooper()).idleFor(8100,TimeUnit.MILLISECONDS)
+            drainUntil { model.error.value != null && !model.busy.value }
+            var exits=0
+            model.end { exits++ }
+            assertEquals(0,exits)
+            assertTrue(repo.value.longThoughts.isEmpty())
+            repo.fail=false
+            model.retry()
+            drainUntil { exits==1 && !model.busy.value }
+            assertEquals(setOf(id),repo.value.longThoughts.keys)
+            assertEquals(1,repo.value.positionProtections.size)
+            assertTrue(repo.value.attempts.isEmpty())
+            assertNull(repo.value.sessionId)
+            assertEquals(repo.value,LearningCodec.decode(LearningCodec.encode(repo.value)))
+        } finally { store.clear() }
+    }
+
 }

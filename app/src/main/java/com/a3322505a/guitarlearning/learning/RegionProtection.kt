@@ -61,7 +61,7 @@ object RegionProtection {
         return targets.fold(s) { state, t -> protect(state, t, now) }
     }
     fun next(s: LearnerState, random: Random, now: Long): LearningTask? {
-        val pending = active(s)
+        val pending = active(s).sortedBy { it.since }.take(2)
         if (pending.isEmpty()) return null
         // Restrict target set before choosing any slot. Rotate pairs; no full-strength empty fallback.
         val p = pending.minBy { p -> s.attempts.lastOrNull { it.task.adaptive?.protectionKey == key(p.original) }?.ordinal ?: -1 }

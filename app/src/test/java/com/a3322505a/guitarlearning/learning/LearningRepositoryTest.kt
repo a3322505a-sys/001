@@ -16,6 +16,28 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun longThoughtAndProtectionRollbackTogetherAndSurviveReopen() {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val name="long-${newId()}.db"
+        var db=openTest(context,name);var repo=RoomLearningRepository(db)
+        val co=LearningCoordinator()
+        val profile=repo.load().copy(progress=Curriculum.nodes.associate { it.id to NodeProgress(1) },
+            introductions=Curriculum.nodes.flatMap { it.positions }.map { "position:${it.id}" }.toSet())
+        val saved=repo.commit(repo.load(),co.startRegion(profile,"LOW",1000))
+        val task=saved.active!!.task
+        val changed=ResponseTiming.long(saved,LongThought(task,9000,8000))
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_timing BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved,changed) }
+        assertEquals(saved,repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_timing")
+        val committed=repo.commit(saved,changed)
+        db.close();db=openTest(context,name);repo=RoomLearningRepository(db)
+        assertEquals(committed,repo.load())
+        assertEquals(1,repo.load().longThoughts.size)
+        assertEquals(1,repo.load().positionProtections.size)
+        assertEquals(0,db.learningDao().attemptCount())
+        db.close();context.deleteDatabase(name)
+    }
     @Test fun downgradeTriggerCommitsAtomicallyAndSurvivesReopen() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "downgrade-${newId()}.db"
