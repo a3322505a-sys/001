@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,8 +26,9 @@ fun PracticeContent(state: PracticeUiState, select: (String, Boolean) -> Unit, s
         }
     }
     state.kinds.forEach { item ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = item.id == state.kind, onClick = { selectKind(item.id) }, enabled = !state.busy)
+        Row(Modifier.fillMaxWidth().selectable(item.id == state.kind, enabled = !state.busy, role = Role.RadioButton,
+            onClick = { selectKind(item.id) }).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = item.id == state.kind, onClick = null, enabled = !state.busy)
             Text(item.title)
         }
     }

@@ -1,6 +1,8 @@
 package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Text
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -10,9 +12,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
@@ -45,29 +52,39 @@ class ChordDiagramGeometry(firstFret: Int, lastFret: Int, val vertical: Boolean)
 fun ChordDiagram(state: FretboardUiState, onPosition: (PositionTapped)->Unit, modifier: Modifier=Modifier) {
     val g=remember(state.firstFret,state.lastFret,state.chordVertical) { ChordDiagramGeometry(state.firstFret,state.lastFret,state.chordVertical) }
     val chord=state.chord ?: return
-    Canvas(modifier.semantics { contentDescription=state.chordTitle+if(g.vertical) "，竖向，左6弦右1弦" else "，横向，上1弦下6弦" }
+    val colors = LocalGuitarColors.current
+    Column(modifier) {
+    Text(state.chordTitle, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(4.dp))
+    Canvas(Modifier.weight(1f).fillMaxWidth().semantics {
+        contentDescription=state.chordTitle+if(g.vertical) "，竖向，左6弦右1弦" else "，横向，上1弦下6弦"
+        if (state.interaction != BoardInteraction.DISABLED) customActions = state.interactivePositions
+            .filter { it.fret == 0 || it.fret in g.first..g.last }.sortedWith(compareBy<Coordinate> { it.string }.thenBy { it.fret }).map { c ->
+                CustomAccessibilityAction("${if (state.interaction == BoardInteraction.AUDITION) "试听" else "选择"}${c.label}") {
+                    onPosition(PositionTapped(state.viewId, c)); true
+                }
+            }
+    }
         .pointerInput(state,g) { detectTapGestures { tap ->
-            val title=24.dp.toPx()
+            val title=0f
             val cell=minOf(size.width/g.columns,(size.height-title)/g.rows)
             val left=(size.width-cell*g.columns)/2
             val top=title+(size.height-title-cell*g.rows)/2
             if(cell>0) g.at((tap.x-left)/cell,(tap.y-top)/cell)?.takeIf { state.interaction!=BoardInteraction.DISABLED && it in state.interactivePositions }?.let { onPosition(PositionTapped(state.viewId,it)) }
         } }) {
-        val title=24.dp.toPx()
+        val title=0f
         val cell=minOf(size.width/g.columns,(size.height-title)/g.rows)
         if(cell<=0) return@Canvas
         val left=(size.width-cell*g.columns)/2
         val top=title+(size.height-title-cell*g.rows)/2
         fun xy(x:Float,y:Float)=Offset(left+x*cell,top+y*cell)
         fun point(c:Coordinate)=g.center(c).let { xy(it.first,it.second) }
-        val ink=Color(0xFF223443)
+        val ink=colors.ink
         val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textAlign=android.graphics.Paint.Align.CENTER; typeface=android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD) }
-        fun text(value:String,p:Offset,color:Int=0xFF223443.toInt(),sizeSp:Float=12f) {
+        fun text(value:String,p:Offset,color:Int=ink.toArgb(),sizeSp:Float=12f) {
             paint.color=color; paint.textSize=sizeSp.sp.toPx()
             drawIntoCanvas { it.nativeCanvas.drawText(value,p.x,p.y-(paint.ascent()+paint.descent())/2,paint) }
         }
-        drawRoundRect(Color(0xFFF7F9FB),cornerRadius=androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()))
-        text(state.chordTitle,Offset(size.width/2,12.dp.toPx()),sizeSp=13f)
+        drawRoundRect(colors.surface,cornerRadius=androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()))
         for(s in 1..6) {
             val start=if(g.vertical) xy(s.toFloat(),1f) else xy(1f,s.toFloat())
             val end=if(g.vertical) xy(s.toFloat(),g.count+1f) else xy(g.count+1f,s.toFloat())
@@ -90,8 +107,16 @@ fun ChordDiagram(state: FretboardUiState, onPosition: (PositionTapped)->Unit, mo
             drawLine(ink.copy(alpha=.13f),a+Offset(0f,2.dp.toPx()),b+Offset(0f,2.dp.toPx()),radius*2+2.dp.toPx(),StrokeCap.Round)
             drawLine(color,a,b,radius*2,StrokeCap.Round)
             drawCircle(color,radius,a);drawCircle(color,radius,b)
-            text(finger.finger.toString(),a,sizeSp=12f)
-            if(a!=b) text(finger.finger.toString(),b,sizeSp=12f)
+            text(finger.finger.toString(),a,color=0xFF223443.toInt(),sizeSp=12f)
+            if(a!=b) text(finger.finger.toString(),b,color=0xFF223443.toInt(),sizeSp=12f)
+        }
+        chord.tones.forEach { tone ->
+            val p = point(tone.coordinate)
+            if (tone.rootRing) {
+                drawCircle(Color.Black, radius + 3.dp.toPx(), p, style = Stroke(3.dp.toPx()))
+                drawCircle(Color.White, radius + 3.dp.toPx(), p, style = Stroke(1.5.dp.toPx()))
+            }
+            if (tone.dot) drawCircle(ink, 2.dp.toPx(), p + Offset(0f, radius * .65f))
         }
         chord.tones.filter { it.label.isNotEmpty() && it.label.toIntOrNull()==null }.forEach { tone ->
             // Optional note names sit beside the persistent numbered finger, never replace it.
@@ -102,5 +127,6 @@ fun ChordDiagram(state: FretboardUiState, onPosition: (PositionTapped)->Unit, mo
             drawCircle(if(it.role==MarkRole.CORRECT) Color(0xFF16845B) else Color(0xFFCC315C),radius,p)
             text(if(it.role==MarkRole.CORRECT) "✓" else "×",p,android.graphics.Color.WHITE)
         }
+    }
     }
 }

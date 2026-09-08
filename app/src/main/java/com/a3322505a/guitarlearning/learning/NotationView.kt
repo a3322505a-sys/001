@@ -6,6 +6,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -21,10 +24,14 @@ import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 /** Short prompts keep readable note spacing instead of stretching three notes across a phone. */
 @Composable
 internal fun CompactNotation(notation: NotationPrompt, index: Int, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    // Scale native text and all staff geometry together, rather than enlarging labels alone.
+    CompositionLocalProvider(LocalDensity provides Density(density.density * density.fontScale.coerceAtLeast(1f), 1f)) {
     val width = if (notation.score != null) (88 + notation.score.bars * 184).dp
         else (76 + notation.pitches.size * 52).dp
     Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         NotationView(notation, index, Modifier.width(width).height(if (notation.score != null) 112.dp else 92.dp))
+    }
     }
 }
 

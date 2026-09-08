@@ -30,4 +30,11 @@ adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 adb shell am instrument -w -r -e class "$app.learning.UiPreviewTest#captureContracts" "$runner" > ui-previews.log 2>&1 || true
 mkdir -p ui-previews
-adb pull "/sdcard/Android/data/$app/files/previews/." ui-previews/ || true
+preview_path="/sdcard/Android/data/$app/files/previews"
+expected=$(adb shell "find '$preview_path' -type f -name '*.png' | wc -l" | tr -d '\r[:space:]' || true)
+for attempt in 1 2 3; do
+  adb pull "$preview_path/." ui-previews/ || true
+  actual=$(find ui-previews -type f -name '*.png' | wc -l)
+  echo "Preview export attempt $attempt: $actual / ${expected:-unknown} PNG files" | tee -a ui-previews.log
+  if [[ "$expected" =~ ^[0-9]+$ ]] && (( actual >= expected )); then break; fi
+done

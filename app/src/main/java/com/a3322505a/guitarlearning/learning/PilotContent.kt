@@ -29,26 +29,45 @@ internal fun PilotMenu(state: PilotMenuUi, start: (PilotMode) -> Unit) {
 }
 
 @Composable
+private fun PilotTempoControls(pilot: PilotControlsUi, onEvent: (TrainingEvent) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("${pilot.bpm} BPM")
+        TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm - 5).coerceAtLeast(40))) }, enabled = !pilot.playing,
+            modifier = Modifier.width(48.dp), contentPadding = PaddingValues(0.dp)) { Text("−") }
+        TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm + 5).coerceAtMost(80))) }, enabled = !pilot.playing,
+            modifier = Modifier.width(48.dp), contentPadding = PaddingValues(0.dp)) { Text("＋") }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PilotRatings(busy: Boolean, comment: String, onEvent: (TrainingEvent) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("顺畅", "有停顿", "困难").forEach { rating ->
+            Button(onClick = { onEvent(TrainingEvent.PilotFinish(rating, comment)) }, enabled = !busy,
+                contentPadding = PaddingValues(horizontal = 12.dp)) { Text(rating) }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     val pilot = requireNotNull(state.pilot)
     var comment by remember(state.taskId) { mutableStateOf("") }
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
-    BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        val boardHeight = maxHeight * 0.48f
-        val split = maxWidth >= 560.dp
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { onEvent(TrainingEvent.Back) }) { Text("‹ 返回") }
-                Text(state.title, Modifier.weight(1f))
-                if (pilot.completed) Button(onClick = { onEvent(TrainingEvent.PilotFinish(null, comment)) }, enabled = !state.busy) { Text("完成此段") }
-            }
+    Column(Modifier.fillMaxSize().displayCutoutPadding().imePadding().padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { onEvent(TrainingEvent.Back) }) { Text("‹ 返回") }
+            Text(state.title, Modifier.align(Alignment.CenterVertically))
+            if (pilot.completed) Button(onClick = { onEvent(TrainingEvent.PilotFinish(null, comment)) }, enabled = !state.busy) { Text("完成此段") }
+        }
             val score: @Composable ColumnScope.() -> Unit = {
                 state.notation?.let { notation ->
-                    NotationView(notation, if (pilot.mode == PilotMode.GUITAR) -1 else state.notationIndex,
-                        Modifier.fillMaxWidth().height(if (pilot.mode == PilotMode.GUITAR) 144.dp else 104.dp))
+                    CompactNotation(notation, if (pilot.mode == PilotMode.GUITAR) -1 else state.notationIndex)
                     if (pilot.compare) notation.score?.let {
-                        NotationView(it.notation(if (notation.kind == NotationKind.TAB) NotationKind.STAFF else NotationKind.TAB),
-                            state.notationIndex, Modifier.fillMaxWidth().height(120.dp))
+                        CompactNotation(it.notation(if (notation.kind == NotationKind.TAB) NotationKind.STAFF else NotationKind.TAB), state.notationIndex)
                     }
                 }
             }
@@ -70,39 +89,14 @@ internal fun PilotTrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent
                     OutlinedTextField(comment, { comment = it.take(200) }, label = { Text("可选：哪里停顿？") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 } else if (state.wrong) TrainingMessage(state.copy(message = "再看当前音，答对后继续。"))
             }
-            key(state.taskId) {
-            if (split) {
-                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(0.64f).fillMaxHeight().verticalScroll(rememberScrollState()), content = score)
-                    Column(Modifier.weight(0.36f).fillMaxHeight().verticalScroll(rememberScrollState()), content = controls)
-                }
-            } else {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) { score(); controls() }
-            }
-            }
-            state.board?.let { TeachingFretboard(it, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(boardHeight)) }
-        }
-    }
-}
 
-@Composable
-private fun PilotTempoControls(pilot: PilotControlsUi, onEvent: (TrainingEvent) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("${pilot.bpm} BPM")
-        TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm - 5).coerceAtLeast(40))) }, enabled = !pilot.playing,
-            modifier = Modifier.width(48.dp), contentPadding = PaddingValues(0.dp)) { Text("−") }
-        TextButton(onClick = { onEvent(TrainingEvent.PilotTempo((pilot.bpm + 5).coerceAtMost(80))) }, enabled = !pilot.playing,
-            modifier = Modifier.width(48.dp), contentPadding = PaddingValues(0.dp)) { Text("＋") }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PilotRatings(busy: Boolean, comment: String, onEvent: (TrainingEvent) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf("顺畅", "有停顿", "困难").forEach { rating ->
-            Button(onClick = { onEvent(TrainingEvent.PilotFinish(rating, comment)) }, enabled = !busy,
-                contentPadding = PaddingValues(horizontal = 12.dp)) { Text(rating) }
+        key(state.taskId) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                val information: @Composable ColumnScope.() -> Unit = { score(); controls(); TrainingAudioNotice(state, onEvent) }
+                val board = state.board
+                if (board != null) TrainingBoardWorkspace(board, { onEvent(TrainingEvent.Position(it)) }, information)
+                else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp), content = information)
+            }
         }
     }
 }

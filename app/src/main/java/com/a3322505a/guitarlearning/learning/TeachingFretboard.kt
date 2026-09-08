@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -47,20 +50,34 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
     } }
     CompositionLocalProvider(LocalViewConfiguration provides hitConfiguration) {
     BoxWithConstraints(modifier) {
-        val availableWidth = maxWidth
+        val viewportWidth = maxWidth
         val availableHeight = maxHeight
         val layout = geometry.layout(availableHeight.value, 40f)
         val boardLeft = layout.left.dp
         val boardWidth = layout.width.dp
         val boardHeight = layout.height.dp
         val boardTop = layout.top.dp
-        // One continuous viewport: never scroll to a hidden answer when a task changes.
-        Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+        val scroll = rememberScrollState()
+        val density = LocalDensity.current
+        // Only a single already-public question/correction mark may guide initial positioning.
+        // No task or hidden answer set crosses this boundary; later user scrolling is preserved.
+        LaunchedEffect(state.viewId, geometry.first, geometry.last, density.fontScale) {
+            val mark = state.marks.singleOrNull { it.role == MarkRole.TARGET && !it.band && it.coordinate.fret in geometry.first..geometry.last }
+            if (mark != null) {
+                withFrameNanos { }
+                val x = with(density) { (boardLeft + boardWidth * geometry.center(mark.coordinate.fret)).toPx() }
+                val viewport = with(density) { viewportWidth.toPx() }
+                val margin = with(density) { 24.dp.toPx() }
+                if (x < scroll.value + margin || x > scroll.value + viewport - margin) {
+                    scroll.scrollTo((x - viewport / 2).toInt().coerceAtLeast(0))
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().horizontalScroll(scroll)) {
           Box(Modifier.width(boardWidth + boardLeft).height(availableHeight)) {
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
-        state.chord?.let { ChordOverlay(it, geometry, boardLeft, boardTop, boardWidth, boardHeight) }
         // Drawing, targets and accessibility share the same fret and string coordinates.
         // Numbers remain available to screen readers, never as a permanent visual answer grid.
         (1..6).forEach { s -> (geometry.first..geometry.last).forEach { f ->
@@ -73,9 +90,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
                 .width(boardWidth * (geometry.right(f) - geometry.left(f))).height(boardHeight / 6)
                 .semantics { contentDescription = "${s}弦${if (f == 0) "空弦" else "${f}品格"}${if (correct) "，已确认" else ""}" }
                 .clickable(enabled = state.interaction != BoardInteraction.DISABLED && c in state.interactivePositions) { onPosition(PositionTapped(state.viewId, c)) }, contentAlignment = Alignment.Center) {
-                if (state.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
-                    fontSize = 16.sp, modifier = Modifier.align(Alignment.TopEnd).padding(2.dp))
-                if (state.chord == null && (target || correct || wrong)) {
+                if (target || correct || wrong) {
                     val color = if (wrong) WrongPink else if (correct) CorrectMint else if (mark?.role == MarkRole.REFERENCE) ReferenceGold else TargetCyan
                     val band = mark?.band == true
                     Canvas(Modifier.fillMaxSize().padding(2.dp)) {
