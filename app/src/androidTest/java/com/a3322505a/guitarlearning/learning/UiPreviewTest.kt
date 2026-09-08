@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,8 @@ class UiPreviewTest {
         val chord = TrainingUiAdapter.training(LearnerState(active = ActiveTask(ChordLessons.make(ChordShapes.get("am-open"), "chord-am", TaskSource.DEMONSTRATION))), false, AudioUiState())
         val shortTab = NotationPrompt(NotationKind.TAB, listOf(59,62,67), listOf(Coordinate(2,0),Coordinate(2,3),Coordinate(1,3)))
         val states=listOf(
+            "audio-error" to TrainingUiState("preview", "听完参照后，判断两个音的关系", relation=RelationUiState(listOf("播放未完成时不能作答。"), "试听参照", true), audio=AudioUiState(message="声音播放失败，请重试。",failed=true)),
+            "corrected" to TrainingUiState("preview", "纠正完成", message="已按提示完成，下一题将撤去辅助。", canNext=true),
             "symbol-only" to TrainingUiState("preview", "C 大调中，mi 对应哪个音名？", options=listOf("C", "D", "E", "F", "G", "A", "B").map { AnswerOptionUi(it) }),
             "symbol-feedback" to TrainingUiState("preview", "固定唱名与音名转换：选择对应关系", options=listOf("C 对应 do", "D 对应 re", "E 对应 mi").map { AnswerOptionUi(it) }, wrong=true, message="先看清题目的调性与方向，再选择对应关系。", audio=AudioUiState()),
             "chord-guided" to chord,
@@ -59,7 +62,7 @@ class UiPreviewTest {
             for(fontScale in listOf(1f, 1.3f, 2f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
                 if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
                 if (fontScale > 1f && (theme != "forest" || name !in listOf("symbol-only", "symbol-feedback", "chord-error", "chord-vertical", "barre-vertical", "barre-horizontal", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
-                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } } }
+                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { key(name, fontScale, theme, wide) { TrainingScreen(state){} } } } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
                 instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
@@ -77,6 +80,22 @@ class UiPreviewTest {
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale == 2f) "-largest" else if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
+                if (fontScale == 2f) {
+                    fun firstScrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+                        if (node == null) return null
+                        if (node.isScrollable) return node
+                        for (i in 0 until node.childCount) firstScrollable(node.getChild(i))?.let { return it }
+                        return null
+                    }
+                    val scroll = firstScrollable(instrumentation.uiAutomation.rootInActiveWindow)
+                    if (scroll != null) {
+                        repeat(4) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(150) }
+                        instrumentation.waitForIdleSync()
+                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        directory.resolve("$theme-$name-largest-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG,100,it) }
+                        end.recycle()
+                    }
+                }
             }
             }
             instrumentation.uiAutomation.executeShellCommand("wm size reset").close()
@@ -95,7 +114,7 @@ class UiPreviewTest {
                     SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; activity.setTrainingImmersive(false) }
                     CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
                         GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) {
-                            LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } }
+                            key(name, fontScale) { LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } } }
                         } }
                     }
                 } }
