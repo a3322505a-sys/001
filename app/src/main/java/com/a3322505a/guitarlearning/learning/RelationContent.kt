@@ -10,8 +10,8 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun RelationContent(state: RelationUiState, onDemonstrate: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) { state.lines.forEach { Text(it, fontSize = 14.sp) } }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        state.lines.forEach { Text(it, fontSize = 14.sp) }
         state.demonstrationLabel?.let { label ->
             OutlinedButton(onClick = onDemonstrate, enabled = state.demonstrationEnabled) { Text(label) }
         }

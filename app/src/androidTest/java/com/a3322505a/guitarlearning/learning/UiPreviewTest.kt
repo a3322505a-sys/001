@@ -27,6 +27,8 @@ class UiPreviewTest {
         val chord = TrainingUiAdapter.training(LearnerState(active = ActiveTask(ChordLessons.make(ChordShapes.get("am-open"), "chord-am", TaskSource.DEMONSTRATION))), false, AudioUiState())
         val shortTab = NotationPrompt(NotationKind.TAB, listOf(59,62,67), listOf(Coordinate(2,0),Coordinate(2,3),Coordinate(1,3)))
         val states=listOf(
+            "symbol-only" to TrainingUiState("preview", "C 大调中，mi 对应哪个音名？", options=listOf("C", "D", "E", "F", "G", "A", "B").map { AnswerOptionUi(it) }),
+            "symbol-feedback" to TrainingUiState("preview", "固定唱名与音名转换：选择对应关系", options=listOf("C 对应 do", "D 对应 re", "E 对应 mi").map { AnswerOptionUi(it) }, wrong=true, message="先看清题目的调性与方向，再选择对应关系。", audio=AudioUiState()),
             "chord-guided" to chord,
             "chord-vertical" to chord.copy(board=chord.board!!.copy(chordVertical=true)),
             "barre-horizontal" to TrainingUiAdapter.training(LearnerState(active=ActiveTask(ChordLessons.make(ChordShapes.fBarre,"chord-f",TaskSource.DEMONSTRATION))),false,AudioUiState()),
@@ -52,9 +54,9 @@ class UiPreviewTest {
                 instrumentation.uiAutomation.executeShellCommand("wm size 390x840").close()
                 Thread.sleep(800)
             }
-            for(fontScale in listOf(1f, 1.3f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
+            for(fontScale in listOf(1f, 1.3f, 2f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
                 if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
-                if (fontScale > 1f && (theme != "forest" || name !in listOf("chord-error", "chord-vertical", "barre-vertical", "barre-horizontal", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
+                if (fontScale > 1f && (theme != "forest" || name !in listOf("symbol-only", "symbol-feedback", "chord-error", "chord-vertical", "barre-vertical", "barre-horizontal", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
                 scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { TrainingScreen(state){} } } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
@@ -71,7 +73,7 @@ class UiPreviewTest {
                 }
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
-                directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale == 2f) "-largest" else if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
             }

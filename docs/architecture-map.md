@@ -64,9 +64,9 @@ flowchart TD
 | --- | --- | --- |
 | 启动、系统栏 | 根包 `MainActivity.kt` | 前后台、训练进出、系统栏恢复 |
 | 导航、页面恢复、文件选择器 | `LearningApp.kt` | 保存完成后导航；短谱与普通训练返回语义不同 |
-| 普通页面框架 | **现存于 `LearningApp.kt`** 的顶栏、标题和滚动容器 | 拟提取到纯显示组件；提取前不误认已完成 |
+| 普通页面框架 | `LearningPageFrame.kt` 的顶栏、标题、滚动容器、加载和通用对话框 | 只接显示值与回调；页面内容最大 960dp |
 | 首页、目录、知识树、详情、历史、设置 | `LearningPages.kt` | `LearningPageUiState.kt` 接数据，`LearningPageAdapter.kt` 投影业务事实 |
-| 普通训练排版 | `TrainingScreen.kt`、`RelationContent.kt` | 纯文字/指板/谱面/和弦各状态；不在布局计算学习证据 |
+| 普通训练排版 | `TrainingScreen.kt` 分派与共享控件；`TrainingLayouts.kt` 文字、指板（含谱面）、和弦模板；`RelationContent.kt` | 仅消费显示契约；短窗口和大字号滚动回退 |
 | 短谱入口与训练排版 | `PilotContent.kt` | `PilotMenu`、`PilotTrainingScreen`；检查对照谱、完成、自评及键盘 |
 | 和弦示例/逐弦控件/图例 | `ChordContent.kt` | 与图形绘制区分；设置事件回传，不直接保存 |
 | 普通指板绘制与触点 | `TeachingFretboard.kt`、`TeachingGeometry.kt` | 绘制/命中统一几何；只接 `FretboardUiState` 与坐标事件 |
@@ -108,7 +108,7 @@ flowchart TD
 | 设置 | `settings` → `SettingsContent` | 外观、指法、声音、备份和版本 |
 | 和弦示例 | `chord-examples` → `ChordExamples` | 强制横屏，仍用普通页面纵向框架 |
 | 短谱 | `score-pilot` → `PilotMenu` → training | 训练时转入 `PilotTrainingScreen` |
-| 普通训练 | `training` → `TrainingScreen` | 按显示状态组合控件，尚无独立题型布局模板 |
+| 普通训练 | `training` → `TrainingScreen` | 按显示状态分派 SymbolTaskLayout / BoardTaskLayout / ChordTaskLayout；短谱单独分派 |
 | 专项设置 | `practice:*` → `PracticeContent` | 路由/业务存在，但 `LearningPageAdapter.node` 固定 canPractice=false，CatalogContent 的 practice 回调未使用；不能称正常首页流程已开放入口 |
 | 分类页 | `category:*` → `CatalogContent` | 分支存在；现有首页使用 group 路由，不据此新增用户入口 |
 
@@ -116,12 +116,12 @@ flowchart TD
 
 1. **P1 已移除业务反向依赖显示适配器。** 原来 `CorrectionPresentation.expose` 通过 UI 的 MarkRole 和标签筛选知识暴露；现在 BoardTeachingPolicy 返回语义明确的位置知识事实，adapter 转换为文案/标记，expose 读取暴露坐标。改标签不再决定知识暴露；共同规则仍需相应证据回归。
 2. **P1 已隔离输入资格与 UI 投影。** ViewModel 和 adapter 共同使用 BoardTeachingPolicy 的输入模式及范围。原有忙碌时只试听、听辨禁用、已完成短谱禁用等规则保留；页面/陈旧任务/播放状态校验仍在 ViewModel，不靠 UI 禁用替代。
-3. **连接层仍含页面布局。** `LearningApp` 的顶栏、滚动容器、标题和通用错误 UI 尚未提取。AGENTS 的“仅负责连接”是目标约束，不是当前已经全部做到。
+3. **页面框架已提取（P2 工作分支）。** `LearningApp` 的顶栏、滚动容器、标题、加载与通用对话框移入 `LearningPageFrame`；连接层保留路由及备份文件选择状态。
 4. **契约并非彻底独立的数据层。** `TrainingUiState` 引用 `NotationPrompt` 和 `PilotControlsUi`；后者定义在页面文件；`LearningPageUiState` 引用 `PhysicalExercise`；显示组件直接枚举 `FingeringMode`/`AppTheme`。这些纯值共享不等于访问 ViewModel，但以后搬包必须考虑它们及序列化兼容。
 5. **ViewModel 聚合多种副作用。** 普通训练、短谱播放器、计时、备份均在同文件。可以按独立生命周期和测试需求提取协作者，先保持一个提交协调入口；仅按行数拆分没有收益保证。
 6. **Repository 文件混合存储与档案校验。** 有分离接口/Room/codec 的维护价值，但文档梳理不需要更换数据库架构；业务引用用于备份有效性验证，不应直接删除。
 7. **遗留绘制分支不可达。** `TeachingFretboard` 对 chord 非空立即 return 到 `ChordDiagram`，后面的 `state.chord?.let { ChordOverlay(...) }` 不再承担当前和弦显示。它与旧 v1 指板不是同一个概念；清理前需查全部引用及测试。
-8. **未消费的契约字段。** 普通 `TrainingScreen` 未展示 `state.audio.message/failed`；`ChordDiagram` 未绘制 `ChordToneUi.rootRing/dot`，而示例说明仍提根音白环。字段存在不等于体验已接入，应逐一验证再修复。
+8. **未消费的契约字段。** P2 已将普通题 `state.audio.message/failed` 接入显示与重试。`ChordDiagram` 仍未绘制 `ChordToneUi.rootRing/dot`，而示例说明仍提根音白环，留待 P3 修复。
 
 ## 6. legacy 与共享依赖
 
