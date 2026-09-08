@@ -28,91 +28,77 @@ import com.a3322505a.guitarlearning.ui.theme.*
 @Composable
 fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     if (state.pilot != null) { PilotTrainingScreen(state, onEvent); return }
-    val colors = LocalGuitarColors.current
     if (state.taskId == null) {
-        Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.Center) {
             Text(state.summary)
             Button(onClick = { onEvent(TrainingEvent.Back) }) { Text("返回") }
         }
         return
     }
-    var menuOpen by remember(state.taskId) { mutableStateOf(false) }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
-    BoxWithConstraints(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        val answerWidth = if (state.options.isEmpty()) 0.dp else minOf(maxWidth, answerOptionWidth(state.options))
-        val columns = ((maxWidth + 8.dp) / (answerWidth + 8.dp)).toInt().coerceAtLeast(1)
-        val answerRows = (state.options.size + columns - 1) / columns
-        val answerHeight = 48.dp * answerRows + 4.dp * (answerRows - 1).coerceAtLeast(0)
-        // Keep one readable feedback line even on the 640 × 320 landscape preview.
-        // The allowance is reserved before feedback exists, so the board never moves on an answer.
-        val boardAllowance = maxHeight - 48.dp - 48.dp - answerHeight - if (answerRows > 0) 24.dp else 16.dp
-        val fixedBoardHeight = minOf(maxHeight * 0.54f, 280.dp, boardAllowance.coerceAtLeast(96.dp))
-        // Reserve the same board area across prompt, hint and correction states.
-        // Only the two information panes scroll; neither can push text under the neck.
-        val split = maxWidth >= 560.dp
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = { onEvent(TrainingEvent.Back) }, modifier = Modifier.semantics { contentDescription = "保存并结束本轮返回" }) {
-                    Text("‹", fontSize = 28.sp)
-                }
-                Text(state.title, fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                    modifier = Modifier.weight(1f).semantics { contentDescription = state.accessibilityPrompt })
-                if (state.hasChord) IconButton(onClick = { onEvent(TrainingEvent.RotateChord) }, enabled = !state.busy,
-                    modifier = Modifier.semantics { contentDescription = "旋转和弦图" }) { Text("↻", fontSize = 25.sp) }
-                state.roundProgress?.let { Text(it, fontSize = 15.sp) }
-                Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) {
-                    if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
-                }
-                IconButton(onClick = { onEvent(TrainingEvent.Replay) }, enabled = state.canReplay,
-                    modifier = Modifier.semantics { contentDescription = "重听题目" }) { Text("♫", fontSize = 24.sp) }
-                if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Box {
-                    IconButton(onClick = { menuOpen = true; onEvent(TrainingEvent.Obstructed) }, modifier = Modifier.semantics { contentDescription = "训练菜单" }) {
-                        Text("⋯", fontSize = 26.sp)
+    Column(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        TrainingToolbar(state, onEvent) { legendOpen = true }
+        key(state.taskId) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    state.hasChord -> ChordTaskLayout(state, onEvent, state.showLegend || legendOpen) {
+                        legendOpen = false; onEvent(TrainingEvent.LegendSeen)
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (state.hasChord) {
-                            DropdownMenuItem(text = { Text("手指颜色说明") }, onClick = { legendOpen = true; menuOpen = false })
-                            FingeringMode.entries.forEach { mode -> DropdownMenuItem(text = { Text("指法：${mode.title}") }, onClick = { onEvent(TrainingEvent.Fingering(mode.id)); menuOpen = false }) }
-                        }
-                        if (state.canHint) DropdownMenuItem(
-                            text = { Text(state.hintLabel) }, enabled = !state.busy,
-                            onClick = { menuOpen = false; onEvent(TrainingEvent.Hint) })
-                        if (state.canReplay) DropdownMenuItem(text = { Text("重听题目") }, onClick = { menuOpen = false; onEvent(TrainingEvent.Replay) })
-                    }
+                    state.board != null -> BoardTaskLayout(state, onEvent)
+                    else -> SymbolTaskLayout(state, onEvent)
                 }
             }
-            val content: @Composable ColumnScope.() -> Unit = {
-                state.tab?.let { TabPrompt(it, Modifier.width(160.dp)) }
-                state.notation?.let { CompactNotation(it, state.notationIndex) }
-                key(state.taskId, state.chordControls) { state.chordControls?.let { ChordInputControls(it, onEvent) } }
-                if (state.hasChord && (state.showLegend || legendOpen)) FingerLegend { legendOpen = false; onEvent(TrainingEvent.LegendSeen) }
-                state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-            }
-            val hasContent = state.tab != null || state.notation != null || state.hasChord || state.relation != null
-            key(state.taskId) {
-            if (split && hasContent && state.message != null) {
-                Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(0.56f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
-                    key(state.message) { BoxWithConstraints(Modifier.weight(0.44f).fillMaxHeight()) {
-                        TrainingMessage(state, Modifier.heightIn(max = maxHeight), scrollable = !state.wrong)
-                    } }
-                }
-            } else {
-                Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (hasContent) Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
-                    TrainingMessage(state)
-                }
-            }
-            }
-            key(state.taskId) { if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth()) }
-            if (state.board != null) TeachingFretboard(state.board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(fixedBoardHeight))
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TrainingToolbar(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit, showLegend: () -> Unit) {
+    var menuOpen by remember(state.taskId) { mutableStateOf(false) }
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        IconButton(onClick = { onEvent(TrainingEvent.Back) },
+            modifier = Modifier.semantics { contentDescription = "保存并结束本轮返回" }) { Text("‹", fontSize = 28.sp) }
+        state.roundProgress?.let { Text(it, Modifier.align(Alignment.CenterVertically), fontSize = 15.sp) }
+        if (state.hasChord) IconButton(onClick = { onEvent(TrainingEvent.RotateChord) }, enabled = !state.busy,
+            modifier = Modifier.semantics { contentDescription = "旋转和弦图" }) { Text("↻", fontSize = 25.sp) }
+        if (state.canReplay) IconButton(onClick = { onEvent(TrainingEvent.Replay) },
+            modifier = Modifier.semantics { contentDescription = "重听题目" }) { Text("♫", fontSize = 24.sp) }
+        if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
+        if (state.busy) CircularProgressIndicator(Modifier.size(24.dp).align(Alignment.CenterVertically), strokeWidth = 2.dp)
+        Box {
+            IconButton(onClick = { menuOpen = true; onEvent(TrainingEvent.Obstructed) },
+                modifier = Modifier.semantics { contentDescription = "训练菜单" }) { Text("⋯", fontSize = 26.sp) }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                if (state.hasChord) {
+                    DropdownMenuItem(text = { Text("手指颜色说明") }, onClick = { showLegend(); menuOpen = false })
+                    FingeringMode.entries.forEach { mode ->
+                        DropdownMenuItem(text = { Text("指法：${mode.title}") },
+                            onClick = { onEvent(TrainingEvent.Fingering(mode.id)); menuOpen = false })
+                    }
+                }
+                if (state.canHint) DropdownMenuItem(text = { Text(state.hintLabel) }, enabled = !state.busy,
+                    onClick = { menuOpen = false; onEvent(TrainingEvent.Hint) })
+                if (state.canReplay) DropdownMenuItem(text = { Text("重听题目") },
+                    onClick = { menuOpen = false; onEvent(TrainingEvent.Replay) })
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TrainingPrompt(state: TrainingUiState) {
+    if (state.title.isNotBlank()) Text(state.title, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.semantics { contentDescription = state.accessibilityPrompt })
+}
+
+@Composable
+internal fun TrainingAudioNotice(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
+    state.audio.message?.let { Text(it, fontSize = 13.sp, color = LocalGuitarColors.current.accent) }
+    if (state.audio.failed) TextButton(onClick = { onEvent(TrainingEvent.RetryAudio) }, enabled = !state.busy) { Text("重试声音") }
+    if (!state.soundEnabled) TextButton(onClick = { onEvent(TrainingEvent.EnableSound) }, enabled = !state.busy) { Text("开启声音") }
+}
 @Composable
 internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifier, scrollable: Boolean = false) {
     val message = state.message ?: return
@@ -129,7 +115,7 @@ internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifi
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
     val optionStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 19.sp)
     val width = answerOptionWidth(options)
@@ -153,7 +139,7 @@ private fun AnswerOptions(options: List<AnswerOptionUi>, answer: (String) -> Uni
                     containerColor = optionColors.background, contentColor = optionColors.ink,
                     disabledContainerColor = optionColors.background, disabledContentColor = optionColors.ink)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(option.value, style = optionStyle, maxLines = 1, softWrap = false)
+                    Text(option.value, style = optionStyle, modifier = Modifier.weight(1f, fill = false))
                     Box(Modifier.width(12.dp), contentAlignment = Alignment.Center) {
                         if (wrong || confirmed) Text(if (wrong) "×" else "✓", fontSize = 12.sp, maxLines = 1, softWrap = false)
                     }
@@ -173,7 +159,7 @@ private fun answerOptionWidth(options: List<AnswerOptionUi>): Dp {
 }
 
 @Composable
-private fun TabPrompt(c: Coordinate, modifier: Modifier = Modifier) {
+internal fun TabPrompt(c: Coordinate, modifier: Modifier = Modifier) {
     val colors = LocalGuitarColors.current
     Box(modifier.height(64.dp).background(colors.surface).semantics { contentDescription = "TAB：${c.label}" }) {
         Canvas(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {

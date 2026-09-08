@@ -6,18 +6,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.a3322505a.guitarlearning.MainActivity
 import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 import kotlinx.coroutines.delay
@@ -64,19 +58,12 @@ fun LearningApp(model: TrainingViewModel) {
     Surface(Modifier.fillMaxSize(), color = colors.background) {
         val s = state
         if (s == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error == null) CircularProgressIndicator() else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("学习档案暂时无法读取，原数据已保留。")
-                    Button(onClick = model::reload, enabled = !busy) { Text("重新读取") }
-                }
-            }
+            ProfileLoading(error != null, busy, model::reload)
         } else if (page == "training") {
             TrainingRoute(s, busy, model, onBack = { if (s.pilot != null) page = returnPage else model.end(s.sessionId) { page = returnPage } }, onEnd = { model.end(s.sessionId) { page = returnPage } })
         } else {
-            Column(Modifier.safeDrawingPadding().fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (page != "home") TextButton(onClick = back) { Text(if (page.startsWith("node:") || page.startsWith("practice:")) "‹ 返回" else "‹ 首页") }
-                    Text(if (page == "home") "吉他 · 一小步" else when {
+            LearningPageFrame(
+                title = if (page == "home") "吉他 · 一小步" else when {
                         page.startsWith("practice:") -> "专项练习"
                         page == "score-pilot" -> "短谱试用"
                         page == "chord-examples" -> "和弦指法示例"
@@ -84,13 +71,13 @@ fun LearningApp(model: TrainingViewModel) {
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
                         else -> "节点详情"
-                    }, fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
-                    if (page == "home") TextButton(onClick = { page = "settings" }) { Text("设置") }
-                }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                },
+                backLabel = if (page == "home") null else if (page.startsWith("node:") || page.startsWith("practice:")) "‹ 返回" else "‹ 首页",
+                busy = busy, onBack = back, onSettings = if (page == "home") ({ page = "settings" }) else null,
+            ) {
                 pageStates.SaveableStateProvider(page) {
-                  Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (page in listOf("group:INTRO","category:READING")) OutlinedButton(onClick = { page = "score-pilot" }) { Text("短谱试用 · 8段") }
+                  if (page == "chord-examples") ChordExamplesRoute(s, busy, model) else LearningPageBody {
+                    if (page in listOf("group:INTRO","category:READING")) ShortScoreEntry { page = "score-pilot" }
                     when {
                         page == "score-pilot" -> PilotMenu(LearningPageAdapter.pilot(s)) { mode -> model.startPilot(mode) { returnPage = "score-pilot"; page = "training" } }
                         page == "home" -> HomeContent(LearningPageAdapter.home(s), { page = if (it == "tree") "tree" else "group:$it" }, start, resume)
@@ -101,20 +88,15 @@ fun LearningApp(model: TrainingViewModel) {
                         page.startsWith("practice:") -> PracticeRoute(s, page.substringAfter(':').split(','), busy) { selection ->
                             model.practice(selection) { returnPage = page; page = "training" }
                         }
-                        page == "chord-examples" -> ChordExamplesRoute(s, busy, model)
                         page == "history" -> HistoryContent(LearningPageAdapter.history(s), detail)
                         page == "settings" -> SettingsRoute(s, busy, model)
                     }
-                    Spacer(Modifier.height(16.dp))
                   }
                 }
             }
         }
     }
-    if (error != null) AlertDialog(onDismissRequest = model::dismissError,
-        title = { Text("操作未完成") }, text = { Text(error.orEmpty()) },
-        confirmButton = { TextButton(onClick = model::retry, enabled = !busy) { Text("重试") } },
-        dismissButton = { TextButton(onClick = model::dismissError) { Text("关闭") } })
+    error?.let { OperationError(it, busy, model::retry, model::dismissError) }
 }
 
 
@@ -199,8 +181,6 @@ private fun SettingsRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { restoreUri = it }
     SettingsContent(LearningPageAdapter.settings(s, busy, notice), model::theme, model::fingering, model::sound,
         { export.launch("guitar-learning-backup.json") }, { restore.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
-    if (restoreUri != null) AlertDialog(onDismissRequest = { restoreUri = null },
-        title = { Text("恢复学习档案？") }, text = { Text("当前进度将替换为备份中的进度。恢复前会在本机保留一份当前档案副本。") },
-        confirmButton = { TextButton(onClick = { restoreUri?.let(model::restore); restoreUri = null }, enabled = !busy) { Text("恢复") } },
-        dismissButton = { TextButton(onClick = { restoreUri = null }) { Text("取消") } })
+    if (restoreUri != null) RestoreConfirmation(busy,
+        confirm = { restoreUri?.let(model::restore); restoreUri = null }, dismiss = { restoreUri = null })
 }

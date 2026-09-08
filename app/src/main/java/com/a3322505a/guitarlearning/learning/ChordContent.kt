@@ -2,12 +2,17 @@ package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -75,8 +80,9 @@ fun FingerLegend(onClose: () -> Unit) {
 fun FingeringSettings(selectedId: String, busy: Boolean, select: (String) -> Unit) {
     Text("指法显示")
     FingeringMode.entries.forEach { mode ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = selectedId == mode.id, onClick = { select(mode.id) }, enabled = !busy)
+        Row(Modifier.fillMaxWidth().selectable(selected = selectedId == mode.id, enabled = !busy,
+            role = Role.RadioButton, onClick = { select(mode.id) }).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = selectedId == mode.id, onClick = null, enabled = !busy)
             Text(mode.title)
         }
     }
@@ -84,17 +90,34 @@ fun FingeringSettings(selectedId: String, busy: Boolean, select: (String) -> Uni
 
 @Composable
 fun ChordExamples(state: ChordExamplesUiState, select: (String) -> Unit, play: () -> Unit, fingering: (String) -> Unit, rotate: () -> Unit = {}) {
+    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val controls: @Composable ColumnScope.() -> Unit = {
     state.choices.chunked(2).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         row.forEach { item -> OutlinedButton(onClick = { select(item.id) }, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text(item.title, fontSize = 13.sp) } }
     } }
     Text("${state.title} · O 空弦 / X 不弹；这里查看的是推荐形态。", fontSize = 13.sp)
     Text("青蓝 1 食指 · 金黄 2 中指\n浅紫 3 无名指 · 粉色 4 小指", fontSize = 13.sp)
     OutlinedButton(onClick = rotate, enabled = !state.busy) { Text(if (state.board.chordVertical) "↻ 横向和弦图" else "↻ 竖向和弦图") }
-    TeachingFretboard(state.board, {}, Modifier.fillMaxWidth().height(250.dp))
-    Button(onClick = play, enabled = state.soundEnabled) { Text("试听形态") }
+    Button(onClick = play, enabled = state.soundEnabled && !state.busy) { Text("试听形态") }
     state.audio.message?.let { Text(it, fontSize = 13.sp) }
     FingeringSettings(state.fingeringMode, state.busy, fingering)
     Text("颜色与手指固定对应；音名视图的白环表示根音。屏幕逐点操作不识别真实手指或按弦力度。", fontSize = 13.sp)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+        if (maxWidth >= 500.dp * scale && maxHeight >= 220.dp * scale) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TeachingFretboard(state.board, {}, Modifier.weight(1f).fillMaxHeight())
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp), content = controls)
+            }
+        } else {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TeachingFretboard(state.board, {}, Modifier.fillMaxWidth().height(300.dp * scale))
+                controls()
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
