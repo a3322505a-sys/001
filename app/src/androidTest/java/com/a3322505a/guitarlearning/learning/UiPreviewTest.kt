@@ -110,13 +110,16 @@ class UiPreviewTest {
                 "pilot-menu" to { PilotMenu(LearningPageAdapter.pilot(learner), {}) },
             )
             for (fontScale in listOf(1f, 2f)) for ((name, page) in pages) {
+                // These are independent roots, not navigation updates in one app composition.
+                scenario.onActivity { it.setContent {} }
+                instrumentation.waitForIdleSync()
                 scenario.onActivity { activity -> activity.setContent {
                     SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; activity.setTrainingImmersive(false) }
-                    CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
+                    key(name, fontScale) { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
                         GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) {
                             key(name, fontScale) { LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } } }
                         } }
-                    }
+                    } }
                 } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)

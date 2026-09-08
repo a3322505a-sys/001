@@ -1,6 +1,6 @@
 # 项目架构与修改导航
 
-核验日期：2026-09-08；main 基线：`1c64435590fa82f8b668ea04ae043c02952adf95`（已合并 PR #61，alpha25 / 42）。本文已更新 P1 工作分支的 BoardTeachingPolicy 边界，其余[重构计划](architecture-refactor-plan.md)中的阶段尚未实现。接手仍需 fetch main、核对 PR 和本地改动。
+核验日期：2026-09-08；main 基线：`1c64435590fa82f8b668ea04ae043c02952adf95`（已合并 PR #61，alpha25 / 42）。本文已更新工作分支中的业务事实边界、页面框架、题型布局与谱面/和弦可访问性；对应 PR #62–#65，尚未合并。已实现、验证和保留事项见[重构计划](architecture-refactor-plan.md)。接手仍需 fetch main、核对 PR 和本地改动。
 
 ## 1. 工程与运行边界
 
@@ -120,7 +120,7 @@ flowchart TD
 4. **契约并非彻底独立的数据层。** `TrainingUiState` 引用 `NotationPrompt` 和 `PilotControlsUi`；后者定义在页面文件；`LearningPageUiState` 引用 `PhysicalExercise`；显示组件直接枚举 `FingeringMode`/`AppTheme`。这些纯值共享不等于访问 ViewModel，但以后搬包必须考虑它们及序列化兼容。
 5. **ViewModel 聚合多种副作用。** 普通训练、短谱播放器、计时、备份均在同文件。可以按独立生命周期和测试需求提取协作者，先保持一个提交协调入口；仅按行数拆分没有收益保证。
 6. **Repository 文件混合存储与档案校验。** 有分离接口/Room/codec 的维护价值，但文档梳理不需要更换数据库架构；业务引用用于备份有效性验证，不应直接删除。
-7. **遗留绘制分支不可达。** `TeachingFretboard` 对 chord 非空立即 return 到 `ChordDiagram`，后面的 `state.chord?.let { ChordOverlay(...) }` 不再承担当前和弦显示。它与旧 v1 指板不是同一个概念；清理前需查全部引用及测试。
+7. **不可达绘制分支已清理。** `TeachingFretboard` 对 chord 非空立即转入 `ChordDiagram`；P3 删除了后续重复和弦分支。`ChordContent.ChordOverlay` 函数尚保留但当前无调用，不能作为当前和弦修改入口。它与旧 v1 指板不是同一个概念。
 8. **契约字段已补接。** P2 将普通题 `state.audio.message/failed` 接入显示与重试；P3 将 `ChordToneUi.rootRing/dot` 接入和弦绘制。读屏位置动作仍只从允许交互集合生成，不带隐藏答案。
 
 ## 6. legacy 与共享依赖
