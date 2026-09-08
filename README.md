@@ -4,7 +4,9 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 ## 当前交接基线
 
-当前工作分支实现“指板质感与训练停滞方案”修订2，基于 main `24e02f7c`。新增七音选项、短补练与间隔复测、本轮内上探、局部和弦图与方向偏好；构建、模拟器及交付状态以 [PR #61](https://github.com/a3322505a-sys/001/pull/61) 为准。实现与候选参数见 [本批施工记录](docs/progression-visuals-alpha25.md)。此前已交付版本为 alpha24 / 41（PR #60）。
+2026-09-08 核验远端 main 为 `1c64435`，已合并 [PR #61](https://github.com/a3322505a-sys/001/pull/61) 的“指板质感与训练停滞方案”修订2。包含七音选项、短补练与间隔复测、本轮内上探、局部和弦图与方向偏好；构建、模拟器及 APK 交付状态以 PR 的对应记录为准。实现与候选参数见 [alpha25 施工记录](docs/progression-visuals-alpha25.md)。
+
+本次完成[全项目架构地图](docs/architecture-map.md)与[布局/架构分批重构计划](docs/architecture-refactor-plan.md)，仅整理源码边界和维护入口，未实施计划中的 App 重构。当前是单一 `:app` 模块，页面已有状态/事件契约，但仍有业务反向读取显示投影、连接层包含页面框架等边界问题。
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 
@@ -17,7 +19,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 - 设置 → 外观提供清爽青白、暖纸森林、午夜蓝、石墨紫；主题保存后立即生效。已掌握、可学习、未解锁、需复习与规划中采用一致的颜色、符号和文字。
 - 指板训练只显示低／中／全三个区域与开始／继续；每轮最多12题，以3题热身、7题主练、2题收尾为默认框架，快准上探与局部补练可替换题位，按近期证据诊断、局部补教、恢复试练，并引入满足先修的新点。点区域立即进入音位训练；返回保存并结束本轮，重开热身并保留降级恢复进度。后台中断与区域间切换保留各自暂停题。读谱、和弦／关系、听辨与转换也按实际首答证据在本题型内补教和恢复；各专项保留原范围与先修。
 - 进阶应用提供四个和弦形态示例，局部和弦图以固定颜色和1–4数字标手指，支持横竖切换并保存偏好，音名视图可附加音名；形态示范、发音及逐弦任务共用数据，O/X 和横按按实际发音处理。
-- 训练页宽屏上方按谱面与说明/反馈分栏，答案整组居中靠近固定指板；短谱按内容宽度排版，窄屏或大字回流，主动完整示范可在信息区滚动，纠错使用短反馈且不滚动。O/X 紧邻弦枕并对齐琴弦；普通题答对自动前进，答错纠正后手动下一题，区域第12题纠正后自然结束；创作题完成后保留回听和手动下一题。训练页横屏沉浸，退出恢复系统栏。
+- 训练页在宽度达到阈值、存在内容且有说明时按两栏显示，答案靠近底部指板；普通谱面按内容宽度滚动，短谱试用仍按容器宽度绘制。当前没有独立的大字号断点，固定高度预算、纯文字题留白和和弦布局仍待修复，详见重构计划。普通题答对自动前进，答错纠正后手动下一题，区域第12题纠正后自然结束；创作题完成后保留回听和手动下一题。训练页横屏沉浸，退出恢复系统栏。
 
 - alpha16 增加 K1–K5 的 25 个课程节点及实琴自评，复用 R7 的判题与逐项证据；详情见 [增量课程](docs/k1-k5-alpha16.md)。短谱仍限 8 段试用，K6 未开放。
 
@@ -54,6 +56,8 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 下表路径相对于 `app/src/main/java/com/a3322505a/guitarlearning/`。
 
+完整职责、事件/保存链路、导航可达性和验证选择见 [架构地图](docs/architecture-map.md)。先按实际入口定位，再查对应历史记录。
+
 | 需求 | 当前实现 |
 | --- | --- |
 | 启动、沉浸系统栏 | `MainActivity.kt`；Manifest 只声明这一个 Activity |
@@ -67,7 +71,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 | 和弦形态、绘制与逐项证据 | `learning/ChordShapes.kt`、`ChordLessons.kt`、`ChordContent.kt`、`MemberEvidencePolicy.kt` |
 | 读谱、短句与实际音高 | `learning/ReadingLessons.kt`、`NotationView.kt`；TAB 坐标与五线谱音高判题分开 |
 | 关系、结构、参照听辨 | `learning/MusicRelations.kt`、`StructureLessons.kt`、`RelationContent.kt`；与音位/形态证据分开 |
-| 当前教学指板与点击几何 | `learning/TeachingFretboard.kt`、`learning/TeachingGeometry.kt` |
+| 当前教学指板与点击几何 | 普通指板为 `learning/TeachingFretboard.kt`、`learning/TeachingGeometry.kt`；和弦图为 `learning/ChordDiagram.kt` |
 | 页面状态、学习档案与备份恢复 | `learning/TrainingViewModel.kt`、`learning/LearningRepository.kt` |
 | 标准调弦、实际音高、播放、主题 | `core/MusicFacts.kt`、`audio/`、`ui/theme/` |
 
@@ -85,6 +89,8 @@ alpha12 将当前课程释义改为“具体音名与位置 → 距离或对应�
 | --- | --- |
 | 本 README | 当前能力、接手位置和资料入口；随功能变化维护 |
 | [AGENTS.md](AGENTS.md) | 当前源码修改入口与数据、签名边界 |
+| [architecture-map.md](docs/architecture-map.md) | 当前架构、模块职责、修改入口、实际导航和存储/音频链路 |
+| [architecture-refactor-plan.md](docs/architecture-refactor-plan.md) | 已核实问题、审查校准及尚未实施的 P1–P5 重构阶段 |
 | [legacy-v1.md](docs/legacy-v1.md) | 新旧路径判定、映射差异、复用与后续删除条件 |
 | [rebuild-draft04.md](docs/rebuild-draft04.md) | 已实现 A+B 的历史交付记录；不是重做任务清单 |
 | [fretboard-alpha02.md](docs/fretboard-alpha02.md) | 已合并的指板修正记录，效果由真机反馈继续迭代 |
