@@ -16,7 +16,7 @@ class BoardTeachingPolicyTest {
         val find = BoardTeachingPolicy.facts(ActiveTask(task(Direction.NOTE_TO_POSITION)))
         assertTrue(find.positions.isEmpty())
         assertTrue(find.exposedPositions.isEmpty())
-        assertEquals(PhysicalRange().positions().toSet(), BoardTeachingPolicy.input(ActiveTask(task())).answerPositions)
+        assertEquals((0..4).map { Coordinate(3, it) }.toSet(), BoardTeachingPolicy.input(ActiveTask(task())).answerPositions)
     }
 
     @Test fun correctionExposesOnlyTheTargetAndNearestTaughtAnchor() {
