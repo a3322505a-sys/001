@@ -2,11 +2,14 @@
 
 本仓库为项目 01 的 Android 吉他学习 App。用户当前指令和生效项目规范决定任务范围；先读取 [README.md](README.md) 的当前状态，并获取远端最新 main、核对相关 PR 后接手。
 
+全项目职责、实际依赖和修改入口见 [架构地图](docs/architecture-map.md)；已核实问题与未实施阶段见 [重构计划](docs/architecture-refactor-plan.md)。本工程只有 `:app`，逻辑解耦不代表独立编译模块。职责变化时同步架构地图，不把计划描述为已实现。
+
 ## 修改目标
 
 - 当前唯一 App 入口是 `MainActivity` → `learning/LearningApp`。路径前缀为 `app/src/main/java/com/a3322505a/guitarlearning/`。
-- 页面布局改 `learning/LearningPages.kt` / `TrainingScreen.kt` 及纯显示子组件；`LearningApp.kt` 仅负责状态连接、导航、生命周期与文件选择器。不要重新把 ViewModel 或 LearnerState 传进显示组件。
-- 指板改 `learning/TeachingFretboard.kt`、`TeachingGeometry.kt` 和 `ChordContent.kt` 的 ChordOverlay；只接 `FretboardUiState` 并回传 `PositionTapped`，不得依赖 ActiveTask、AnswerEvaluator、MusicFacts 或播放器。答案显隐与和弦事实转换在 `TrainingUiAdapter.kt`。
+- 页面布局改 `learning/LearningPages.kt` / `TrainingScreen.kt` 及纯显示子组件；`LearningApp.kt` 的目标职责是状态连接、导航、生命周期与文件选择器，目前仍含普通页面顶栏和滚动框架，后续提取，勿继续增加布局职责。不要重新把 ViewModel 或 LearnerState 传进显示组件。
+- 普通指板改 `learning/TeachingFretboard.kt` / `TeachingGeometry.kt`；当前和弦图改 `ChordDiagram.kt`（含几何），页面控件/示例在 `ChordContent.kt`。`TeachingFretboard` 遇到和弦直接转入 ChordDiagram，旧 ChordOverlay 不是当前和弦主入口。图形只接 `FretboardUiState` 并回传 `PositionTapped`，不得依赖 ActiveTask、AnswerEvaluator、MusicFacts 或播放器。答案显隐与和弦事实转换在 `TrainingUiAdapter.kt`。
+- 改标记、显示范围或交互模式前核查 `CorrectionPresentation.expose` 与 `TrainingViewModel.positionTapped`：它们目前反向读取 `TrainingUiAdapter.board` 来记录暴露和判断输入资格。先保持共同事实一致，不让换文案改变证据；不得自动滚到隐藏答案。该耦合尚待按重构计划消除。
 - 显示契约在 `TrainingUiState.kt` / `LearningPageUiState.kt`；其他页面的课程与证据投影在 `LearningPageAdapter.kt`。固定状态预览在 `ContractPreviews.kt`，不需要真实数据或音频。完整分工见 [alpha11 接口边界](docs/interface-audio-alpha11.md)。
 - 播放策略与请求有效性在 `TaskAudioPolicy.kt` / `TrainingViewModel.kt`；设备边界是 `audio/PlaybackOutput.kt`。保留任务首播去重和听辨完成门槛，不把普通试听写入学习证据。静态音轨必须写完数据后才要求 STATE_INITIALIZED；取消不得与工作线程重复 release。
 - 课程/出题改 `learning/Curriculum.kt` 和 `LessonScheduler.kt`；学习记录改 `learning/LearningRepository.kt` 及 `TrainingViewModel.kt`。
