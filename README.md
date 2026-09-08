@@ -6,7 +6,7 @@ Android 电吉他学习 App，使用 Kotlin / Compose。当前 v2 通过指板�
 
 2026-09-08 核验远端 main 为 `1c64435`，已合并 [PR #61](https://github.com/a3322505a-sys/001/pull/61) 的“指板质感与训练停滞方案”修订2。包含七音选项、短补练与间隔复测、本轮内上探、局部和弦图与方向偏好；构建、模拟器及 APK 交付状态以 PR 的对应记录为准。实现与候选参数见 [alpha25 施工记录](docs/progression-visuals-alpha25.md)。
 
-本次完成[全项目架构地图](docs/architecture-map.md)与[布局/架构分批重构计划](docs/architecture-refactor-plan.md)，仅整理源码边界和维护入口，未实施计划中的 App 重构。当前是单一 `:app` 模块，页面已有状态/事件契约，但仍有业务反向读取显示投影、连接层包含页面框架等边界问题。
+已完成[全项目架构地图](docs/architecture-map.md)与[布局/架构分批重构计划](docs/architecture-refactor-plan.md)。P1 工作分支新增 `BoardTeachingPolicy`，让显示、知识暴露与点击资格共同读取业务事实，移除业务对 UI 投影的反向依赖；未改变课程、数据格式或版本。当前仍是单一 `:app` 模块，连接层页面框架和题型布局将在 P2 处理。验证和阶段状态见重构计划。
 
 所属项目：01；仓库：`a3322505a-sys/001`。R2–R7 按用户连续授权分批推进，状态见 [执行记录](docs/roadmap-progress.md)。
 

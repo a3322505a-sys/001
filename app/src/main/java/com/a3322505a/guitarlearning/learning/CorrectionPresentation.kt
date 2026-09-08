@@ -5,14 +5,7 @@ import kotlin.math.abs
 
 /** One projection for correction text, visible references and their exposure facts. */
 object CorrectionPresentation {
-    fun references(a: ActiveTask, introduced: Set<String>): List<Coordinate> {
-        val c = a.task.coordinate ?: return emptyList()
-        if (a.task.direction !in AdaptiveEvidence.positionDirections) return emptyList()
-        return (0..15).map { Coordinate(c.string, it) }
-            .filter { it != c && AdaptiveEvidence.positionTarget(it) in introduced }
-            .sortedWith(compareBy<Coordinate> { abs(it.fret - c.fret) }.thenBy { it.fret })
-            .take(1)
-    }
+    fun references(a: ActiveTask, introduced: Set<String>): List<Coordinate> = BoardTeachingPolicy.correctionReferences(a, introduced)
 
     fun message(a: ActiveTask, introduced: Set<String>): String {
         val t = a.task
@@ -43,9 +36,7 @@ object CorrectionPresentation {
     }
 
     fun expose(s: LearnerState, a: ActiveTask, now: Long): LearnerState {
-        val board = TrainingUiAdapter.board(a, FingeringMode.fromId(s.fingeringMode), introduced = s.introductions)
-        val positions = board.marks.filter { it.role != MarkRole.WRONG && it.label !in listOf("", "?", "✓") }.map { it.coordinate } +
-            board.chord?.tones.orEmpty().map { it.coordinate }
+        val positions = BoardTeachingPolicy.facts(a, s.introductions).exposedPositions
         val targets = positions.map(AdaptiveEvidence::positionTarget).toMutableSet()
         if (a.task.completion == CompletionKind.SEQUENCE) {
             a.task.targetSkillIds.getOrNull(a.sequenceIndex)?.let { targets += "skill:$it" }
