@@ -31,7 +31,7 @@ adb shell settings put system user_rotation 1
 adb shell am instrument -w -r -e class "$app.learning.UiPreviewTest#captureContracts" "$runner" > ui-previews.log 2>&1 || true
 mkdir -p ui-previews
 preview_path="/sdcard/Android/data/$app/files/previews"
-expected=$(adb shell "find '$preview_path' -type f -name '*.png' | wc -l" | tr -d '\r[:space:]')
+expected=$(adb shell "find '$preview_path' -type f -name '*.png' | wc -l" | tr -d '\r[:space:]' || true)
 for attempt in 1 2 3; do
   adb pull "$preview_path/." ui-previews/ || true
   actual=$(find ui-previews -type f -name '*.png' | wc -l)
