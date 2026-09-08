@@ -1,6 +1,6 @@
 # 项目架构与修改导航
 
-核验日期：2026-09-08；源码基线：`1c64435590fa82f8b668ea04ae043c02952adf95`（main，已合并 PR #61，alpha25 / 42）。本文记录实际结构；[重构计划](architecture-refactor-plan.md)中的目标结构尚未实现。接手仍需 fetch main、核对 PR 和本地改动。
+核验日期：2026-09-08；main 基线：`1c64435590fa82f8b668ea04ae043c02952adf95`（已合并 PR #61，alpha25 / 42）。本文已更新 P1 工作分支的 BoardTeachingPolicy 边界，其余[重构计划](architecture-refactor-plan.md)中的阶段尚未实现。接手仍需 fetch main、核对 PR 和本地改动。
 
 ## 1. 工程与运行边界
 
@@ -33,16 +33,17 @@ flowchart TD
   U --> UI[页面 / 指板 / 谱面]
   UI -->|事件回调| R
   C --> CP[CorrectionPresentation.expose]
-  CP -->|现存反向依赖| AD
-  V -->|positionTapped 读取交互规则| AD
+  CP --> F[BoardTeachingPolicy]
+  AD --> F
+  V -->|positionTapped 读取交互规则| F
 ```
 
-箭头表示调用或数据流，不表示独立包或模块。当前图中特别保留了业务回调显示适配器的两条边；不能把现状描述成严格单向分层。
+箭头表示调用或数据流，不表示独立包或模块。P1 把业务与显示共同依赖的展示/交互事实收敛到 BoardTeachingPolicy；业务不再调用显示适配器。
 
 ### 一次作答
 
 1. 指板发 `PositionTapped(viewId, coordinate)`，选项发 `TrainingEvent.Answer`；连接层校验当前 taskId 后派发。
-2. `TrainingViewModel` 校验页面可见性、任务归属、忙碌和播放状态；坐标事件还调用 `TrainingUiAdapter.board` 取得交互模式、可点击与可答范围。
+2. `TrainingViewModel` 校验页面可见性、任务归属、忙碌和播放状态；坐标事件调用 `BoardTeachingPolicy.input` 取得交互模式、可点击与可答范围。
 3. `LearningCoordinator.answer` 调用判题，更新输入、阶段、逐成员证据、掌握状态及自适应状态，返回新的 `LearnerState`。
 4. `TrainingViewModel.change` 在 IO 线程提交 repository；成功后才发布新状态、执行完成回调。失败保留旧显示状态与重试入口。
 5. adapter 将新状态转换为标记、说明和按钮状态；界面不重新判题。自动下一题由 `TrainingRoute` effect 触发，最终仍经过 ViewModel 与 coordinator 校验。
@@ -73,6 +74,7 @@ flowchart TD
 | 谱面 | `NotationView.kt`；数据为 `ReadingLessons.kt` 中 `NotationPrompt`、`ShortScores.kt` 中 `ShortScore` | 吉他谱面高于发声八度；音高题与 TAB 指定位置判题不同 |
 | 主题 | `ui/theme/GuitarColors.kt`、`Theme.kt`、`PixelTypography.kt`、`PixelShapes.kt` | 四主题、字体；和弦图当前有固定浅色值 |
 | 训练显示契约和投影 | `TrainingUiState.kt`、`TrainingUiAdapter.kt` | 独立题不得通过标记、范围或新字段泄露答案 |
+| 共享展示/暴露/点击事实 | `BoardTeachingPolicy.kt` | 无 UI 标记和文案依赖；供 adapter、纠错暴露、ViewModel 共用 |
 | 页面分组与进度投影 | `LearningPageAdapter.kt`、`LearningPresentation.kt`、`CapabilityGroups.kt` | 分类顺序不是先修；历史通过不是近期双向熟练 |
 | 课程、排课 | `Curriculum.kt`、`LessonScheduler.kt` | 课程图和出题入口均需接入；保留现有任务快照 |
 | 音名/唱名/级数 | `MappingLessons.kt`、`core/MusicFacts.kt` | 各方向分别留证据；级数必须带调性 |
@@ -89,7 +91,7 @@ flowchart TD
 | 混合方向/局部恢复/上探 | `AdaptiveMix.kt`、`RegionProtection.kt`、`RegionProgression.kt` | 七音选项、逐点恢复、上探先修；不要另写一套门槛 |
 | 题型内恢复与近期证据 | `FamilyAdaptation.kt`、`AdaptiveEvidence.kt` | 范围、方向、辅助暴露与独立样本条件 |
 | 长考/流利/轮次负荷 | `ResponseTiming.kt`、`RoundExperience.kt` | 前后台排除、有效计时、跨轮保存；`Fluency`/`MiddleReadiness` 在后者 |
-| 释义/纠错/知识暴露 | `LessonExplanations.kt`、`CorrectionPresentation.kt` | 暴露事实与视觉变化存在现存耦合，见下一节 |
+| 释义/纠错/知识暴露 | `LessonExplanations.kt`、`CorrectionPresentation.kt` | P1 起从 BoardTeachingPolicy 读取暴露坐标，见下一节 |
 | 状态、任务与备份模型 | `LearningModels.kt` 及各业务文件内的 Serializable 类型 | 新字段兼容旧快照；不随意改序列化类型/ID |
 | 存储/备份 | `LearningRepository.kt`、ViewModel `export` / `restore` | Room、JSON、revision、事务回滚、恢复前副本 |
 | 音频策略/设备 | `TaskAudioPolicy.kt`、`TrainingViewModel.kt`、`audio/` | 首播去重、陈旧回调隔离、取消单次释放 |
@@ -112,8 +114,8 @@ flowchart TD
 
 ## 5. 真正需要厘清的边界
 
-1. **业务反向依赖显示适配器。** `LearningCoordinator.answer` → `CorrectionPresentation.expose` → `TrainingUiAdapter.board`，通过 `MarkRole` 和标签字符串筛选知识暴露；adapter 又调用 `CorrectionPresentation.references/message`。这是源码依赖环，不是无限递归。改标签可能改变独立证据，优先提取共享的“展示/暴露事实”策略，再分别投影 UI 和证据，不能各算一份。
-2. **输入资格读取 UI 投影。** `TrainingViewModel.positionTapped` 使用 `TrainingUiAdapter.board` 的 interaction/interactivePositions/answerPositions 决定答题或试听。后续抽取共同交互规则，使 ViewModel 和 adapter 消费同一结果；不得仅在 UI 禁用按钮代替业务校验。
+1. **P1 已移除业务反向依赖显示适配器。** 原来 `CorrectionPresentation.expose` 通过 UI 的 MarkRole 和标签筛选知识暴露；现在 BoardTeachingPolicy 返回语义明确的位置知识事实，adapter 转换为文案/标记，expose 读取暴露坐标。改标签不再决定知识暴露；共同规则仍需相应证据回归。
+2. **P1 已隔离输入资格与 UI 投影。** ViewModel 和 adapter 共同使用 BoardTeachingPolicy 的输入模式及范围。原有忙碌时只试听、听辨禁用、已完成短谱禁用等规则保留；页面/陈旧任务/播放状态校验仍在 ViewModel，不靠 UI 禁用替代。
 3. **连接层仍含页面布局。** `LearningApp` 的顶栏、滚动容器、标题和通用错误 UI 尚未提取。AGENTS 的“仅负责连接”是目标约束，不是当前已经全部做到。
 4. **契约并非彻底独立的数据层。** `TrainingUiState` 引用 `NotationPrompt` 和 `PilotControlsUi`；后者定义在页面文件；`LearningPageUiState` 引用 `PhysicalExercise`；显示组件直接枚举 `FingeringMode`/`AppTheme`。这些纯值共享不等于访问 ViewModel，但以后搬包必须考虑它们及序列化兼容。
 5. **ViewModel 聚合多种副作用。** 普通训练、短谱播放器、计时、备份均在同文件。可以按独立生命周期和测试需求提取协作者，先保持一个提交协调入口；仅按行数拆分没有收益保证。

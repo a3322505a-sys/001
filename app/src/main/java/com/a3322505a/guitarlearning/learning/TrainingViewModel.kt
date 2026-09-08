@@ -243,16 +243,16 @@ class TrainingViewModel @JvmOverloads constructor(
     fun positionTapped(tap: PositionTapped) {
         val s = _state.value ?: return
         val a = s.active?.takeIf { it.task.id == tap.viewId && trainingVisible() } ?: return
-        val board = TrainingUiAdapter.board(a, FingeringMode.fromId(s.fingeringMode), _busy.value, TrainingUiAdapter.displayLast(s))
-        if (board.interaction == BoardInteraction.DISABLED || tap.coordinate !in board.interactivePositions) return
+        val input = BoardTeachingPolicy.input(a, _busy.value, BoardTeachingPolicy.displayLast(s))
+        if (input.mode == PositionInputMode.DISABLED || tap.coordinate !in input.interactivePositions) return
         if (a.task.relation?.ear == true) {
-            if (_busy.value || _audio.value.playing || !a.audioReady || tap.coordinate !in board.answerPositions) return
+            if (_busy.value || _audio.value.playing || !a.audioReady || tap.coordinate !in input.answerPositions) return
             // Commit the answer before another sound can change the listening gate.
-            if (board.interaction == BoardInteraction.ANSWER) answer(tap.viewId, coordinate = tap.coordinate)
+            if (input.mode == PositionInputMode.ANSWER) answer(tap.viewId, coordinate = tap.coordinate)
             return
         }
         startPlayback(TaskAudioPolicy.position(tap.coordinate))
-        if (board.interaction == BoardInteraction.ANSWER && tap.coordinate in board.answerPositions) answer(tap.viewId, coordinate = tap.coordinate)
+        if (input.mode == PositionInputMode.ANSWER && tap.coordinate in input.answerPositions) answer(tap.viewId, coordinate = tap.coordinate)
     }
     fun replay(taskId: String) {
         val a = _state.value?.active?.takeIf { it.task.id == taskId && trainingVisible() } ?: return
