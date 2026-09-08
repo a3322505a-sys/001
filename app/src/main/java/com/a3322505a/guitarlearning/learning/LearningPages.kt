@@ -95,7 +95,7 @@ internal fun NodeRow(node: NodeRowUi, onClick: (() -> Unit)? = null, start: (() 
 @Composable
 internal fun ThemeChoice(theme: AppTheme, selected: Boolean, enabled: Boolean, onSelect: () -> Unit) {
     val preview = colorsFor(theme)
-    Row(Modifier.fillMaxWidth().background(preview.background)
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).background(preview.background)
         .border(if (selected) 2.dp else 1.dp, if (selected) preview.accent else preview.border)
         .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
         .padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically,
