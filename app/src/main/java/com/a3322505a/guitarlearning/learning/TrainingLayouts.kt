@@ -37,7 +37,6 @@ private fun TaskNotation(state: TrainingUiState) {
 @Composable
 internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     val board = requireNotNull(state.board)
-    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     val information: @Composable ColumnScope.() -> Unit = {
         TrainingPrompt(state)
         TaskNotation(state)
@@ -46,19 +45,26 @@ internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
         TrainingAudioNotice(state, onEvent)
         if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
     }
+    TrainingBoardWorkspace(board, { onEvent(TrainingEvent.Position(it)) }, information)
+}
+
+@Composable
+internal fun TrainingBoardWorkspace(board: FretboardUiState, onPosition: (PositionTapped) -> Unit,
+                                    information: @Composable ColumnScope.() -> Unit) {
+    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxHeight < 240.dp * scale) {
+        if (maxHeight < 320.dp * scale) {
             // A short window or large type must scroll rather than crush six strings or clip controls.
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 information()
-                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(240.dp))
+                TeachingFretboard(board, onPosition, Modifier.fillMaxWidth().height(240.dp * scale))
             }
         } else {
-            val boardHeight = (maxHeight * .6f).coerceIn(180.dp, 280.dp)
+            val boardHeight = (maxHeight * .6f).coerceIn(240.dp * scale, 280.dp * scale)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp), content = information)
-                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) }, Modifier.fillMaxWidth().height(boardHeight))
+                TeachingFretboard(board, onPosition, Modifier.fillMaxWidth().height(boardHeight))
             }
         }
     }

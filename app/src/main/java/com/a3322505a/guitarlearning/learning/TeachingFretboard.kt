@@ -47,7 +47,6 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
     } }
     CompositionLocalProvider(LocalViewConfiguration provides hitConfiguration) {
     BoxWithConstraints(modifier) {
-        val availableWidth = maxWidth
         val availableHeight = maxHeight
         val layout = geometry.layout(availableHeight.value, 40f)
         val boardLeft = layout.left.dp
@@ -60,7 +59,6 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
-        state.chord?.let { ChordOverlay(it, geometry, boardLeft, boardTop, boardWidth, boardHeight) }
         // Drawing, targets and accessibility share the same fret and string coordinates.
         // Numbers remain available to screen readers, never as a permanent visual answer grid.
         (1..6).forEach { s -> (geometry.first..geometry.last).forEach { f ->
@@ -73,9 +71,7 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
                 .width(boardWidth * (geometry.right(f) - geometry.left(f))).height(boardHeight / 6)
                 .semantics { contentDescription = "${s}弦${if (f == 0) "空弦" else "${f}品格"}${if (correct) "，已确认" else ""}" }
                 .clickable(enabled = state.interaction != BoardInteraction.DISABLED && c in state.interactivePositions) { onPosition(PositionTapped(state.viewId, c)) }, contentAlignment = Alignment.Center) {
-                if (state.chord != null && (correct || wrong)) Text(if (wrong) "×" else "✓", color = if (wrong) WrongPink else CorrectMint,
-                    fontSize = 16.sp, modifier = Modifier.align(Alignment.TopEnd).padding(2.dp))
-                if (state.chord == null && (target || correct || wrong)) {
+                if (target || correct || wrong) {
                     val color = if (wrong) WrongPink else if (correct) CorrectMint else if (mark?.role == MarkRole.REFERENCE) ReferenceGold else TargetCyan
                     val band = mark?.band == true
                     Canvas(Modifier.fillMaxSize().padding(2.dp)) {

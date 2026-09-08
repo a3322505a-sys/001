@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ class UiPreviewTest {
             "symbol-only" to TrainingUiState("preview", "C 大调中，mi 对应哪个音名？", options=listOf("C", "D", "E", "F", "G", "A", "B").map { AnswerOptionUi(it) }),
             "symbol-feedback" to TrainingUiState("preview", "固定唱名与音名转换：选择对应关系", options=listOf("C 对应 do", "D 对应 re", "E 对应 mi").map { AnswerOptionUi(it) }, wrong=true, message="先看清题目的调性与方向，再选择对应关系。", audio=AudioUiState()),
             "chord-guided" to chord,
+            "chord-notes" to TrainingUiAdapter.training(LearnerState(fingeringMode=FingeringMode.NOTES.id, active=ActiveTask(ChordLessons.make(ChordShapes.am,"chord-am",TaskSource.DEMONSTRATION))),false,AudioUiState()),
             "chord-vertical" to chord.copy(board=chord.board!!.copy(chordVertical=true)),
             "barre-horizontal" to TrainingUiAdapter.training(LearnerState(active=ActiveTask(ChordLessons.make(ChordShapes.fBarre,"chord-f",TaskSource.DEMONSTRATION))),false,AudioUiState()),
             "barre-vertical" to TrainingUiAdapter.training(LearnerState(chordVertical=true,active=ActiveTask(ChordLessons.make(ChordShapes.fBarre,"chord-f",TaskSource.DEMONSTRATION))),false,AudioUiState()),
@@ -78,6 +80,31 @@ class UiPreviewTest {
             }
             }
             instrumentation.uiAutomation.executeShellCommand("wm size reset").close()
+            val learner = LearnerState()
+            val pages: Map<String, @Composable () -> Unit> = mapOf(
+                "home" to { HomeContent(LearningPageAdapter.home(learner), {}, {}, {}) },
+                "catalog" to { CatalogContent(LearningPageAdapter.catalog(learner, HomeGroup.INTRO.categories, false), {}, {}, {}, {}) },
+                "tree" to { TreeContent(LearningPageAdapter.tree(learner), {}, {}) },
+                "node-locked" to { NodeContent(LearningPageAdapter.node(learner, Curriculum.node("chord-f")), {}, {}) { _, _ -> } },
+                "history-empty" to { HistoryContent(LearningPageAdapter.history(learner), {}) },
+                "settings" to { SettingsContent(LearningPageAdapter.settings(learner, false, null), {}, {}, {}, {}, {}) },
+                "pilot-menu" to { PilotMenu(LearningPageAdapter.pilot(learner), {}) },
+            )
+            for (fontScale in listOf(1f, 2f)) for ((name, page) in pages) {
+                scenario.onActivity { activity -> activity.setContent {
+                    SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; activity.setTrainingImmersive(false) }
+                    CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
+                        GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) {
+                            LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } }
+                        } }
+                    }
+                } }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(1000)
+                val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                directory.resolve("page-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bitmap.recycle()
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -177,7 +178,10 @@ internal fun SettingsContent(s: SettingsUiState, theme: (String) -> Unit, finger
     }
     Panel("指法") { FingeringSettings(s.fingeringMode, s.busy, fingering) }
     Panel("声音") {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("指板声音", Modifier.weight(1f)); Switch(s.soundEnabled, sound, enabled = !s.busy) }
+        Row(Modifier.fillMaxWidth().toggleable(s.soundEnabled, enabled = !s.busy, role = Role.Switch, onValueChange = sound)
+            .heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("指板声音", Modifier.weight(1f)); Switch(s.soundEnabled, null, enabled = !s.busy)
+        }
         Text("训练中方向保持稳定。界面跟随系统字号，正确、错误同时用符号区分。", fontSize = 13.sp)
     }
     Panel("学习档案", "进度保存在本机；无需注册。") {

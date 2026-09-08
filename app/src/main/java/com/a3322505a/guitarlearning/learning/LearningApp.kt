@@ -3,6 +3,7 @@ package com.a3322505a.guitarlearning.learning
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import com.a3322505a.guitarlearning.MainActivity
 import com.a3322505a.guitarlearning.ui.theme.LocalGuitarColors
 import kotlinx.coroutines.delay
@@ -31,7 +31,7 @@ fun LearningApp(model: TrainingViewModel) {
         onDispose { model.pageVisible("hidden") }
     }
     val pageStates = rememberSaveableStateHolder()
-    val activity = LocalContext.current as MainActivity
+    val activity = checkNotNull(LocalActivity.current as? MainActivity)
     DisposableEffect(activity, page == "training") {
         activity.setTrainingImmersive(page == "training")
         onDispose { activity.setTrainingImmersive(false) }

@@ -72,7 +72,7 @@ flowchart TD
 | 普通指板绘制与触点 | `TeachingFretboard.kt`、`TeachingGeometry.kt` | 绘制/命中统一几何；只接 `FretboardUiState` 与坐标事件 |
 | **当前和弦图** | `ChordDiagram.kt` 的 `ChordDiagram` / `ChordDiagramGeometry` | `TeachingFretboard` 在 chord 非空时直接转入；横竖同一弦品事实 |
 | 谱面 | `NotationView.kt`；数据为 `ReadingLessons.kt` 中 `NotationPrompt`、`ShortScores.kt` 中 `ShortScore` | 吉他谱面高于发声八度；音高题与 TAB 指定位置判题不同 |
-| 主题 | `ui/theme/GuitarColors.kt`、`Theme.kt`、`PixelTypography.kt`、`PixelShapes.kt` | 四主题、字体；和弦图当前有固定浅色值 |
+| 主题 | `ui/theme/GuitarColors.kt`、`Theme.kt`、`PixelTypography.kt`、`PixelShapes.kt` | 四主题、字体；和弦背景/文字取主题，手指固定颜色保持识别 |
 | 训练显示契约和投影 | `TrainingUiState.kt`、`TrainingUiAdapter.kt` | 独立题不得通过标记、范围或新字段泄露答案 |
 | 共享展示/暴露/点击事实 | `BoardTeachingPolicy.kt` | 无 UI 标记和文案依赖；供 adapter、纠错暴露、ViewModel 共用 |
 | 页面分组与进度投影 | `LearningPageAdapter.kt`、`LearningPresentation.kt`、`CapabilityGroups.kt` | 分类顺序不是先修；历史通过不是近期双向熟练 |
@@ -121,7 +121,7 @@ flowchart TD
 5. **ViewModel 聚合多种副作用。** 普通训练、短谱播放器、计时、备份均在同文件。可以按独立生命周期和测试需求提取协作者，先保持一个提交协调入口；仅按行数拆分没有收益保证。
 6. **Repository 文件混合存储与档案校验。** 有分离接口/Room/codec 的维护价值，但文档梳理不需要更换数据库架构；业务引用用于备份有效性验证，不应直接删除。
 7. **遗留绘制分支不可达。** `TeachingFretboard` 对 chord 非空立即 return 到 `ChordDiagram`，后面的 `state.chord?.let { ChordOverlay(...) }` 不再承担当前和弦显示。它与旧 v1 指板不是同一个概念；清理前需查全部引用及测试。
-8. **未消费的契约字段。** P2 已将普通题 `state.audio.message/failed` 接入显示与重试。`ChordDiagram` 仍未绘制 `ChordToneUi.rootRing/dot`，而示例说明仍提根音白环，留待 P3 修复。
+8. **契约字段已补接。** P2 将普通题 `state.audio.message/failed` 接入显示与重试；P3 将 `ChordToneUi.rootRing/dot` 接入和弦绘制。读屏位置动作仍只从允许交互集合生成，不带隐藏答案。
 
 ## 6. legacy 与共享依赖
 
