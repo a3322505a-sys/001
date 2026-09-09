@@ -14,7 +14,7 @@
 
 ## 验证
 
-- 使用现有 Gradle 单元测试、Debug/Release 与设备测试 APK 构建。
+- 本地 Debug/Release 与设备测试 APK 构建通过。Debug 单元测试 303 项中 300 项通过，3 项 `LearningRepositoryTest` 在 Windows 报 `SQLITE_CANTOPEN`（包括 WAL 文件打开失败）；完整结果由 Linux CI 复核，不将本地结果记为全通过。
 - 沿用现有 Android CI 的覆盖升级保档与音频验证。
-- 扩展既有可选普通页面截图到四套主题、正常/2倍字号；增加 320dp / 2倍字号首页 Compose 预览，不增加新的 CI 门槛。
-- 实际构建、截图和 CI 结果在本次完成后补记；截图生成不等于人工视觉验收。
+- 扩展既有可选普通页面截图到四套主题、正常/2倍字号；2倍字号限定 320dp 内容宽度并补充滚动后截图。增加 320dp / 2倍字号首页 Compose 预览，不增加新的 CI 门槛。
+- CI 与人工截图核验的最终结果见 [PR #66](https://github.com/a3322505a-sys/001/pull/66)；截图生成不等于人工视觉验收。

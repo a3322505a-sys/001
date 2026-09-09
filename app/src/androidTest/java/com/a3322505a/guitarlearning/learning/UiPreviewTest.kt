@@ -113,6 +113,15 @@ class UiPreviewTest {
             )
             for (theme in listOf("clear", "forest", "midnight", "graphite"))
             for (fontScale in listOf(1f, 2f)) for ((name, page) in pages) {
+                val title = when (name) {
+                    "home" -> "吉他 · 一小步"
+                    "catalog" -> "吉他入门"
+                    "tree" -> "知识树"
+                    "node-locked" -> "节点详情"
+                    "history-empty" -> "练习历史"
+                    "settings" -> "设置"
+                    else -> "短谱试用"
+                }
                 // These are independent roots, not navigation updates in one app composition.
                 scenario.onActivity { it.setContent {} }
                 instrumentation.waitForIdleSync()
@@ -122,7 +131,10 @@ class UiPreviewTest {
                         GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                                 Box(Modifier.widthIn(max = if (fontScale > 1f) 320.dp else 960.dp).fillMaxSize()) {
-                                    key(name, fontScale) { LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } } }
+                                    key(name, fontScale) {
+                                        LearningPageFrame(title, if (name == "home") null else "‹ 首页", false, {},
+                                            if (name == "home") ({}) else null) { LearningPageBody { page() } }
+                                    }
                                 }
                             }
                         } }
@@ -133,6 +145,21 @@ class UiPreviewTest {
                 val bitmap = instrumentation.uiAutomation.takeScreenshot()
                 directory.resolve("page-$theme-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
+                if (fontScale > 1f) {
+                    fun scrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+                        if (node == null) return null
+                        if (node.isScrollable) return node
+                        for (i in 0 until node.childCount) scrollable(node.getChild(i))?.let { return it }
+                        return null
+                    }
+                    scrollable(instrumentation.uiAutomation.rootInActiveWindow)?.let { scroll ->
+                        repeat(8) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(100) }
+                        instrumentation.waitForIdleSync()
+                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        directory.resolve("page-$theme-$name-${fontScale}-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        end.recycle()
+                    }
+                }
             }
         }
     }
