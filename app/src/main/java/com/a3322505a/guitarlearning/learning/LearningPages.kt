@@ -98,7 +98,7 @@ internal fun NodeRow(node: NodeRowUi, onClick: (() -> Unit)? = null, start: (() 
             }
         }
         val trailing: @Composable () -> Unit = {
-            if (start != null && node.startLabel != null) TextButton(onClick = start,
+            if (start != null && node.startLabel != null) TextButton(onClick = start, shape = PageButtonShape,
                 modifier = Modifier.heightIn(min = 48.dp), colors = ButtonDefaults.textButtonColors(contentColor = pair.ink), contentPadding = PaddingValues(horizontal = 8.dp)) {
                 Text(node.startLabel.orEmpty())
             } else if (onClick != null) Text("›", color = colors.muted, fontSize = 22.sp)
@@ -140,14 +140,14 @@ internal fun HomeContent(entries: List<HomeEntryUi>, open: (String) -> Unit, sta
 @Composable
 internal fun CatalogContent(state: CatalogUiState, start: (String) -> Unit, detail: (String) -> Unit, practice: (List<String>) -> Unit, examples: () -> Unit) {
     val colors = LocalGuitarColors.current
-    if (state.showExamples) OutlinedButton(onClick = examples) { Text("和弦指法示例") }
+    if (state.showExamples) OutlinedButton(onClick = examples, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("和弦指法示例") }
     state.sections.forEach { section ->
         section.title?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = colors.ink, modifier = Modifier.padding(top = 8.dp)) }
         section.rows.forEach { row -> NodeRow(row, { detail(row.id) }, { start(row.id) }) }
         section.regions.forEach { region ->
             Panel(region.title, region.progress) {
                 region.note?.let { Text(it, fontSize = 13.sp) }
-                region.startLabel?.let { label -> Button(onClick = { start("region:${region.id}") }) { Text(label) } }
+                region.startLabel?.let { label -> Button(onClick = { start("region:${region.id}") }, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(label) } }
             }
         }
     }
@@ -156,7 +156,7 @@ internal fun CatalogContent(state: CatalogUiState, start: (String) -> Unit, deta
 @Composable
 internal fun TreeContent(rows: List<NodeRowUi>, detail: (String) -> Unit, history: () -> Unit) {
     val colors = LocalGuitarColors.current
-    OutlinedButton(onClick = history) { Text("查看练习历史") }
+    OutlinedButton(onClick = history, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("查看练习历史") }
     rows.forEach { row ->
         NodeRow(row, { detail(row.id) })
     }
@@ -167,9 +167,9 @@ internal fun NodeContent(state: NodeDetailUiState, start: (String) -> Unit, prac
     NodeRow(state.row)
     Panel("学习内容", state.description) {
         if (state.row.prerequisites.isNotEmpty()) Text("先修：${state.row.prerequisites}")
-        state.startLabel?.let { Button(onClick = { start(state.row.id) }) { Text(it) } }
+        state.startLabel?.let { Button(onClick = { start(state.row.id) }, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text(it) } }
     }
-    if (state.canPractice) OutlinedButton(onClick = { practice(listOf(state.row.id)) }) { Text("专项练习") }
+    if (state.canPractice) OutlinedButton(onClick = { practice(listOf(state.row.id)) }, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("专项练习") }
     state.panels.forEach { InfoPanel(it) {} }
     state.physical.forEach { exercise -> Panel("实琴选练 · ${exercise.title}", exercise.instruction) {
         Row { listOf("顺畅","有困难").forEach { rating -> TextButton(onClick = { report(exercise.id,rating) }) { Text(rating) } } }
@@ -205,8 +205,8 @@ internal fun SettingsContent(s: SettingsUiState, theme: (String) -> Unit, finger
         Text("训练中方向保持稳定。界面跟随系统字号，正确、错误同时用符号区分。", fontSize = 13.sp)
     }
     Panel("学习档案", "进度保存在本机；无需注册。") {
-        Button(onClick = export, enabled = !s.busy) { Text("导出备份") }
-        OutlinedButton(onClick = restore, enabled = !s.busy) { Text("从备份恢复") }
+        Button(onClick = export, enabled = !s.busy, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("导出备份") }
+        OutlinedButton(onClick = restore, enabled = !s.busy, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("从备份恢复") }
         s.notice?.let { Text(it, color = LocalGuitarColors.current.accent) }
     }
     Panel("版本") { Text(s.version); Text("接口解耦 · 题目与指板声音", fontSize = 13.sp) }

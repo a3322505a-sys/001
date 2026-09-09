@@ -46,7 +46,7 @@ internal fun LearningPageBody(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 internal fun ShortScoreEntry(onOpen: () -> Unit) {
-    OutlinedButton(onClick = onOpen) { Text("短谱试用 · 8段") }
+    OutlinedButton(onClick = onOpen, shape = PageButtonShape, modifier = Modifier.heightIn(min = 48.dp)) { Text("短谱试用 · 8段") }
 }
 
 @Composable
