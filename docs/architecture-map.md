@@ -65,6 +65,7 @@ flowchart TD
 | 启动、系统栏 | 根包 `MainActivity.kt` | 前后台、训练进出、系统栏恢复 |
 | 导航、页面恢复、文件选择器 | `LearningApp.kt` | 保存完成后导航；短谱与普通训练返回语义不同 |
 | 普通页面框架 | `LearningPageFrame.kt` 的顶栏、标题、滚动容器、加载和通用对话框 | 只接显示值与回调；页面内容最大 960dp |
+| 普通页面视觉样式 | `LearningPageStyle.kt`，由 `LearningPageFrame` 顶栏和 `LearningPageBody` 局部应用 | 字体、圆角不修改全局训练/图形主题；颜色沿用四套 `LocalGuitarColors` |
 | 首页、目录、知识树、详情、历史、设置 | `LearningPages.kt` | `LearningPageUiState.kt` 接数据，`LearningPageAdapter.kt` 投影业务事实 |
 | 普通训练排版 | `TrainingScreen.kt` 分派与共享控件；`TrainingLayouts.kt` 文字、指板（含谱面）、和弦模板；`RelationContent.kt` | 仅消费显示契约；短窗口和大字号滚动回退 |
 | 短谱入口与训练排版 | `PilotContent.kt` | `PilotMenu`、`PilotTrainingScreen`；检查对照谱、完成、自评及键盘 |
