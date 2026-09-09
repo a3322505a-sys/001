@@ -7,9 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /** Pure page chrome; navigation and persistence remain in the route. */
 @Composable
@@ -22,11 +20,13 @@ internal fun LearningPageFrame(
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.safeDrawingPadding().fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(Modifier.widthIn(max = 960.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            backLabel?.let { TextButton(onClick = onBack) { Text(it) } }
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
-            onSettings?.let { TextButton(onClick = it) { Text("设置") } }
+        LearningPageStyle {
+            Row(Modifier.widthIn(max = 960.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                backLabel?.let { TextButton(onClick = onBack) { Text(it) } }
+                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                onSettings?.let { TextButton(onClick = it) { Text("设置") } }
+            }
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         Box(Modifier.weight(1f).widthIn(max = 960.dp).fillMaxWidth()) { content() }
@@ -35,10 +35,12 @@ internal fun LearningPageFrame(
 
 @Composable
 internal fun LearningPageBody(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        content()
-        Spacer(Modifier.height(16.dp))
+    LearningPageStyle {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            content()
+            Spacer(Modifier.height(16.dp))
+        }
     }
 }
 

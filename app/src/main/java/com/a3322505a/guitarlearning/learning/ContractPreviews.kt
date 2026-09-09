@@ -26,12 +26,13 @@ private fun FretboardContractPreview() {
 }
 
 @Preview(widthDp = 390, heightDp = 650, showBackground = true)
+@Preview(name = "Narrow large text", widthDp = 320, heightDp = 640, fontScale = 2f, showBackground = true)
 @Composable
 private fun HomeContractPreview() {
     GuitarLearningTheme("clear") {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LearningPageFrame("吉他 · 一小步", null, false, {}, {}) { LearningPageBody {
             HomeContent(listOf(HomeEntryUi("intro", "吉他入门", "当前：两个音位一小步", "继续学习", "p01"),
                 HomeEntryUi("board", "指板训练", "音位练习与复习"), HomeEntryUi("tree", "知识树", "3 个节点已点亮")), {}, {}, {})
-        }
+        } }
     }
 }

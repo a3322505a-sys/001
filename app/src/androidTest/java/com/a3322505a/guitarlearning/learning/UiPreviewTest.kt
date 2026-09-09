@@ -8,11 +8,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.a3322505a.guitarlearning.MainActivity
@@ -109,6 +111,7 @@ class UiPreviewTest {
                 "settings" to { SettingsContent(LearningPageAdapter.settings(learner, false, null), {}, {}, {}, {}, {}) },
                 "pilot-menu" to { PilotMenu(LearningPageAdapter.pilot(learner), {}) },
             )
+            for (theme in listOf("clear", "forest", "midnight", "graphite"))
             for (fontScale in listOf(1f, 2f)) for ((name, page) in pages) {
                 // These are independent roots, not navigation updates in one app composition.
                 scenario.onActivity { it.setContent {} }
@@ -116,15 +119,19 @@ class UiPreviewTest {
                 scenario.onActivity { activity -> activity.setContent {
                     SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; activity.setTrainingImmersive(false) }
                     key(name, fontScale) { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
-                        GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) {
-                            key(name, fontScale) { LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } } }
+                        GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                                Box(Modifier.widthIn(max = if (fontScale > 1f) 320.dp else 960.dp).fillMaxSize()) {
+                                    key(name, fontScale) { LearningPageFrame(name, "‹ 返回", false, {}, null) { LearningPageBody { page() } } }
+                                }
+                            }
                         } }
                     } }
                 } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
                 val bitmap = instrumentation.uiAutomation.takeScreenshot()
-                directory.resolve("page-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                directory.resolve("page-$theme-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
         }
