@@ -105,7 +105,6 @@ class UiPreviewTest {
     }
 
     @Test fun captureContracts() {
-        captureDynamicAnswerBounds()
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val directory=instrumentation.targetContext.getExternalFilesDir(null)!!.resolve("previews").apply{mkdirs()}
         val board=FretboardUiState("preview",lastFret=8,marks=listOf(BoardMark(Coordinate(1,3),MarkRole.REFERENCE,"G"),BoardMark(Coordinate(1,5),MarkRole.TARGET,"A")))
@@ -244,5 +243,7 @@ class UiPreviewTest {
                 }
             }
         }
+        // Export every fixed contract before assertions, so a failed measurement retains review evidence.
+        captureDynamicAnswerBounds()
     }
 }
