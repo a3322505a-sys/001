@@ -3,6 +3,9 @@ package com.a3322505a.guitarlearning.learning
 import android.graphics.Bitmap
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.runtime.mutableStateOf
+import android.graphics.Rect
+import org.junit.Assert.assertEquals
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -23,7 +26,51 @@ import org.junit.Test
 
 /** Manual-review images from fixed display contracts on the existing upgrade emulator. */
 class UiPreviewTest {
+    /** Same composition/task: compare actual answer bounds through delayed playback and correction. */
+    @Test fun captureDynamicAnswerBounds() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = instrumentation.targetContext.getExternalFilesDir(null)!!.resolve("previews").apply { mkdirs() }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (withBoard in listOf(false, true)) {
+                val base = TrainingUiState("dynamic", "", showAudio = true, canReplay = true,
+                    board = if (withBoard) FretboardUiState("dynamic", lastFret = 4,
+                        marks = listOf(BoardMark(Coordinate(1,3), MarkRole.TARGET, "?"))) else null,
+                    options = listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) })
+                val current = mutableStateOf(base)
+                scenario.onActivity { activity -> activity.setContent {
+                    SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }
+                    GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) { TrainingScreen(current.value) {} } }
+                } }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(700)
+                var original: List<Rect>? = null
+                val phases = listOf("initial" to base, "playing" to base.copy(audio = AudioUiState(playing = true)),
+                    "failed" to base.copy(audio = AudioUiState(message = "播放失败", failed = true)),
+                    "muted" to base.copy(soundEnabled = false, canReplay = false),
+                    "correction" to base.copy(wrong = true, canNext = true, message = "正确对应为 G。"),
+                    "saving" to base.copy(busy = true))
+                for ((name, state) in phases) {
+                    scenario.onActivity { current.value = state }
+                    instrumentation.waitForIdleSync()
+                    Thread.sleep(250)
+                    val root = instrumentation.uiAutomation.rootInActiveWindow
+                    val bounds = base.options.map { option ->
+                        val node = root.findAccessibilityNodeInfosByText(option.value).firstOrNull { it.text?.toString() == option.value }
+                        checkNotNull(node) { "Missing answer ${option.value}: $name" }
+                        Rect().also { node.getBoundsInScreen(it); check(!it.isEmpty) }
+                    }
+                    if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
+                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                    bounds.forEach { check(it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height) { "Clipped answer: $it" } }
+                    directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
+                    bitmap.recycle()
+                }
+            }
+        }
+    }
+
     @Test fun captureContracts() {
+        captureDynamicAnswerBounds()
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val directory=instrumentation.targetContext.getExternalFilesDir(null)!!.resolve("previews").apply{mkdirs()}
         val board=FretboardUiState("preview",lastFret=8,marks=listOf(BoardMark(Coordinate(1,3),MarkRole.REFERENCE,"G"),BoardMark(Coordinate(1,5),MarkRole.TARGET,"A")))

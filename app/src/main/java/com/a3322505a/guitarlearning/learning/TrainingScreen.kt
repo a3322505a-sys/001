@@ -59,6 +59,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
 @Composable
 private fun TrainingToolbar(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit, showLegend: () -> Unit) {
     var menuOpen by remember(state.taskId) { mutableStateOf(false) }
+    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         IconButton(onClick = { onEvent(TrainingEvent.Back) },
             modifier = Modifier.semantics { contentDescription = "保存并结束本轮返回" }) { Text("‹", fontSize = 28.sp) }
@@ -67,7 +68,7 @@ private fun TrainingToolbar(state: TrainingUiState, onEvent: (TrainingEvent) -> 
             modifier = Modifier.semantics { contentDescription = "旋转和弦图" }) { Text("↻", fontSize = 25.sp) }
         TrainingAudioNotice(state, onEvent)
         // Reserve the same toolbar footprint while feedback and persistence change.
-        Box(Modifier.width(100.dp).heightIn(min = 48.dp)) {
+        Box(Modifier.width(100.dp * scale).height(48.dp * scale)) {
             if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
         }
         Box(Modifier.size(24.dp).align(Alignment.CenterVertically)) {
@@ -101,7 +102,7 @@ internal fun TrainingPrompt(state: TrainingUiState) {
 
 @Composable
 internal fun TrainingAudioNotice(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
-    if (!state.showAudio && !state.audio.failed && state.soundEnabled) return
+    if (!state.showAudio && !state.audio.failed && state.soundEnabled) { Spacer(Modifier.size(48.dp)); return }
     var open by remember(state.taskId) { mutableStateOf(false) }
     val status = when {
         !state.soundEnabled -> "声音已关闭"

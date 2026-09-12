@@ -16,6 +16,38 @@ import kotlin.test.*
 class LearningRepositoryTest {
     private fun openTest(context: Context, name: String): LearningDatabase =
         Room.databaseBuilder(context, LearningDatabase::class.java, name).allowMainThreadQueries().build()
+    @Test fun ordinaryLastAnswerAndSettlementRollbackWithoutLosingThePendingTask() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "round-${newId()}.db"
+        var db = openTest(context,name); var repo = RoomLearningRepository(db)
+        val co = LearningCoordinator()
+        val start = co.start(repo.load().copy(progress = mapOf("g00" to NodeProgress(1), "n00" to NodeProgress(1))), "n00", 1)
+        var saved = repo.commit(repo.load(),start)
+        repeat(11) { i ->
+            val t = saved.active!!.task
+            saved = repo.commit(saved, co.answer(saved,symbol=t.constraint.symbol,now=10L+i*10))
+            saved = repo.commit(saved, co.next(saved,t.id,11L+i*10))
+        }
+        val t = saved.active!!.task
+        val lastAnswer = co.answer(saved,symbol=t.constraint.symbol,now=200)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_round BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved,lastAnswer) }
+        assertEquals(saved,repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_round")
+        saved = repo.commit(saved,lastAnswer)
+        val ended = co.next(saved,t.id,201)
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_round BEFORE INSERT ON learner_snapshot BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
+        assertFails { repo.commit(saved,ended) }
+        assertEquals(saved,repo.load())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_round")
+        saved = repo.commit(saved,ended)
+        db.close(); db=openTest(context,name); repo=RoomLearningRepository(db)
+        assertEquals(saved,repo.load())
+        assertEquals(12,repo.load().attempts.size)
+        assertNull(repo.load().active)
+        assertEquals(saved,co.end(saved,202))
+        db.close(); context.deleteDatabase(name)
+    }
     @Test fun chordOrientationUsesAtomicProfileWriteAndKeepsTaskHistory() {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val name="rotation-${newId()}.db"

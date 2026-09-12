@@ -148,7 +148,7 @@ object FamilyAdaptation {
         if (!supported(original) || s.sessionId == null || s.regionTraining != null || s.pilot != null) return original
         val pending = s.familyRuns.entries.firstOrNull { (_, c) -> c.nodeId == original.nodeId && c.run.diagnosing }
         val seed = if (original.nodeId == "mapping" && pending != null && !original.guided &&
-            s.attempts.count { it.task.nodeId == "mapping" } % 3 != 2)
+            s.attempts.count { it.task.nodeId == "mapping" && it.ordinal >= pending.value.run.diagnosisSince } % 3 != 2)
             s.attempts.lastOrNull { it.task.adaptive?.familyScope == pending.key }?.task?.copy(source = original.source, introductionId = null) ?: original
         else original
         val scope = scope(s, seed)
@@ -167,7 +167,8 @@ object FamilyAdaptation {
         if (seed.nodeId == "tab02" && !run.diagnosing) return tag(seed, PracticePurpose.COVERAGE)
         // Use actual completed tasks for cadence, including assisted tasks and small-pool echoes.
         // A filtered evidence sample must never freeze the scheduler on one slot.
-        val issued = s.attempts.filter { it.task.adaptive?.familyScope == scope && it.completed }
+        val issued = s.attempts.filter { it.task.adaptive?.familyScope == scope && it.completed &&
+            (!run.diagnosing || it.ordinal >= run.diagnosisSince) }
         val originalRetest = run.diagnosing && issued.size % 3 == 2
         val candidates = if (run.mixStage == 0 && !originalRetest) {
             if (seed.nodeId == "mapping") full.filter { it.direction == context.anchor } else full.flatMap(::reduce)

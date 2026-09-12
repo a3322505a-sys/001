@@ -93,7 +93,6 @@ object TrainingUiAdapter {
             canNext = (a.phase == Phase.CORRECTED || t.creationDurations.isNotEmpty() && a.phase == Phase.CORRECT) && !busy,
             autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && (a.phase == Phase.CORRECT || a.phase == Phase.CORRECTED && (s.regionTraining != null && RegionRounds.finished(s) || LessonRounds.finished(s))) && !busy) if (t.guided) 1200L else 650L else null,
             audioRequired = t.relation?.ear == true, showAudio = TaskAudioPolicy.prompt(a) != null,
-            messageRequired = t.guided || a.hintLevel > 0 || a.phase == Phase.CORRECTING,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio,
             roundProgress = s.regionTraining?.let { "${RegionRounds.issued(s).size.coerceAtMost(12)}/12" },
             accessibilityPrompt = if (t.adaptive?.options?.isNotEmpty() == true) (if (t.tonicPitchClass != null) "${t.prompt}：" else "") + "选择亮起位置对应的音，选项可能使用音名、固定唱名或调内级数" else t.prompt)

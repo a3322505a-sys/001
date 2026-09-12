@@ -76,6 +76,41 @@ class FamilyAdaptationTest {
         }
     }
 
+    @Test fun legacyMappingFocusAcrossBothDirectionsCanRetestAndRecoverAcrossRounds() {
+        val forward = MappingLessons.make("C", Direction.NOTE_TO_SOLFEGE, TaskSource.MAIN)
+        val reverse = MappingLessons.make("C", Direction.SOLFEGE_TO_NOTE, TaskSource.MAIN)
+        var s = finish(profile("mapping"), forward, false, gap)
+        s = finish(s, forward, false, gap * 2)
+        s = finish(s, reverse, false, gap * 3)
+        s = finish(s, reverse, false, gap * 4)
+        val key = FamilyAdaptation.scope(s, forward)
+        val context = s.familyRuns.getValue(key)
+        s = s.copy(familyRuns = s.familyRuns + (key to context.copy(run = context.run.copy(
+            focus = (AdaptiveEvidence.units(forward) + AdaptiveEvidence.units(reverse)).distinct()))))
+        var retests = 0
+        val directions = mutableSetOf<Direction>()
+        repeat(160) { i ->
+            val at = gap * (i + 5)
+            if (s.active == null) s = co.start(s, "mapping", at)
+            else if (s.active!!.phase in listOf(Phase.CORRECT, Phase.CORRECTED)) {
+                s = co.next(s, s.active!!.task.id, at)
+                if (s.active == null) s = co.start(s, "mapping", at + 1)
+            }
+            val task = s.active!!.task
+            directions += task.direction
+            if (task.adaptive?.purpose == PracticePurpose.RETEST) {
+                retests++
+                assertEquals(1, task.adaptive.stage)
+                assertFalse(task.guided)
+            }
+            s = respond(s, true, at + 2)
+            s = LearningCodec.decode(LearningCodec.encode(s))
+        }
+        assertTrue("No original-condition retest", retests > 0)
+        assertEquals(MappingLessons.directions.toSet(), directions)
+        assertFalse("Two-direction focus remains stuck", s.familyRuns.getValue(key).run.diagnosing)
+    }
+
     @Test fun onlyAttemptedMemberIsWrongAndLaterRevealedMembersAreNotIndependent() {
         val task = ReadingLessons.phrase("tab02", ReadingLessons.positions.take(3), TaskSource.MAIN)
         var s = present(profile("tab02"), task, 10)

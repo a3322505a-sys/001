@@ -62,7 +62,6 @@ data class TrainingUiState(
     val continueLabel: String = "继续练习",
     val audioRequired: Boolean = false,
     val showAudio: Boolean = false,
-    val messageRequired: Boolean = false,
 )
 sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
