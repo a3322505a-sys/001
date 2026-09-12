@@ -64,6 +64,9 @@ class UiPreviewTest {
                         Thread.sleep(100)
                         instrumentation.waitForIdleSync()
                     }
+                    // Preserve the visible surface even when accessibility acquisition fails.
+                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                    directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                     val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
                     val bounds = base.options.map { option ->
                         val node = window.findAccessibilityNodeInfosByText(option.value).firstOrNull { it.text?.toString() == option.value }
@@ -71,9 +74,7 @@ class UiPreviewTest {
                         Rect().also { node.getBoundsInScreen(it); check(!it.isEmpty) }
                     }
                     if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
-                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
                     bounds.forEach { check(it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height) { "Clipped answer: $it" } }
-                    directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                     bitmap.recycle()
                 }
             }
