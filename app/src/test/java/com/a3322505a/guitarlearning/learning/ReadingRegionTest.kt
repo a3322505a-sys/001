@@ -33,6 +33,7 @@ class ReadingRegionTest {
             val t = s.active!!.task
             s = co.answer(s, coordinate = if (t.constraint.kind == ConstraintKind.SYMBOL) null else AnswerEvaluator.validPositions(t).first(), symbol = t.constraint.symbol.takeIf { t.constraint.kind == ConstraintKind.SYMBOL }, now = i + 10L)
             if (!Curriculum.mastered(s, "middle")) s = co.next(s, t.id, i + 11L)
+            if (s.active == null) s = co.start(s, "middle", i + 12L).copy(reviewMode = true)
         } }
         assertTrue(Curriculum.mastered(s, "middle"))
         assertFalse(Curriculum.mastered(s, "m02"))
@@ -70,6 +71,7 @@ class ReadingRegionTest {
                 val rule = if (t.completion == CompletionKind.SEQUENCE) t.sequence[a.sequenceIndex] else t.constraint
                 s = co.answer(s, coordinate = if (rule.kind == ConstraintKind.SYMBOL) null else AnswerEvaluator.validPositions(t, a.sequenceIndex).first(), symbol = rule.symbol, now = i + 10L)
                 if (!Curriculum.mastered(s, id) && s.active!!.phase == Phase.CORRECT) s = co.next(s, t.id, i + 11L)
+                if (s.active == null) s = co.start(s, id, i + 12L).copy(reviewMode = true)
                 s = LearningCodec.decode(LearningCodec.encode(s))
             } }
             assertTrue(Curriculum.mastered(s, id), "$id did not finish")

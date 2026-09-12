@@ -154,11 +154,7 @@ class LearningCoordinator(private val scheduler: LessonScheduler = LessonSchedul
             val task = scheduler.next(changed, now)
             return AdaptiveEvidence.present(changed.copy(currentNode = task.nodeId), task, now)
         }
-        if (state.practice == null && !state.reviewMode && Curriculum.mastered(state, state.currentNode)) {
-            val next = Curriculum.next(state)
-            if (next == null) return end(changed, now, "首轮学习已完成。可以从知识树复习；后续课程会逐步补齐。")
-            changed = changed.copy(currentNode = next.id)
-        }
+        if (LessonRounds.finished(state)) return end(state, now, LessonRounds.summary(state), reason = "natural")
         return AdaptiveEvidence.present(changed, scheduler.next(changed, now), now)
     }
 

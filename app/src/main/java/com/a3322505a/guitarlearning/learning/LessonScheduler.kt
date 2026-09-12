@@ -79,14 +79,15 @@ class LessonScheduler(private val random: Random = Random.Default) {
     }
 
     private fun tabTask(state: LearnerState, source: TaskSource): LearningTask {
-        val targets = listOf(Coordinate(1, 0), Coordinate(1, 1))
-        val intro = "tab01:intro" !in state.introductions
+        val targets = TabMaterial.singlePositions(state)
+        val unseen = targets.firstOrNull { !TabMaterial.singleTaught(state, it) }
         val last = state.attempts.lastOrNull { it.task.nodeId == "tab01" }?.task?.coordinate
-        val c = targets.firstOrNull { it != last } ?: targets.first()
-        return LearningTask(nodeId = "tab01", skillId = "${c.id}:tab_to_position", coordinate = c,
-            direction = Direction.TAB_TO_POSITION, prompt = "按 TAB 找到位置", explanation = LessonExplanations.tab(c),
-            constraint = AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c), showTab = true,
-            source = if (intro) TaskSource.DEMONSTRATION else source, introductionId = if (intro) "tab01:intro" else null)
+        val c = unseen ?: targets.filter { it != last }.ifEmpty { targets }.shuffled(random).minBy { target ->
+            state.attempts.count { it.task.nodeId == "tab01" && it.task.coordinate == target }
+        }
+        val intro = "tab01:intro" !in state.introductions
+        return TabMaterial.single(c, if (intro || unseen != null) TaskSource.DEMONSTRATION else source)
+            .copy(introductionId = if (intro) "tab01:intro" else if (unseen != null) "tab01:${c.id}:intro" else null)
     }
 
     private fun positionTask(state: LearnerState, node: CurriculumNode, source: TaskSource, now: Long): LearningTask {

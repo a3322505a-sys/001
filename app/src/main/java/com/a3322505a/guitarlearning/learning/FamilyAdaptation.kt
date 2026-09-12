@@ -94,15 +94,14 @@ object FamilyAdaptation {
         val source = if (s.practice != null) TaskSource.PRACTICE else if (s.reviewMode) TaskSource.REVIEW else TaskSource.MAIN
         return when {
             id in ReadingLessons.ids -> if (!ReadingLessons.eligible(s, id)) emptyList() else readingPositions(s, id).let { positions ->
-                if (id == "staff") positions.map { ReadingLessons.single(it, source) }
+                if (id == "tab02") TabMaterial.catalog(s).filter { p -> p.positions.all { it in positions } }.map { TabMaterial.task(it, source) }
+                else if (id == "staff") positions.map { ReadingLessons.single(it, source) }
                 else if (positions.size < 3) emptyList() else positions.indices.map { start ->
                     ReadingLessons.phrase(id, List(3) { positions[(start + it) % positions.size] }, source)
                 }
             }
-            id == "tab01" -> if ("tab01:intro" !in s.introductions) emptyList() else listOf(Coordinate(1, 0), Coordinate(1, 1)).map { c ->
-                seed.copy(coordinate = c, skillId = "${c.id}:tab_to_position", constraint = AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c),
-                    explanation = LessonExplanations.tab(c), source = source, introductionId = null)
-            }
+            id == "tab01" -> if ("tab01:intro" !in s.introductions) emptyList() else TabMaterial.singlePositions(s)
+                .filter { TabMaterial.singleTaught(s, it) }.map { TabMaterial.single(it, source) }
             id == "mapping" -> MappingLessons.notes.filter { note ->
                 val t = MappingLessons.make(note, seed.direction, source, seed.tonicPitchClass ?: 0)
                 "${MappingLessons.family(t)}:intro" in s.introductions
@@ -148,7 +147,8 @@ object FamilyAdaptation {
     fun next(s: LearnerState, original: LearningTask, random: Random, now: Long): LearningTask {
         if (!supported(original) || s.sessionId == null || s.regionTraining != null || s.pilot != null) return original
         val pending = s.familyRuns.entries.firstOrNull { (_, c) -> c.nodeId == original.nodeId && c.run.diagnosing }
-        val seed = if (original.nodeId == "mapping" && pending != null)
+        val seed = if (original.nodeId == "mapping" && pending != null && !original.guided &&
+            s.attempts.count { it.task.nodeId == "mapping" && it.ordinal >= pending.value.run.diagnosisSince } % 3 != 2)
             s.attempts.lastOrNull { it.task.adaptive?.familyScope == pending.key }?.task?.copy(source = original.source, introductionId = null) ?: original
         else original
         val scope = scope(s, seed)
@@ -156,7 +156,7 @@ object FamilyAdaptation {
         val run = context.run
         fun tag(t: LearningTask, purpose: PracticePurpose, unit: String? = AdaptiveEvidence.units(t).firstOrNull()) =
             t.copy(id = newId(), introductionId = if (t.guided) t.introductionId else null,
-                adaptive = AdaptiveTask(run.config, purpose, run.mixStage, unit = unit, familyScope = scope))
+                adaptive = AdaptiveTask(run.config, purpose, if (purpose == PracticePurpose.RETEST) 1 else run.mixStage, unit = unit, familyScope = scope))
         val full = catalog(s, seed, random)
         if (seed.nodeId in ReadingLessons.ids && !seed.guided && !run.diagnosing && s.practice == null) {
             val known = readingPositions(s, seed.nodeId).map { "skill:${ReadingLessons.skill(seed.nodeId, it)}" }.toSet()
@@ -164,20 +164,26 @@ object FamilyAdaptation {
         }
         if (full.isEmpty()) return tag(seed.copy(source = TaskSource.DEMONSTRATION), PracticePurpose.NEXT)
         if (seed.guided && !run.diagnosing) return tag(seed, PracticePurpose.NEXT)
-        val candidates = if (run.mixStage == 0) {
+        if (seed.nodeId == "tab02" && !run.diagnosing) return tag(seed, PracticePurpose.COVERAGE)
+        // Use actual completed tasks for cadence, including assisted tasks and small-pool echoes.
+        // A filtered evidence sample must never freeze the scheduler on one slot.
+        val issued = s.attempts.filter { it.task.adaptive?.familyScope == scope && it.completed &&
+            (!run.diagnosing || it.ordinal >= run.diagnosisSince) }
+        val originalRetest = run.diagnosing && issued.size % 3 == 2
+        val candidates = if (run.mixStage == 0 && !originalRetest) {
             if (seed.nodeId == "mapping") full.filter { it.direction == context.anchor } else full.flatMap(::reduce)
         } else full
         val view = AdaptiveEvidence.View(s, now)
         val completed = AdaptiveTraining.completedScorable(s, view).filter { it.task.adaptive?.familyScope == scope }
-        val slot = completed.size % 6
-        val block = completed.size / 6
+        val slot = issued.size % 6
+        val block = issued.size / 6
         val keys = full.flatMap { AdaptiveEvidence.units(it) }.toSet()
         val weak = s.weakPoints.values.filter { it.unit in keys && it.resolvedAt == null }
             .sortedWith(compareBy<WeakPoint> { if (it.confirmedAt != null) 0 else 1 }.thenBy { it.observedAt })
         val selectedInBlock = completed.takeLast(slot).filter { it.task.adaptive?.purpose in targeted }
             .mapNotNull { it.task.adaptive?.unit }.distinct()
         val focus = (selectedInBlock + weak.map { it.unit } + run.focus).distinct().take(2)
-        var purpose = when (slot) {
+        var purpose = if (originalRetest) PracticePurpose.RETEST else when (slot) {
             0, 2, 4 -> if (run.diagnosing) PracticePurpose.DIAGNOSIS else PracticePurpose.WEAK
             1, 3 -> PracticePurpose.FAMILIAR
             else -> listOf(PracticePurpose.COVERAGE, PracticePurpose.RETEST, PracticePurpose.NEXT)[block % 3]
@@ -187,7 +193,7 @@ object FamilyAdaptation {
         val local = eligible.filter { t -> AdaptiveEvidence.units(t).any { it in focus } }
         val familiar = eligible.filter { t -> AdaptiveEvidence.units(t).all { view.ready(it) } }
         val pool = when (purpose) {
-            PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS -> local.ifEmpty { eligible }
+            PracticePurpose.WEAK, PracticePurpose.DIAGNOSIS, PracticePurpose.RETEST -> local.ifEmpty { eligible }
             PracticePurpose.FAMILIAR -> familiar.ifEmpty { eligible.filter { t -> AdaptiveEvidence.units(t).none { key -> weak.any { it.unit == key && it.confirmedAt != null } } }.ifEmpty { eligible } }
             else -> eligible
         }
@@ -203,7 +209,7 @@ object FamilyAdaptation {
         }
         val unit = AdaptiveEvidence.units(chosen).firstOrNull { it in focus } ?: AdaptiveEvidence.units(chosen).firstOrNull()
         val point = s.weakPoints[unit]
-        val teaching = purpose in targeted && point?.confirmedAt != null && point.resolvedAt == null && point.taughtAt == null
+        val teaching = purpose != PracticePurpose.RETEST && purpose in targeted && point?.confirmedAt != null && point.resolvedAt == null && point.taughtAt == null
         return tag(chosen.copy(options = chosen.options.shuffled(random), source = if (teaching) TaskSource.DEMONSTRATION else chosen.source), purpose, unit)
     }
 }

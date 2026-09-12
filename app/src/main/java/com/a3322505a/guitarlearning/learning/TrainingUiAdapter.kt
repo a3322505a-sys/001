@@ -52,7 +52,10 @@ object TrainingUiAdapter {
     }
 
     fun training(s: LearnerState, busy: Boolean, audio: AudioUiState): TrainingUiState {
-        val a = s.active ?: return TrainingUiState(summary = s.endedSummary ?: "进度已保存。", busy = busy)
+        val a = s.active ?: return TrainingUiState(summary = s.endedSummary ?: "进度已保存。", busy = busy,
+            canContinue = s.endedSummary != null && !busy,
+            canEnterBoard = !busy && RegionTraining.available(s, FretboardRegion.LOW.name),
+            continueLabel = if (LessonRounds.nextNode(s) != s.currentNode) "继续学习" else "继续练习")
         val t = a.task
         val answerable = !busy && a.phase in listOf(Phase.ANSWERING, Phase.CORRECTING) && (t.relation?.ear != true || a.audioReady && !audio.playing)
         val mistake = a.inputs.lastOrNull { it.result == ClickResult.WRONG }?.symbol
@@ -79,7 +82,7 @@ object TrainingUiAdapter {
         val rule = t.sequence.getOrNull(a.sequenceIndex)
         val string = rule?.coordinate?.string ?: rule?.string
         val controls = if (t.chord != null && string != null) ChordControlsUiState(string, "${a.sequenceIndex + 1}/${t.sequence.size}", answerable, chordVisible(a) && s.soundEnabled && !busy) else null
-        val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.phase == Phase.CORRECTING -> CorrectionPresentation.message(a, s.introductions); a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> s.familyRuns[t.adaptive?.familyScope]?.run?.reason }
+        val message = when { a.phase == Phase.CORRECTED -> "已纠正。"; a.phase == Phase.CORRECT -> null; a.phase == Phase.CORRECTING -> CorrectionPresentation.message(a, s.introductions); a.feedback.isNotBlank() -> a.feedback; t.guided -> t.explanation; else -> null }
         val plainRecognition = t.direction == Direction.POSITION_TO_NOTE && !t.guided && t.tonicPitchClass == null
         return TrainingUiState(t.id, if (plainRecognition) "" else t.prompt, busy = busy,
             board = if (hasBoard && s.pilot?.mode != PilotMode.GUITAR) board(a, FingeringMode.fromId(s.fingeringMode), busy, displayLast(s), s.introductions).copy(chordVertical = s.chordVertical) else null,
@@ -88,7 +91,8 @@ object TrainingUiAdapter {
             showLegend = t.chord != null && !s.fingerLegendSeen, hasChord = t.chord != null,
             canHint = s.pilot == null && a.phase == Phase.ANSWERING && !t.guided && !busy, hintLabel = if (a.hintLevel == 0) "提示" else "看示范",
             canNext = (a.phase == Phase.CORRECTED || t.creationDurations.isNotEmpty() && a.phase == Phase.CORRECT) && !busy,
-            autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && (a.phase == Phase.CORRECT || a.phase == Phase.CORRECTED && s.regionTraining != null && RegionRounds.finished(s)) && !busy) if (t.guided) 1200L else 650L else null,
+            autoNextDelayMs = if (s.pilot == null && t.creationDurations.isEmpty() && (a.phase == Phase.CORRECT || a.phase == Phase.CORRECTED && (s.regionTraining != null && RegionRounds.finished(s) || LessonRounds.finished(s))) && !busy) if (t.guided) 1200L else 650L else null,
+            audioRequired = t.relation?.ear == true, showAudio = TaskAudioPolicy.prompt(a) != null,
             soundEnabled = s.soundEnabled, canReplay = TaskAudioPolicy.prompt(a) != null && s.soundEnabled && !(t.relation?.ear == true && (audio.playing || busy)), audio = audio,
             roundProgress = s.regionTraining?.let { "${RegionRounds.issued(s).size.coerceAtMost(12)}/12" },
             accessibilityPrompt = if (t.adaptive?.options?.isNotEmpty() == true) (if (t.tonicPitchClass != null) "${t.prompt}：" else "") + "选择亮起位置对应的音，选项可能使用音名、固定唱名或调内级数" else t.prompt)

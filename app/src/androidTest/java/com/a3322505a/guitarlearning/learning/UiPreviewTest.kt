@@ -3,6 +3,9 @@ package com.a3322505a.guitarlearning.learning
 import android.graphics.Bitmap
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.runtime.mutableStateOf
+import android.graphics.Rect
+import org.junit.Assert.assertEquals
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -23,6 +26,84 @@ import org.junit.Test
 
 /** Manual-review images from fixed display contracts on the existing upgrade emulator. */
 class UiPreviewTest {
+    // Compose virtual nodes need tree traversal; platform text search is not implemented
+    // by every AccessibilityNodeProvider even when the nodes are visibly rendered.
+    private fun answerNode(node: AccessibilityNodeInfo?, value: String): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.text?.toString() == value) return node
+        for (i in 0 until node.childCount) answerNode(node.getChild(i), value)?.let { return it }
+        return null
+    }
+
+    private fun windowText(node: AccessibilityNodeInfo?): String {
+        if (node == null) return "<null>"
+        return "[${node.className}:${node.text}:${node.contentDescription}]" +
+            (0 until node.childCount).joinToString { windowText(node.getChild(it)) }
+    }
+
+    /** Same composition/task: compare actual answer bounds through delayed playback and correction. */
+    @Test fun captureDynamicAnswerBounds() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = instrumentation.targetContext.getExternalFilesDir(null)!!.resolve("previews").apply { mkdirs() }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            for (withBoard in listOf(false, true)) {
+                val base = TrainingUiState("dynamic", "", showAudio = true, canReplay = true,
+                    board = if (withBoard) FretboardUiState("dynamic", lastFret = 4,
+                        marks = listOf(BoardMark(Coordinate(1,3), MarkRole.TARGET, "?"))) else null,
+                    options = listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) })
+                val current = mutableStateOf(base)
+                // Let the orientation/configuration transition finish before installing the measured composition.
+                scenario.onActivity { activity -> activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(1000)
+                scenario.onActivity { activity -> activity.setContent {
+                    SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }
+                    GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) { TrainingScreen(current.value) {} } }
+                } }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(700)
+                var original: List<Rect>? = null
+                val phases = listOf("initial" to base, "playing" to base.copy(audio = AudioUiState(playing = true)),
+                    "failed" to base.copy(audio = AudioUiState(message = "播放失败", failed = true)),
+                    "muted" to base.copy(soundEnabled = false, canReplay = false),
+                    "correction" to base.copy(wrong = true, canNext = true, message = "正确对应为 G。"),
+                    "saving" to base.copy(busy = true))
+                for ((name, state) in phases) {
+                    scenario.onActivity { current.value = state }
+                    instrumentation.waitForIdleSync()
+                    Thread.sleep(250)
+                    var root: AccessibilityNodeInfo? = null
+                    for (attempt in 0 until 50) {
+                        root = instrumentation.uiAutomation.rootInActiveWindow
+                        // Same emulator-only dialog handling as the established fixed preview loop.
+                        // Never dismiss an ANR belonging to the App under test.
+                        if (root?.findAccessibilityNodeInfosByText("Pixel Launcher isn't responding")?.isNotEmpty() == true) {
+                            root?.findAccessibilityNodeInfosByText("Close app")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                            Thread.sleep(300)
+                            instrumentation.waitForIdleSync()
+                            continue
+                        }
+                        if (answerNode(root, "C") != null) break
+                        Thread.sleep(100)
+                        instrumentation.waitForIdleSync()
+                    }
+                    // Preserve the visible surface even when accessibility acquisition fails.
+                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                    directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
+                    val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
+                    val bounds = base.options.map { option ->
+                        val node = answerNode(window, option.value)
+                        checkNotNull(node) { "Missing answer ${option.value}: $name; ${windowText(window)}" }
+                        Rect().also { node.getBoundsInScreen(it); check(!it.isEmpty) }
+                    }
+                    if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
+                    bounds.forEach { check(it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height) { "Clipped answer: $it" } }
+                    bitmap.recycle()
+                }
+            }
+        }
+    }
+
     @Test fun captureContracts() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val directory=instrumentation.targetContext.getExternalFilesDir(null)!!.resolve("previews").apply{mkdirs()}
@@ -162,5 +243,7 @@ class UiPreviewTest {
                 }
             }
         }
+        // Export every fixed contract before assertions, so a failed measurement retains review evidence.
+        captureDynamicAnswerBounds()
     }
 }

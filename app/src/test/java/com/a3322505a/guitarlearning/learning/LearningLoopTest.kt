@@ -22,6 +22,7 @@ class LearningLoopTest {
                 s = answerCorrect(co, s, now + step * 1000)
                 assertEquals(Phase.CORRECT, s.active?.phase)
                 s = co.next(s, id, now + step * 1000 + 1)
+                if (s.active == null) s = co.start(s, LessonRounds.nextNode(s), now + step * 1000 + 2)
                 s = LearningCodec.decode(LearningCodec.encode(s))
                 step++
             }

@@ -113,9 +113,6 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
         PilotControlsUi(run.mode,run.bpm,pilotPlaying,ShortScorePilot.role(run.clip) == PilotRole.PRACTICE,
             run.mode == PilotMode.SLOW && s.active?.phase in listOf(Phase.CORRECT,Phase.CORRECTED),pilotLoop,pilotMetronome,pilotCompare)
     }) }
-    LaunchedEffect(s.sessionId, s.endedSummary, busy) {
-        if (!busy && s.sessionId == null && s.endedSummary != null) onBack()
-    }
     LaunchedEffect(ui.taskId, foreground, busy) {
         if (!busy && foreground && ui.taskId != null) {
             withFrameNanos { }
@@ -129,6 +126,8 @@ private fun TrainingRoute(s: LearnerState, busy: Boolean, model: TrainingViewMod
         val id = ui.taskId
         if (event == TrainingEvent.Back) onBack()
         else if (event == TrainingEvent.End) onEnd()
+        else if (event == TrainingEvent.ContinueRound) model.continueRound()
+        else if (event == TrainingEvent.EnterBoard) model.enterBoard()
         else if (id != null && model.state.value?.active?.task?.id == id) when (event) {
             is TrainingEvent.Position -> model.positionTapped(event.tap)
             is TrainingEvent.Answer -> model.answer(id, symbol = event.symbol)

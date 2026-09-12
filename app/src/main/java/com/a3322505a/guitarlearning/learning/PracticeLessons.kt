@@ -72,11 +72,8 @@ object PracticeLessons {
             }
             PracticeKind.CHORD_SHAPE -> selection.nodeIds.flatMap { id -> ChordLessons.shapes(id)
                 .filter { "chord:${it.id}:intro" in state.introductions }.map { ChordLessons.make(it, id, TaskSource.PRACTICE, random) } }
-            PracticeKind.TAB -> listOf(Coordinate(1, 0), Coordinate(1, 1)).map { c ->
-                LearningTask(nodeId = "tab01", skillId = "${c.id}:tab_to_position", coordinate = c,
-                    direction = Direction.TAB_TO_POSITION, prompt = "按 TAB 找到位置", explanation = LessonExplanations.tab(c),
-                    constraint = AnswerConstraint(ConstraintKind.COORDINATE, coordinate = c), showTab = true, source = TaskSource.PRACTICE)
-            }
+            PracticeKind.TAB -> TabMaterial.singlePositions(state).filter { TabMaterial.singleTaught(state, it) }
+                .map { TabMaterial.single(it, TaskSource.PRACTICE) }
             else -> error("没有可用的专项题型。")
         }
         require(candidates.isNotEmpty()) { "还没有接触过的内容可练习。" }

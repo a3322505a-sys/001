@@ -190,6 +190,18 @@ class TrainingViewModel @JvmOverloads constructor(
         val ordinal = state.attempts.maxOfOrNull { it.ordinal } ?: 0
         state.copy(viewedPositions = state.viewedPositions + Curriculum.node(nodeId).positions.associate { it.id to ordinal })
     }
+    fun continueRound() = change { s ->
+        if (s.active != null || s.sessionId != null || s.endedSummary == null) s
+        else {
+            val last = s.sessions.lastOrNull()
+            if (last?.mode == "region" && last.regionId != null) coordinator.startRegion(s, last.regionId, System.currentTimeMillis())
+            else coordinator.start(s, LessonRounds.nextNode(s), System.currentTimeMillis())
+        }
+    }
+    fun enterBoard() = change { s ->
+        if (s.active != null || s.sessionId != null) s
+        else coordinator.startRegion(s, FretboardRegion.LOW.name, System.currentTimeMillis())
+    }
     fun clearSummary() = change { it.copy(endedSummary = null) }
     private fun trainingVisible() = page == "training" && _foreground.value
     fun pageVisible(value: String) {

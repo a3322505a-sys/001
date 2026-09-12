@@ -43,21 +43,26 @@ object MappingLessons {
     } }
 
     fun next(state: LearnerState, source: TaskSource, random: Random): LearningTask {
-        val degrees = notes.all { pairPassed(state, it, false) } &&
-            (!notes.all { pairPassed(state, it, true) } || random.nextBoolean())
-        val pair = if (degrees) degreeDirections else fixedDirections
-        notes.firstOrNull { introId(it, degrees) !in state.introductions }?.let { note ->
-            return make(note, pair.first(), TaskSource.DEMONSTRATION).copy(introductionId = introId(note, degrees))
-        }
-        val pending = notes.filter { !pairPassed(state, it, degrees) }.ifEmpty { notes }
-        val choices = pending.flatMap { note -> pair.map { note to it } }
+        // Exposure opens practice. Success criteria still decide mastery, never access to a representation.
+        val practiceCount = state.attempts.count { it.task.nodeId == "mapping" && !it.task.guided && it.completed }
+        val pool = notes.take((3 + practiceCount / 6).coerceAtMost(notes.size))
+        pool.forEach { note -> listOf(false, true).forEach { degrees ->
+            if (introId(note, degrees) !in state.introductions) {
+                val direction = if (degrees) degreeDirections.first() else fixedDirections.first()
+                return make(note, direction, TaskSource.DEMONSTRATION).copy(introductionId = introId(note, degrees))
+            }
+        } }
+        val choices = pool.flatMap { note -> directions.map { note to it } }
         val last = state.attempts.lastOrNull()?.task
         val spaced = choices.filter { (note, d) ->
-            val recent = state.attempts.lastOrNull { it.task.mappingNote == note && it.task.direction == d }
-            recent == null || state.attempts.size + 1 - recent.ordinal >= 3
+            val previous = state.attempts.lastOrNull { it.task.mappingNote == note && it.task.direction == d }
+            previous == null || state.attempts.size + 1 - previous.ordinal >= 3
         }.ifEmpty { choices.filter { it.first != last?.mappingNote || it.second != last.direction }.ifEmpty { choices } }
         val selected = spaced.shuffled(random).minBy { (note, direction) ->
-            evidence(state, note, degrees).count { it.task.direction == direction && it.firstCorrect == true }
+            val degrees = direction in degreeDirections
+            val count = state.attempts.count { it.task.mappingNote == note && it.task.direction == direction && !it.task.guided }
+            // Reduce mastered repetition while preserving rotation when any one direction remains weak.
+            count + if (pairPassed(state, note, degrees)) 6 else 0
         }
         return make(selected.first, selected.second, source)
     }

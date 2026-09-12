@@ -25,9 +25,12 @@ class UpgradeSmokeTest {
                 val answered = co.answer(s, coordinate = AnswerEvaluator.validPositions(task).first(), now = 2000L + i)
                 s = repo.commit(s, answered)
                 s = repo.commit(s, co.next(s, task.id, 3000L + i))
+                if (s.active == null && !Curriculum.mastered(s, "g00")) s = repo.commit(s, co.start(s, "g00", 3500L + i))
                 i++
             }
             assertTrue(Curriculum.mastered(s, "g00"))
+            // Courses now settle explicitly. Seed a real pending task for upgrade preservation.
+            if (s.active == null) s = repo.commit(s, co.start(s, LessonRounds.nextNode(s), 4000))
             s = repo.commit(s, s.copy(soundEnabled = false, themeId = AppTheme.MIDNIGHT.id))
             context.filesDir.resolve("upgrade-expected.json").writeText(LearningCodec.encode(s))
             @Suppress("DEPRECATION")

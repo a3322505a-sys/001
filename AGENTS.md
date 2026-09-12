@@ -12,13 +12,14 @@
 - 展示事实、知识暴露坐标与输入资格共用 `BoardTeachingPolicy.kt`；`CorrectionPresentation.expose` 与 `TrainingViewModel.positionTapped` 不得反向读取 UI 投影。标签文字和 MarkRole 仅用于显示，不决定证据；不得自动滚到隐藏答案。
 - 显示契约在 `TrainingUiState.kt` / `LearningPageUiState.kt`；其他页面的课程与证据投影在 `LearningPageAdapter.kt`。固定状态预览在 `ContractPreviews.kt`，不需要真实数据或音频。完整分工见 [alpha11 接口边界](docs/interface-audio-alpha11.md)。
 - 播放策略与请求有效性在 `TaskAudioPolicy.kt` / `TrainingViewModel.kt`；设备边界是 `audio/PlaybackOutput.kt`。保留任务首播去重和听辨完成门槛，不把普通试听写入学习证据。静态音轨必须写完数据后才要求 STATE_INITIALIZED；取消不得与工作线程重复 release。
+- 普通课程轮次边界在 `LessonRounds.kt`（从原任务ID和会话记录推导），区域轮次在 `RegionRounds.kt`；短谱保留整段边界。TAB 小规模样例和已教单音池在 `TabMaterial.kt`；现有 `ShortScorePilot` 的基线/复测素材不供普通题复用。
 - 课程/出题改 `learning/Curriculum.kt` 和 `LessonScheduler.kt`；学习记录改 `learning/LearningRepository.kt` 及 `TrainingViewModel.kt`。
 - `training/`、`storage/`、根包旧 `GuitarLearningApp.kt` 与旧训练 Screen 文件是 legacy v1。新增当前 App 功能应接入 `learning/`。复用旧素材前阅读 [docs/legacy-v1.md](docs/legacy-v1.md)，把任务和证据接入新版，不能用修改旧模块冒充新版已实现。
 - 和弦形态共用 `ChordShapes` 驱动显示/发音/判题；集合或顺序题不能把整体结果复制给未回答成员，逐目标证据在 `MemberEvidencePolicy`。
 - 读谱用 `ReadingLessons` / `NotationView`，吉他谱面高于实际发声八度；纯音高题接受范围内的等价位置，TAB 指定弦品。中高把位按两点节点单独掌握，不能以区域进入状态替代证据。
 - 关系与听辨使用 `MusicRelations` / `StructureLessons`，先修按节点目标配置；播放完成前不能记录听辨作答。无参照绝对音高不作门槛，试听理论题的完整答案按辅助处理。
 - `core/`、`audio/`、`ui/theme/` 含共享能力，不按整目录删除。测试中的旧模块用例也不代表新版入口正在使用它。
-- `mapping` 已接入当前任务与方向证据，直接前置为 `p03`；旧独立映射入口不是新版需求依据。级数必须有调性语境，旧 `GuitarCore.fixedDegrees` 仅表示 C 大调。
+- `mapping` 已接入当前任务与方向证据，直接前置为 `n00`；旧独立映射入口不是新版需求依据。级数必须有调性语境，旧 `GuitarCore.fixedDegrees` 仅表示 C 大调。
 
 ## 数据与交付
 
