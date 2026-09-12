@@ -110,8 +110,15 @@ internal fun TrainingAudioNotice(state: TrainingUiState, onEvent: (TrainingEvent
         state.audio.playing -> "正在播放"
         else -> "重听题目"
     }
-    IconButton(onClick = { open = true; onEvent(TrainingEvent.Obstructed) },
-        modifier = Modifier.semantics { contentDescription = status }) {
+    val click = {
+        if (state.canReplay && !state.audio.failed && state.soundEnabled) onEvent(TrainingEvent.Replay)
+        else { open = true; onEvent(TrainingEvent.Obstructed) }
+    }
+    if (state.audioRequired) TextButton(onClick = click,
+        modifier = Modifier.width(120.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)).height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f))
+            .semantics { contentDescription = status }) {
+        Text(when { !state.soundEnabled -> "先开启声音"; state.audio.failed -> "请重试声音"; state.audio.playing -> "正在播放"; else -> "重听题目" })
+    } else IconButton(onClick = click, modifier = Modifier.semantics { contentDescription = status }) {
         Text(if (!state.soundEnabled || state.audio.failed) "♫!" else "♫", fontSize = 24.sp)
     }
     if (open) AlertDialog(onDismissRequest = { open = false },

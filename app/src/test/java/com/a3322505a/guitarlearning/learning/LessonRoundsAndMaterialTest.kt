@@ -54,7 +54,8 @@ class LessonRoundsAndMaterialTest {
     }
     @Test fun newMappingLearnerMeetsDegreesBeforeSevenNoteMasteryAndAllAnswerDirections() {
         val co = LearningCoordinator(LessonScheduler(Random(7)))
-        var s = co.start(profile().copy(progress = profile().progress - "mapping"), "mapping", 1)
+        var s = co.start(LearnerState(progress = mapOf("g00" to NodeProgress(1), "n00" to NodeProgress(1))), "mapping", 1)
+        assertFalse(Curriculum.mastered(s, "p03"))
         repeat(80) { i ->
             if (s.active == null) s = co.start(s, "mapping", i * 100L + 1)
             val task = s.active!!.task

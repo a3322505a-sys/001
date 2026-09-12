@@ -14,8 +14,8 @@ object Curriculum {
         CurriculumNode("p07", "5弦 A / B", Category.FRETBOARD, "第5弦：A（空弦）→ B（2品）；A→B：两品，差一个全音。", listOf("p06"), listOf(Coordinate(5, 0), Coordinate(5, 2))),
         CurriculumNode("p08", "加入 C / E", Category.FRETBOARD, "第5弦：A（空弦）→ B（2品）→ C（3品）；A→B全音，B→C半音。第6弦空弦是E2。", listOf("p07"), listOf(Coordinate(5, 3), Coordinate(6, 0))),
         CurriculumNode("p09", "6弦 F / G", Category.FRETBOARD, "第6弦：E（空弦）→ F（1品）→ G（3品）；E→F：一品、半音；F→G：两品、全音。", listOf("p08"), listOf(Coordinate(6, 1), Coordinate(6, 3))),
-        // V2 mapping keeps its P03 prerequisite and its own directional/key evidence.
-        CurriculumNode("mapping", "唱名与级数", Category.SYMBOL, "音名C↔固定唱名Do；在C大调中，C（1级）→ D（2级）→ E（3级）。固定唱名和调内级数分别练习。", listOf("p03")),
+        // Mapping needs the note-name concept; each new symbol/key relation has its own demonstration.
+        CurriculumNode("mapping", "唱名与级数", Category.SYMBOL, "音名C↔固定唱名Do；在C大调中，C（1级）→ D（2级）→ E（3级）。固定唱名和调内级数分别练习。", listOf("n00")),
         CurriculumNode("tab02", "TAB 短句", Category.READING, "同弦短句→相邻弦短句；已教弦品、重复音及陌生组合，短句不预设节奏。", listOf("tab01", "p03")),
         CurriculumNode("staff", "五线谱入门", Category.READING, "例如谱面E5→实际E4→1弦空弦；吉他实际发声比谱面低一个八度，同音高位置都接受。", listOf("tab01", "p03")),
         CurriculumNode("staff02", "五线谱短句", Category.READING, "从左到右逐音读谱，例如谱面E5→F5，实际弹E4→F4；每个音降低八度后定位。", listOf("staff")),

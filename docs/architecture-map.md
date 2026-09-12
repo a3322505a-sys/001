@@ -153,3 +153,9 @@ flowchart TD
 现有 CI 用 JDK 17 执行单测、Debug/Release 构建、API 35 覆盖升级和音轨检查。截图是可选人工审阅产物，不是覆盖率门槛。本机前轮 lint 被 Java 9 阻断，不能宣称 lint 或模拟器验证通过。
 
 每次变更在 PR 写明：改哪条职责、受影响入口、保留的数据/音频约束、已执行验证及限制。变更职责或导航时同步本文与 README，变更操作边界时同步 AGENTS；历史 alpha 记录保留原交付事实。
+
+## alpha29 增量入口
+
+- `LessonRounds` 从当前会话任务 ID 推导普通轮次边界，`LearningCoordinator.next` 在原提交链内结算；`TrainingRoute` 保持结果页，`TrainingViewModel` 处理继续/低把位事件。不新增数据字段或服务器。
+- `TabMaterial` 共用已教低把位和12条短句事实，`ReadingLessons`、`FamilyAdaptation`、`PracticeLessons` 接入同一内容池。原 `ShortScorePilot` 与独立基线/复测范围不变。
+- `MappingLessons` 以示范开放表示，`FamilyAdaptation` 以诊断起点后的任务推进补练与原条件复测。证据和课程达标仍由原策略计算。
