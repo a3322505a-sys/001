@@ -37,6 +37,10 @@ class UiPreviewTest {
                         marks = listOf(BoardMark(Coordinate(1,3), MarkRole.TARGET, "?"))) else null,
                     options = listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) })
                 val current = mutableStateOf(base)
+                // Let the orientation/configuration transition finish before installing the measured composition.
+                scenario.onActivity { activity -> activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }
+                instrumentation.waitForIdleSync()
+                Thread.sleep(1000)
                 scenario.onActivity { activity -> activity.setContent {
                     SideEffect { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }
                     GuitarLearningTheme("forest") { Surface(Modifier.fillMaxSize()) { TrainingScreen(current.value) {} } }
@@ -53,9 +57,16 @@ class UiPreviewTest {
                     scenario.onActivity { current.value = state }
                     instrumentation.waitForIdleSync()
                     Thread.sleep(250)
-                    val root = instrumentation.uiAutomation.rootInActiveWindow
+                    var root: AccessibilityNodeInfo? = null
+                    for (attempt in 0 until 50) {
+                        root = instrumentation.uiAutomation.rootInActiveWindow
+                        if (root?.findAccessibilityNodeInfosByText("C")?.isNotEmpty() == true) break
+                        Thread.sleep(100)
+                        instrumentation.waitForIdleSync()
+                    }
+                    val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
                     val bounds = base.options.map { option ->
-                        val node = root.findAccessibilityNodeInfosByText(option.value).firstOrNull { it.text?.toString() == option.value }
+                        val node = window.findAccessibilityNodeInfosByText(option.value).firstOrNull { it.text?.toString() == option.value }
                         checkNotNull(node) { "Missing answer ${option.value}: $name" }
                         Rect().also { node.getBoundsInScreen(it); check(!it.isEmpty) }
                     }
