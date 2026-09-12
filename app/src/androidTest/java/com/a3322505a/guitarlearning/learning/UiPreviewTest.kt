@@ -26,6 +26,21 @@ import org.junit.Test
 
 /** Manual-review images from fixed display contracts on the existing upgrade emulator. */
 class UiPreviewTest {
+    // Compose virtual nodes need tree traversal; platform text search is not implemented
+    // by every AccessibilityNodeProvider even when the nodes are visibly rendered.
+    private fun answerNode(node: AccessibilityNodeInfo?, value: String): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.text?.toString() == value) return node
+        for (i in 0 until node.childCount) answerNode(node.getChild(i), value)?.let { return it }
+        return null
+    }
+
+    private fun windowText(node: AccessibilityNodeInfo?): String {
+        if (node == null) return "<null>"
+        return "[${node.className}:${node.text}:${node.contentDescription}]" +
+            (0 until node.childCount).joinToString { windowText(node.getChild(it)) }
+    }
+
     /** Same composition/task: compare actual answer bounds through delayed playback and correction. */
     @Test fun captureDynamicAnswerBounds() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -68,7 +83,7 @@ class UiPreviewTest {
                             instrumentation.waitForIdleSync()
                             continue
                         }
-                        if (root?.findAccessibilityNodeInfosByText("C")?.isNotEmpty() == true) break
+                        if (answerNode(root, "C") != null) break
                         Thread.sleep(100)
                         instrumentation.waitForIdleSync()
                     }
@@ -77,8 +92,8 @@ class UiPreviewTest {
                     directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                     val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
                     val bounds = base.options.map { option ->
-                        val node = window.findAccessibilityNodeInfosByText(option.value).firstOrNull { it.text?.toString() == option.value }
-                        checkNotNull(node) { "Missing answer ${option.value}: $name" }
+                        val node = answerNode(window, option.value)
+                        checkNotNull(node) { "Missing answer ${option.value}: $name; ${windowText(window)}" }
                         Rect().also { node.getBoundsInScreen(it); check(!it.isEmpty) }
                     }
                     if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
