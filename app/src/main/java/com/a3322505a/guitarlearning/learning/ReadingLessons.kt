@@ -41,6 +41,9 @@ object ReadingLessons {
             prompt = "吉他谱上的音与实际发声", explanation = "谱面 E5 → 实际 E4 → 第1弦空弦。\n吉他实际发声比谱面低一个八度，定位时看实际音高。",
             constraint = AnswerConstraint(ConstraintKind.SYMBOL, symbol = "低一个八度"), options = listOf("低一个八度", "完全同高", "高一个八度"),
             source = TaskSource.DEMONSTRATION, introductionId = "reading:staff:octave", notation = NotationPrompt(NotationKind.STAFF, listOf(64)))
+        if (id == "tab02") return TabMaterial.next(state, source, random).let { task ->
+            if (eligible(state, id)) task else task.copy(source = TaskSource.DEMONSTRATION, introductionId = "reading:tab02:intro")
+        }
         val intro = !eligible(state, id)
         val actualSource = if (intro) TaskSource.DEMONSTRATION else source
         val task = if (id == "staff") {

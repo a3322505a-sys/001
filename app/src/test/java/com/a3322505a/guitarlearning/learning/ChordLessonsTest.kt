@@ -58,6 +58,7 @@ class ChordLessonsTest {
                 // make the fixture's subsequent answers travel backwards in time.
                 if (!Curriculum.mastered(state, id) && state.active!!.phase == Phase.CORRECT) state = co.next(state, task.id, 11L + count)
                 state = LearningCodec.decode(LearningCodec.encode(state))
+                if (state.active == null) state = co.start(state, id, 12L + count)
                 count++
             }
             assertTrue(Curriculum.mastered(state, id), "$id stalled after $count clicks")

@@ -13,16 +13,15 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun SymbolTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Top),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
             TrainingPrompt(state)
             TaskNotation(state)
             state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-            TrainingMessage(state)
-            TrainingAudioNotice(state, onEvent)
             if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
+            TrainingMessage(state)
         }
     }
 }
@@ -37,15 +36,24 @@ private fun TaskNotation(state: TrainingUiState) {
 @Composable
 internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     val board = requireNotNull(state.board)
+    val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     val information: @Composable ColumnScope.() -> Unit = {
         TrainingPrompt(state)
         TaskNotation(state)
         state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-        TrainingMessage(state)
-        TrainingAudioNotice(state, onEvent)
         if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
+        // Feedback follows all answer controls. Audio notices live in the fixed toolbar.
+        TrainingMessage(state)
     }
-    TrainingBoardWorkspace(board, { onEvent(TrainingEvent.Position(it)) }, information)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 520.dp * scale && maxHeight >= 200.dp * scale) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(.44f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp), content = information)
+                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) }, Modifier.weight(.56f).fillMaxHeight())
+            }
+        } else TrainingBoardWorkspace(board, { onEvent(TrainingEvent.Position(it)) }, information)
+    }
 }
 
 @Composable
@@ -78,10 +86,9 @@ internal fun ChordTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
     val controls: @Composable ColumnScope.() -> Unit = {
         TrainingPrompt(state)
         state.chordControls?.let { ChordInputControls(it, onEvent) }
+        if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
         if (legend) FingerLegend(closeLegend)
         TrainingMessage(state)
-        TrainingAudioNotice(state, onEvent)
-        if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) })
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         if (maxWidth >= 500.dp * scale && maxHeight >= 220.dp * scale) {

@@ -122,6 +122,7 @@ class FurtherLessonsTest {
                 val task=s.active!!.task
                 s=solveOne(s,n+100L)
                 if(!Curriculum.mastered(s,id)&&s.active!!.phase==Phase.CORRECT) s=co.next(s,task.id,n+101L)
+                if(s.active==null) s=co.start(s,id,n+102L).copy(reviewMode=true)
                 if(n%50==0)s=LearningCodec.decode(LearningCodec.encode(s))
                 n++
             }

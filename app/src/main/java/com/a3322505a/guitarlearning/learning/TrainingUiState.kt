@@ -57,6 +57,12 @@ data class TrainingUiState(
     val pilot: PilotControlsUi? = null,
     val accessibilityPrompt: String = title,
     val roundProgress: String? = null,
+    val canContinue: Boolean = false,
+    val canEnterBoard: Boolean = false,
+    val continueLabel: String = "继续练习",
+    val audioRequired: Boolean = false,
+    val showAudio: Boolean = false,
+    val messageRequired: Boolean = false,
 )
 sealed interface TrainingEvent {
     data class Position(val tap: PositionTapped) : TrainingEvent
@@ -79,6 +85,8 @@ sealed interface TrainingEvent {
     data object MuteString : TrainingEvent
     data object EnableSound : TrainingEvent
     data object LegendSeen : TrainingEvent
+    data object ContinueRound : TrainingEvent
+    data object EnterBoard : TrainingEvent
     data object Back : TrainingEvent
     data object End : TrainingEvent
 }

@@ -91,6 +91,7 @@ class StructureLessonsTest {
                     symbol = rule.symbol, now = steps + 10L)
                 if (!Curriculum.mastered(s, id) && s.active!!.phase == Phase.CORRECT) s = co.next(s, task.id, steps + 11L)
                 if (steps % 7 == 0) s = LearningCodec.decode(LearningCodec.encode(s))
+                if (s.active == null) s = co.start(s, id, steps + 12L)
                 steps++
             }
             assertTrue(Curriculum.mastered(s, id), "$id stalled after $steps answers")

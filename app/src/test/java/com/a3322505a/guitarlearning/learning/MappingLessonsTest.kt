@@ -18,6 +18,7 @@ class MappingLessonsTest {
             assertTrue(task.constraint.symbol in task.options)
             state = co.answer(state, symbol = task.constraint.symbol, now = 100L + steps * 2)
             if (!Curriculum.mastered(state, "mapping")) state = co.next(state, task.id, 101L + steps * 2)
+            if (state.active == null) state = co.start(state, "mapping", 102L + steps * 2)
             state = LearningCodec.decode(LearningCodec.encode(state))
             steps++
         }

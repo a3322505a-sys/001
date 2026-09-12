@@ -32,7 +32,9 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.Center) {
             Text(state.summary)
-            Button(onClick = { onEvent(TrainingEvent.Back) }) { Text("返回") }
+            if (state.canContinue) Button(onClick = { onEvent(TrainingEvent.ContinueRound) }) { Text(state.continueLabel) }
+            if (state.canEnterBoard) OutlinedButton(onClick = { onEvent(TrainingEvent.EnterBoard) }) { Text("进入指板训练") }
+            TextButton(onClick = { onEvent(TrainingEvent.Back) }, enabled = !state.busy) { Text("返回") }
         }
         return
     }
@@ -60,13 +62,17 @@ private fun TrainingToolbar(state: TrainingUiState, onEvent: (TrainingEvent) -> 
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         IconButton(onClick = { onEvent(TrainingEvent.Back) },
             modifier = Modifier.semantics { contentDescription = "保存并结束本轮返回" }) { Text("‹", fontSize = 28.sp) }
-        state.roundProgress?.let { Text(it, Modifier.align(Alignment.CenterVertically), fontSize = 15.sp) }
+
         if (state.hasChord) IconButton(onClick = { onEvent(TrainingEvent.RotateChord) }, enabled = !state.busy,
             modifier = Modifier.semantics { contentDescription = "旋转和弦图" }) { Text("↻", fontSize = 25.sp) }
-        if (state.canReplay) IconButton(onClick = { onEvent(TrainingEvent.Replay) },
-            modifier = Modifier.semantics { contentDescription = "重听题目" }) { Text("♫", fontSize = 24.sp) }
-        if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
-        if (state.busy) CircularProgressIndicator(Modifier.size(24.dp).align(Alignment.CenterVertically), strokeWidth = 2.dp)
+        TrainingAudioNotice(state, onEvent)
+        // Reserve the same toolbar footprint while feedback and persistence change.
+        Box(Modifier.width(100.dp).heightIn(min = 48.dp)) {
+            if (state.canNext) Button(onClick = { onEvent(TrainingEvent.Next) }) { Text("下一题") }
+        }
+        Box(Modifier.size(24.dp).align(Alignment.CenterVertically)) {
+            if (state.busy) CircularProgressIndicator(Modifier.fillMaxSize(), strokeWidth = 2.dp)
+        }
         Box {
             IconButton(onClick = { menuOpen = true; onEvent(TrainingEvent.Obstructed) },
                 modifier = Modifier.semantics { contentDescription = "训练菜单" }) { Text("⋯", fontSize = 26.sp) }
@@ -95,9 +101,26 @@ internal fun TrainingPrompt(state: TrainingUiState) {
 
 @Composable
 internal fun TrainingAudioNotice(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
-    state.audio.message?.let { Text(it, fontSize = 13.sp, color = LocalGuitarColors.current.accent) }
-    if (state.audio.failed) TextButton(onClick = { onEvent(TrainingEvent.RetryAudio) }, enabled = !state.busy) { Text("重试声音") }
-    if (!state.soundEnabled) TextButton(onClick = { onEvent(TrainingEvent.EnableSound) }, enabled = !state.busy) { Text("开启声音") }
+    if (!state.showAudio && !state.audio.failed && state.soundEnabled) return
+    var open by remember(state.taskId) { mutableStateOf(false) }
+    val status = when {
+        !state.soundEnabled -> "声音已关闭"
+        state.audio.failed -> if (state.audioRequired) "听辨播放失败，请重试" else "声音暂不可用"
+        state.audio.playing -> "正在播放"
+        else -> "重听题目"
+    }
+    IconButton(onClick = { open = true; onEvent(TrainingEvent.Obstructed) },
+        modifier = Modifier.semantics { contentDescription = status }) {
+        Text(if (!state.soundEnabled || state.audio.failed) "♫!" else "♫", fontSize = 24.sp)
+    }
+    if (open) AlertDialog(onDismissRequest = { open = false },
+        title = { Text(status) },
+        text = { Text(state.audio.message ?: if (!state.soundEnabled) "开启声音后可以播放。" else "点击重听题目。") },
+        confirmButton = { TextButton(enabled = !state.busy && !state.audio.playing, onClick = {
+            open = false
+            onEvent(if (!state.soundEnabled) TrainingEvent.EnableSound else if (state.audio.failed) TrainingEvent.RetryAudio else TrainingEvent.Replay)
+        }) { Text(if (!state.soundEnabled) "开启声音" else if (state.audio.failed) "重试" else "重听") } },
+        dismissButton = { TextButton(onClick = { open = false }) { Text("关闭") } })
 }
 @Composable
 internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifier, scrollable: Boolean = false) {
@@ -107,9 +130,13 @@ internal fun TrainingMessage(state: TrainingUiState, modifier: Modifier = Modifi
     Surface(modifier.fillMaxWidth(), shape = CutCornerShape(5.dp),
         color = if (state.wrong) colors.error.background else colors.surface,
         border = BorderStroke(1.dp, if (state.wrong) colors.error.ink else colors.border)) {
-        Text(message, color = ink, fontSize = 15.sp, lineHeight = 20.sp,
+        var expanded by remember(state.taskId) { mutableStateOf(false) }
+        Column {
+        Text(if (expanded) message else message.lineSequence().first(), color = ink, fontSize = 15.sp, lineHeight = 20.sp,
             modifier = (if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                 .padding(horizontal = 12.dp, vertical = 8.dp))
+        if (message.contains('\n')) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起说明" else "详细说明") }
+        }
     }
 }
 
