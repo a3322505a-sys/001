@@ -60,6 +60,14 @@ class UiPreviewTest {
                     var root: AccessibilityNodeInfo? = null
                     for (attempt in 0 until 50) {
                         root = instrumentation.uiAutomation.rootInActiveWindow
+                        // Same emulator-only dialog handling as the established fixed preview loop.
+                        // Never dismiss an ANR belonging to the App under test.
+                        if (root?.findAccessibilityNodeInfosByText("Pixel Launcher isn't responding")?.isNotEmpty() == true) {
+                            root?.findAccessibilityNodeInfosByText("Close app")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                            Thread.sleep(300)
+                            instrumentation.waitForIdleSync()
+                            continue
+                        }
                         if (root?.findAccessibilityNodeInfosByText("C")?.isNotEmpty() == true) break
                         Thread.sleep(100)
                         instrumentation.waitForIdleSync()
