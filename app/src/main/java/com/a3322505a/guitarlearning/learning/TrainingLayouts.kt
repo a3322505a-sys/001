@@ -40,9 +40,20 @@ internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val workspaceHeight = maxHeight
         val compact = workspaceHeight < 220.dp * scale
+        val hasNotation = state.notation != null || state.tab != null
+        val inlineNotation = hasNotation && maxWidth >= 520.dp * scale
+        val promptLimit = workspaceHeight * if (hasNotation) .48f else .28f
         val prompt: @Composable ColumnScope.() -> Unit = {
-            TrainingPrompt(state)
-            TaskNotation(state)
+            if (inlineNotation) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(.4f)) { TrainingPrompt(state) }
+                    Column(Modifier.weight(.6f)) { TaskNotation(state) }
+                }
+            } else {
+                TrainingPrompt(state)
+                TaskNotation(state)
+            }
             state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
         }
         val answers: @Composable () -> Unit = {
@@ -63,7 +74,7 @@ internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
             }
         } else {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Column(Modifier.fillMaxWidth().heightIn(max = workspaceHeight * .28f)
+                Column(Modifier.fillMaxWidth().heightIn(max = promptLimit)
                     .verticalScroll(rememberScrollState()), content = prompt)
                 TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) },
                     Modifier.fillMaxWidth().weight(1f))
