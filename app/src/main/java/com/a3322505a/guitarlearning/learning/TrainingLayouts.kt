@@ -37,22 +37,55 @@ private fun TaskNotation(state: TrainingUiState) {
 internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
     val board = requireNotNull(state.board)
     val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-    val information: @Composable ColumnScope.() -> Unit = {
-        TrainingPrompt(state)
-        TaskNotation(state)
-        state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
-        if (state.options.isNotEmpty()) AnswerOptions(state.options, { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
-        // Feedback follows all answer controls. Audio notices live in the fixed toolbar.
-        TrainingMessage(state)
-    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxWidth >= 520.dp * scale && maxHeight >= 200.dp * scale) {
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(.44f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp), content = information)
-                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) }, Modifier.weight(.56f).fillMaxHeight())
+        val workspaceHeight = maxHeight
+        val compact = workspaceHeight < 220.dp * scale
+        val hasNotation = state.notation != null || state.tab != null
+        val inlineNotation = hasNotation && maxWidth >= 520.dp * scale
+        val promptLimit = workspaceHeight * if (hasNotation) .48f else .28f
+        val prompt: @Composable ColumnScope.() -> Unit = {
+            if (inlineNotation) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(.4f)) { TrainingPrompt(state) }
+                    Column(Modifier.weight(.6f)) { TaskNotation(state) }
+                }
+            } else {
+                TrainingPrompt(state)
+                TaskNotation(state)
             }
-        } else TrainingBoardWorkspace(board, { onEvent(TrainingEvent.Position(it)) }, information)
+            state.relation?.let { RelationContent(it) { onEvent(TrainingEvent.Demonstrate) } }
+        }
+        val answers: @Composable () -> Unit = {
+            if (state.options.isNotEmpty()) AnswerOptions(state.options,
+                { onEvent(TrainingEvent.Answer(it)) }, Modifier.fillMaxWidth())
+        }
+        if (compact) {
+            // Exceptional short/large-text windows scroll as one page, with no clipped controls.
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                prompt()
+                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) },
+                    Modifier.fillMaxWidth().height(192.dp))
+                answers()
+                Box(Modifier.fillMaxWidth().height(64.dp * scale).verticalScroll(rememberScrollState())) {
+                    TrainingMessage(state)
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.fillMaxWidth().heightIn(max = promptLimit)
+                    .verticalScroll(rememberScrollState()), content = prompt)
+                TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) },
+                    Modifier.fillMaxWidth().weight(1f))
+                Box(Modifier.fillMaxWidth().heightIn(max = workspaceHeight * .3f)
+                    .verticalScroll(rememberScrollState())) { answers() }
+                // A stable footer prevents correction/audio state from moving the board or answers.
+                Box(Modifier.fillMaxWidth().height(48.dp * scale).verticalScroll(rememberScrollState())) {
+                    TrainingMessage(state)
+                }
+            }
+        }
     }
 }
 

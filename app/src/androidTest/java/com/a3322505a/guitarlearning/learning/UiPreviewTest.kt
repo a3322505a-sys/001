@@ -1,6 +1,11 @@
 package com.a3322505a.guitarlearning.learning
 
 import android.graphics.Bitmap
+import android.view.PixelCopy
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +19,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -26,11 +33,26 @@ import org.junit.Test
 
 /** Manual-review images from fixed display contracts on the existing upgrade emulator. */
 class UiPreviewTest {
+    // Capture the current Activity surface directly; UiAutomation may return a prior surface frame.
+    private fun capture(scenario: ActivityScenario<MainActivity>): Bitmap {
+        val ready = CountDownLatch(1)
+        var bitmap: Bitmap? = null
+        var result = -1
+        scenario.onActivity { activity ->
+            val view = activity.window.decorView
+            bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            PixelCopy.request(activity.window, bitmap!!, { code -> result = code; ready.countDown() }, Handler(Looper.getMainLooper()))
+        }
+        check(ready.await(5, TimeUnit.SECONDS)) { "Window capture timed out" }
+        check(result == PixelCopy.SUCCESS) { "Window capture failed: $result" }
+        return checkNotNull(bitmap)
+    }
+
     // Compose virtual nodes need tree traversal; platform text search is not implemented
     // by every AccessibilityNodeProvider even when the nodes are visibly rendered.
     private fun answerNode(node: AccessibilityNodeInfo?, value: String): AccessibilityNodeInfo? {
         if (node == null) return null
-        if (node.text?.toString() == value) return node
+        if (node.text?.toString() == value || node.contentDescription?.toString() == value) return node
         for (i in 0 until node.childCount) answerNode(node.getChild(i), value)?.let { return it }
         return null
     }
@@ -83,12 +105,12 @@ class UiPreviewTest {
                             instrumentation.waitForIdleSync()
                             continue
                         }
-                        if (answerNode(root, "C") != null) break
+                        if (answerNode(root, "C") != null && (!withBoard || answerNode(root, "1弦空弦") != null)) break
                         Thread.sleep(100)
                         instrumentation.waitForIdleSync()
                     }
                     // Preserve the visible surface even when accessibility acquisition fails.
-                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                    val bitmap = capture(scenario)
                     directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                     val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
                     val bounds = base.options.map { option ->
@@ -98,6 +120,17 @@ class UiPreviewTest {
                     }
                     if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
                     bounds.forEach { check(it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height) { "Clipped answer: $it" } }
+                    if (withBoard) {
+                        val cells = (1..6).flatMap { string -> (0..4).map { fret ->
+                            val label = "${string}弦${if (fret == 0) "空弦" else "${fret}品格"}"
+                            val cell = checkNotNull(answerNode(window, label)) { "Missing board cell: $label" }
+                            Rect().also { cell.getBoundsInScreen(it); check(!it.isEmpty) }
+                        } }
+                        val left = cells.minOf { it.left }; val right = cells.maxOf { it.right }
+                        check(left >= 0 && right <= bitmap.width) { "Board range cropped: $left..$right" }
+                        check(kotlin.math.abs((left + right) / 2 - bitmap.width / 2) < bitmap.width * .06) { "Board is not centered" }
+                        check(cells.maxOf { it.bottom } < bounds.minOf { it.top }) { "Answers overlap board" }
+                    }
                     bitmap.recycle()
                 }
             }
@@ -124,6 +157,8 @@ class UiPreviewTest {
             "chord-error" to chord.copy(wrong = true, message = "按亮起位置设置本弦。"),
             "tab-three-notes" to TrainingUiState("preview", "从左到右读 TAB 短句", board = board.copy(lastFret=4), notation=shortTab, wrong=true, message="按谱线找弦，按数字找品。"),
             "note-options" to TrainingUiState("preview", "", roundProgress="5/12", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(1,3),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
+            "open-string-options" to TrainingUiState("preview", "", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(5,0),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
+            "middle-options" to TrainingUiState("preview", "", board=board.copy(firstFret=5,lastFret=8,marks=listOf(BoardMark(Coordinate(3,7),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
             "recovery-recognition" to TrainingUiState("preview", "", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(4,2),MarkRole.TARGET,"?"))), options=NaturalRecognition.options.map { AnswerOptionUi(it) }),
             "correction-b3" to TrainingUiAdapter.training(LearnerState(introductions=setOf("position:s3:f0", "position:s3:f2"), active=ActiveTask(LessonScheduler().makePosition("p09",Coordinate(3,4),Direction.POSITION_TO_NOTE,TaskSource.MAIN),phase=Phase.CORRECTING,firstCorrect=false)),false,AudioUiState()),
             "recovery-find" to TrainingUiState("preview", "在第4弦的2–3品内找到 E", roundProgress="5/12", board=board.copy(lastFret=4,marks=emptyList(),answerPositions=setOf(Coordinate(4,2),Coordinate(4,3)))),
@@ -145,7 +180,10 @@ class UiPreviewTest {
             for(fontScale in listOf(1f, 1.3f, 2f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
                 if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
                 if (fontScale > 1f && (theme != "forest" || name !in listOf("symbol-only", "symbol-feedback", "chord-error", "chord-vertical", "barre-vertical", "barre-horizontal", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
-                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { key(name, fontScale, theme, wide) { TrainingScreen(state){} } } } } } }
+                val scene = "preview-scene:$name:$fontScale:$theme:$wide"
+                scenario.onActivity { activity -> activity.setContent {} }
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize().semantics { contentDescription = scene }) { key(name, fontScale, theme, wide) { TrainingScreen(state){} } } } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
                 instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
@@ -159,7 +197,15 @@ class UiPreviewTest {
                     instrumentation.waitForIdleSync()
                     Thread.sleep(300)
                 }
-                val bitmap=instrumentation.uiAutomation.takeScreenshot()
+                var sceneReady = false
+                for (attempt in 0 until 50) {
+                    instrumentation.waitForIdleSync()
+                    if (answerNode(instrumentation.uiAutomation.rootInActiveWindow, scene) != null) { sceneReady = true; break }
+                    Thread.sleep(100)
+                }
+                check(sceneReady) { "Scene not committed before capture: $scene" }
+                Thread.sleep(200)
+                val bitmap=capture(scenario)
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale == 2f) "-largest" else if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
@@ -174,7 +220,7 @@ class UiPreviewTest {
                     if (scroll != null) {
                         repeat(4) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(150) }
                         instrumentation.waitForIdleSync()
-                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        val end = capture(scenario)
                         directory.resolve("$theme-$name-largest-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG,100,it) }
                         end.recycle()
                     }
@@ -223,7 +269,7 @@ class UiPreviewTest {
                 } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
-                val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                val bitmap = capture(scenario)
                 directory.resolve("page-$theme-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
                 if (fontScale > 1f) {
@@ -236,7 +282,7 @@ class UiPreviewTest {
                     scrollable(instrumentation.uiAutomation.rootInActiveWindow)?.let { scroll ->
                         repeat(8) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(100) }
                         instrumentation.waitForIdleSync()
-                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        val end = capture(scenario)
                         directory.resolve("page-$theme-$name-${fontScale}-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG, 100, it) }
                         end.recycle()
                     }

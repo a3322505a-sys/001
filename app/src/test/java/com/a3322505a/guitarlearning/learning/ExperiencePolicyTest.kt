@@ -82,11 +82,14 @@ class ExperiencePolicyTest {
         assertTrue(r.protected)
     }
     @Test fun geometryScalesAsOneInstrumentAndEveryCellHasUniqueHitCenter() {
-        for (height in listOf(96f,160f,280f)) for(last in listOf(4,8,12)) {
+        for (width in listOf(296f, 616f, 816f)) for (height in listOf(96f,160f,280f)) for(last in listOf(4,8,12)) {
             val g=TeachingGeometry(0,last)
-            val layout=g.layout(height,40f)
-            assertEquals(layout.height*1.05f,layout.left,.001f)
-            assertTrue(layout.width*(g.right(last)-g.left(last))>=39.99f)
+            val layout=g.layout(width,height)
+            assertEquals(width / 2, layout.left + layout.width / 2, .001f)
+            assertTrue(layout.left >= 11.99f)
+            assertTrue(layout.left + layout.width <= width - 11.99f)
+            assertTrue(layout.top >= 0f && layout.top + layout.height <= height)
+            assertTrue(layout.height <= 192f)
             for(string in 1..6) for(fret in 0..last) assertEquals(Coordinate(string,fret),g.at(g.center(fret),g.stringCenter(string)))
         }
     }
