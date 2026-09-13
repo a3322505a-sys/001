@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -158,7 +160,10 @@ class UiPreviewTest {
             for(fontScale in listOf(1f, 1.3f, 2f)) for(theme in listOf("forest","midnight")) for((name,state) in states) {
                 if (wide && (theme != "forest" || fontScale > 1f || name !in listOf("note-options", "correction-b3", "chord-guided"))) continue
                 if (fontScale > 1f && (theme != "forest" || name !in listOf("symbol-only", "symbol-feedback", "chord-error", "chord-vertical", "barre-vertical", "barre-horizontal", "tab-three-notes", "pilot-tab", "note-options", "mixed-options", "mixed-error", "recovery-recognition", "recovery-find", "correction-b3"))) continue
-                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize()) { key(name, fontScale, theme, wide) { TrainingScreen(state){} } } } } } }
+                val scene = "preview-scene:$name:$fontScale:$theme:$wide"
+                scenario.onActivity { activity -> activity.setContent {} }
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity -> activity.setContent { SideEffect { activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE; activity.setTrainingImmersive(true) }; CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) { GuitarLearningTheme(theme) { Surface(Modifier.fillMaxSize().semantics { contentDescription = scene }) { key(name, fontScale, theme, wide) { TrainingScreen(state){} } } } } } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
                 instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("Got it")?.forEach { it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
@@ -172,6 +177,14 @@ class UiPreviewTest {
                     instrumentation.waitForIdleSync()
                     Thread.sleep(300)
                 }
+                var sceneReady = false
+                for (attempt in 0 until 50) {
+                    instrumentation.waitForIdleSync()
+                    if (answerNode(instrumentation.uiAutomation.rootInActiveWindow, scene) != null) { sceneReady = true; break }
+                    Thread.sleep(100)
+                }
+                check(sceneReady) { "Scene not committed before capture: $scene" }
+                Thread.sleep(200)
                 val bitmap=instrumentation.uiAutomation.takeScreenshot()
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale == 2f) "-largest" else if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
