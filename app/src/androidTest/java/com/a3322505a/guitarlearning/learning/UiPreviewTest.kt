@@ -1,6 +1,11 @@
 package com.a3322505a.guitarlearning.learning
 
 import android.graphics.Bitmap
+import android.view.PixelCopy
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import android.content.pm.ActivityInfo
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +33,21 @@ import org.junit.Test
 
 /** Manual-review images from fixed display contracts on the existing upgrade emulator. */
 class UiPreviewTest {
+    // Capture the current Activity surface directly; UiAutomation may return a prior surface frame.
+    private fun capture(scenario: ActivityScenario<MainActivity>): Bitmap {
+        val ready = CountDownLatch(1)
+        var bitmap: Bitmap? = null
+        var result = -1
+        scenario.onActivity { activity ->
+            val view = activity.window.decorView
+            bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            PixelCopy.request(activity.window, bitmap!!, { code -> result = code; ready.countDown() }, Handler(Looper.getMainLooper()))
+        }
+        check(ready.await(5, TimeUnit.SECONDS)) { "Window capture timed out" }
+        check(result == PixelCopy.SUCCESS) { "Window capture failed: $result" }
+        return checkNotNull(bitmap)
+    }
+
     // Compose virtual nodes need tree traversal; platform text search is not implemented
     // by every AccessibilityNodeProvider even when the nodes are visibly rendered.
     private fun answerNode(node: AccessibilityNodeInfo?, value: String): AccessibilityNodeInfo? {
@@ -85,12 +105,12 @@ class UiPreviewTest {
                             instrumentation.waitForIdleSync()
                             continue
                         }
-                        if (answerNode(root, "C") != null) break
+                        if (answerNode(root, "C") != null && (!withBoard || answerNode(root, "1弦空弦") != null)) break
                         Thread.sleep(100)
                         instrumentation.waitForIdleSync()
                     }
                     // Preserve the visible surface even when accessibility acquisition fails.
-                    val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                    val bitmap = capture(scenario)
                     directory.resolve("dynamic-${if (withBoard) "board" else "symbol"}-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                     val window = checkNotNull(root) { "No active accessibility window after orientation settled" }
                     val bounds = base.options.map { option ->
@@ -185,7 +205,7 @@ class UiPreviewTest {
                 }
                 check(sceneReady) { "Scene not committed before capture: $scene" }
                 Thread.sleep(200)
-                val bitmap=instrumentation.uiAutomation.takeScreenshot()
+                val bitmap=capture(scenario)
                 check(bitmap.width > bitmap.height) { "Training preview must be landscape" }
                 directory.resolve("$theme-$name${if (wide) "-wide" else ""}${if (fontScale == 2f) "-largest" else if (fontScale > 1f) "-large" else ""}.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
@@ -200,7 +220,7 @@ class UiPreviewTest {
                     if (scroll != null) {
                         repeat(4) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(150) }
                         instrumentation.waitForIdleSync()
-                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        val end = capture(scenario)
                         directory.resolve("$theme-$name-largest-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG,100,it) }
                         end.recycle()
                     }
@@ -249,7 +269,7 @@ class UiPreviewTest {
                 } }
                 instrumentation.waitForIdleSync()
                 Thread.sleep(1000)
-                val bitmap = instrumentation.uiAutomation.takeScreenshot()
+                val bitmap = capture(scenario)
                 directory.resolve("page-$theme-$name-${fontScale}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
                 if (fontScale > 1f) {
@@ -262,7 +282,7 @@ class UiPreviewTest {
                     scrollable(instrumentation.uiAutomation.rootInActiveWindow)?.let { scroll ->
                         repeat(8) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(100) }
                         instrumentation.waitForIdleSync()
-                        val end = instrumentation.uiAutomation.takeScreenshot()
+                        val end = capture(scenario)
                         directory.resolve("page-$theme-$name-${fontScale}-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG, 100, it) }
                         end.recycle()
                     }
