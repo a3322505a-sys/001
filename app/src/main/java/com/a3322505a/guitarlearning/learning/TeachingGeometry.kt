@@ -7,12 +7,16 @@ class TeachingGeometry(val first: Int, val last: Int) {
     init { require(first in 0..15 && last in first..15) }
     private val weights = (first..last).map { if (it == 0) 0.65 else 2.0.pow(-(it - 1) / 12.0) }
     private val total = weights.sum()
-    /** Instrument dimensions derive from neck height, never by stretching the head to a viewport. */
-    fun layout(availableHeight: Float, minimumCell: Float): InstrumentLayout {
-        val height = availableHeight * .82f
-        val unit = maxOf(height * .62f, minimumCell / weights.last().toFloat())
-        return InstrumentLayout(if (first == 0) height * 1.05f else 0f,
-            (availableHeight - height) / 2, unit * total.toFloat(), height)
+    /** Fit the visible teaching range in BOTH dimensions; height never forces horizontal overflow.
+     * The open-string cell shows only the headstock beside the nut, not the decorative full head.
+     */
+    fun layout(availableWidth: Float, availableHeight: Float): InstrumentLayout {
+        val widthLimit = (availableWidth - 24f).coerceAtLeast(0f)
+        val height = minOf((availableHeight * .82f).coerceAtLeast(0f), 192f,
+            widthLimit / (.62f * total.toFloat()))
+        val width = height * .62f * total.toFloat()
+        return InstrumentLayout((availableWidth - width) / 2,
+            (availableHeight - height) / 2, width, height)
     }
     fun stringCenter(string: Int): Float = (string - .5f) / 6
 

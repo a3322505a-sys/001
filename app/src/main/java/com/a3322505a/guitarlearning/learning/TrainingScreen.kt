@@ -39,7 +39,7 @@ fun TrainingScreen(state: TrainingUiState, onEvent: (TrainingEvent) -> Unit) {
         return
     }
     var legendOpen by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().displayCutoutPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 12.dp, vertical = 4.dp)) {
         TrainingToolbar(state, onEvent) { legendOpen = true }
         key(state.taskId) {
             Box(Modifier.weight(1f).fillMaxWidth()) {

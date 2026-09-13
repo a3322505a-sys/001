@@ -2,17 +2,12 @@ package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -26,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -52,29 +49,13 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
     BoxWithConstraints(modifier) {
         val viewportWidth = maxWidth
         val availableHeight = maxHeight
-        val layout = geometry.layout(availableHeight.value, 40f)
+        val layout = geometry.layout(viewportWidth.value, availableHeight.value)
         val boardLeft = layout.left.dp
         val boardWidth = layout.width.dp
         val boardHeight = layout.height.dp
         val boardTop = layout.top.dp
-        val scroll = rememberScrollState()
-        val density = LocalDensity.current
-        // Only a single already-public question/correction mark may guide initial positioning.
-        // No task or hidden answer set crosses this boundary; later user scrolling is preserved.
-        LaunchedEffect(state.viewId, geometry.first, geometry.last, density.fontScale) {
-            val mark = state.marks.singleOrNull { it.role == MarkRole.TARGET && !it.band && it.coordinate.fret in geometry.first..geometry.last }
-            if (mark != null) {
-                withFrameNanos { }
-                val x = with(density) { (boardLeft + boardWidth * geometry.center(mark.coordinate.fret)).toPx() }
-                val viewport = with(density) { viewportWidth.toPx() }
-                val margin = with(density) { 24.dp.toPx() }
-                if (x < scroll.value + margin || x > scroll.value + viewport - margin) {
-                    scroll.scrollTo((x - viewport / 2).toInt().coerceAtLeast(0))
-                }
-            }
-        }
-        Box(Modifier.fillMaxSize().horizontalScroll(scroll)) {
-          Box(Modifier.width(boardWidth + boardLeft).height(availableHeight)) {
+        // No per-question pan: all public positions fit and keep the same coordinates across marks.
+        Box(Modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
             drawInstrument(geometry, boardLeft.toPx(), boardTop.toPx(), boardWidth.toPx(), boardHeight.toPx())
         }
@@ -117,7 +98,6 @@ fun TeachingFretboard(state: FretboardUiState, onPosition: (PositionTapped) -> U
             }
         }
     }
-    }
   }
   }
 }
@@ -136,7 +116,14 @@ private fun DrawScope.drawInstrument(g: TeachingGeometry, left: Float, top: Floa
     drawLine(Color(0xFF977A51), Offset(nut, top), Offset(end, top), 1.dp.toPx())
     drawLine(Color(0xFF211812), Offset(nut, bottom), Offset(end, bottom), 2.dp.toPx())
 
-    if (g.first == 0) drawHeadstock(left, nut, top, height)
+    if (g.first == 0) {
+        // Keep the original instrument drawing, cropped to the open-string area by the nut.
+        // Headstock control points are local; centering the board must not stretch them.
+        clipRect(left, top - height * .08f, nut, bottom + height * .08f) {
+            val headWidth = height * 1.45f
+            translate(left = nut - headWidth) { drawHeadstock(0f, headWidth, top, height) }
+        }
+    }
     (g.first..g.last).filter { it > 0 }.forEach { f ->
         val x = left + width * g.right(f)
         drawLine(Color.Black.copy(alpha = 0.4f), Offset(x + 2.dp.toPx(), top), Offset(x + 2.dp.toPx(), bottom), 3.dp.toPx())

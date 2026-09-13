@@ -30,7 +30,7 @@ class UiPreviewTest {
     // by every AccessibilityNodeProvider even when the nodes are visibly rendered.
     private fun answerNode(node: AccessibilityNodeInfo?, value: String): AccessibilityNodeInfo? {
         if (node == null) return null
-        if (node.text?.toString() == value) return node
+        if (node.text?.toString() == value || node.contentDescription?.toString() == value) return node
         for (i in 0 until node.childCount) answerNode(node.getChild(i), value)?.let { return it }
         return null
     }
@@ -98,6 +98,17 @@ class UiPreviewTest {
                     }
                     if (original == null) original = bounds else assertEquals("Answer moved: board=$withBoard phase=$name", original, bounds)
                     bounds.forEach { check(it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height) { "Clipped answer: $it" } }
+                    if (withBoard) {
+                        val cells = (1..6).flatMap { string -> (0..4).map { fret ->
+                            val label = "${string}弦${if (fret == 0) "空弦" else "${fret}品格"}"
+                            val cell = checkNotNull(answerNode(window, label)) { "Missing board cell: $label" }
+                            Rect().also { cell.getBoundsInScreen(it); check(!it.isEmpty) }
+                        } }
+                        val left = cells.minOf { it.left }; val right = cells.maxOf { it.right }
+                        check(left >= 0 && right <= bitmap.width) { "Board range cropped: $left..$right" }
+                        check(kotlin.math.abs((left + right) / 2 - bitmap.width / 2) < bitmap.width * .06) { "Board is not centered" }
+                        check(cells.maxOf { it.bottom } < bounds.minOf { it.top }) { "Answers overlap board" }
+                    }
                     bitmap.recycle()
                 }
             }
@@ -124,6 +135,8 @@ class UiPreviewTest {
             "chord-error" to chord.copy(wrong = true, message = "按亮起位置设置本弦。"),
             "tab-three-notes" to TrainingUiState("preview", "从左到右读 TAB 短句", board = board.copy(lastFret=4), notation=shortTab, wrong=true, message="按谱线找弦，按数字找品。"),
             "note-options" to TrainingUiState("preview", "", roundProgress="5/12", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(1,3),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
+            "open-string-options" to TrainingUiState("preview", "", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(5,0),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
+            "middle-options" to TrainingUiState("preview", "", board=board.copy(firstFret=5,lastFret=8,marks=listOf(BoardMark(Coordinate(3,7),MarkRole.TARGET,"?"))), options=listOf("C","D","E","F","G","A","B").map { AnswerOptionUi(it) }),
             "recovery-recognition" to TrainingUiState("preview", "", accessibilityPrompt="亮起的位置是什么音名？", board=board.copy(lastFret=4,marks=listOf(BoardMark(Coordinate(4,2),MarkRole.TARGET,"?"))), options=NaturalRecognition.options.map { AnswerOptionUi(it) }),
             "correction-b3" to TrainingUiAdapter.training(LearnerState(introductions=setOf("position:s3:f0", "position:s3:f2"), active=ActiveTask(LessonScheduler().makePosition("p09",Coordinate(3,4),Direction.POSITION_TO_NOTE,TaskSource.MAIN),phase=Phase.CORRECTING,firstCorrect=false)),false,AudioUiState()),
             "recovery-find" to TrainingUiState("preview", "在第4弦的2–3品内找到 E", roundProgress="5/12", board=board.copy(lastFret=4,marks=emptyList(),answerPositions=setOf(Coordinate(4,2),Coordinate(4,3)))),
