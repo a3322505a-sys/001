@@ -38,7 +38,8 @@ internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
     val board = requireNotNull(state.board)
     val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val compact = maxHeight < 220.dp * scale
+        val workspaceHeight = maxHeight
+        val compact = workspaceHeight < 220.dp * scale
         val prompt: @Composable ColumnScope.() -> Unit = {
             TrainingPrompt(state)
             TaskNotation(state)
@@ -62,11 +63,11 @@ internal fun BoardTaskLayout(state: TrainingUiState, onEvent: (TrainingEvent) ->
             }
         } else {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Column(Modifier.fillMaxWidth().heightIn(max = maxHeight * .28f)
+                Column(Modifier.fillMaxWidth().heightIn(max = workspaceHeight * .28f)
                     .verticalScroll(rememberScrollState()), content = prompt)
                 TeachingFretboard(board, { onEvent(TrainingEvent.Position(it)) },
                     Modifier.fillMaxWidth().weight(1f))
-                Box(Modifier.fillMaxWidth().heightIn(max = maxHeight * .3f)
+                Box(Modifier.fillMaxWidth().heightIn(max = workspaceHeight * .3f)
                     .verticalScroll(rememberScrollState())) { answers() }
                 // A stable footer prevents correction/audio state from moving the board or answers.
                 Box(Modifier.fillMaxWidth().height(48.dp * scale).verticalScroll(rememberScrollState())) {
