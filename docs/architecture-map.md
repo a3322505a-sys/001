@@ -1,5 +1,7 @@
 # 项目架构与修改导航
 
+> alpha31 增量：`MajorScalePatterns` 保存 C 大调五型弦品与双名称；`ScalePatternLessons` 从一套模板生成当前 `learning/` 的练习任务。`LearningApp` 的 `patterns` 路由通过 `ScalePatternCatalog` 预览单一指型并进入原 `TrainingViewModel`/Room 链路。原文其余审计基线仍为 2026-09-08。
+
 核验日期：2026-09-08；main 基线：`1c64435590fa82f8b668ea04ae043c02952adf95`（已合并 PR #61，alpha25 / 42）。本文已更新工作分支中的业务事实边界、页面框架、题型布局与谱面/和弦可访问性；对应 PR #62–#65，尚未合并。已实现、验证和保留事项见[重构计划](architecture-refactor-plan.md)。接手仍需 fetch main、核对 PR 和本地改动。
 
 ## 1. 工程与运行边界

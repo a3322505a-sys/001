@@ -67,7 +67,7 @@ fun LearningApp(model: TrainingViewModel) {
                         page.startsWith("practice:") -> "专项练习"
                         page == "score-pilot" -> "短谱试用"
                         page == "chord-examples" -> "和弦指法示例"
-                        page == "tree" -> "知识树"; page == "history" -> "练习历史"; page == "settings" -> "设置"
+                        page == "tree" -> "知识树"; page == "patterns" -> "音阶与指型"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
                         else -> "节点详情"
@@ -80,7 +80,8 @@ fun LearningApp(model: TrainingViewModel) {
                     if (page in listOf("group:INTRO","category:READING")) ShortScoreEntry { page = "score-pilot" }
                     when {
                         page == "score-pilot" -> PilotMenu(LearningPageAdapter.pilot(s)) { mode -> model.startPilot(mode) { returnPage = "score-pilot"; page = "training" } }
-                        page == "home" -> HomeContent(LearningPageAdapter.home(s), { page = if (it == "tree") "tree" else "group:$it" }, start, resume)
+                        page == "home" -> HomeContent(LearningPageAdapter.home(s), { page = when (it) { "tree", "patterns" -> it; else -> "group:$it" } }, start, resume)
+                        page == "patterns" -> ScalePatternCatalog(s, start, resume)
                         page.startsWith("group:") -> CatalogContent(LearningPageAdapter.catalog(s, HomeGroup.valueOf(page.substringAfter(':')).categories, page == "group:ADVANCED"), start, detail, practice, { page = "chord-examples" })
                         page.startsWith("category:") -> CatalogContent(LearningPageAdapter.catalog(s, setOf(Category.valueOf(page.substringAfter(':')))), start, detail, practice, { page = "chord-examples" })
                         page == "tree" -> TreeContent(LearningPageAdapter.tree(s), detail, { page = "history" })

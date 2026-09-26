@@ -54,7 +54,9 @@ internal object BoardTeachingPolicy {
             if (correcting) correctionReferences(a, introduced) else LessonExplanations.positionRoute(t.nodeId, t.coordinate)
         } else emptyList()
         val references = (t.referenceCoordinates + teachingReferences).toSet()
-        val display = PhysicalRange(0, maxOf(displayLastFret, t.range.lastFret, references.maxOfOrNull { it.fret } ?: 0))
+        val display = if (t.nodeId in ScalePatternLessons.ids)
+            PhysicalRange(t.range.firstFret, t.range.lastFret)
+        else PhysicalRange(0, maxOf(displayLastFret, t.range.lastFret, references.maxOfOrNull { it.fret } ?: 0))
         val mistake = a.inputs.lastOrNull { it.result == ClickResult.WRONG }?.coordinate
         val positions = display.positions().mapNotNull { c ->
             val target = c in answers || c == question || c in references

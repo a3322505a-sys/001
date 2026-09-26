@@ -38,16 +38,19 @@ object Curriculum {
         CurriculumNode("chord-g5", "G5 两音与三音形态", Category.ADVANCED, "G2（6弦3品）→ D3（5弦5品）→ G3（4弦5品）；先根音加纯五度，再加高八度根音，没有三音。", listOf("p09")),
         CurriculumNode("chord-f", "F 横按形态", Category.ADVANCED, "食指横按1品；例如5弦另按3品时，实际发C3，不是1品的B♭2。按各弦最高按弦品位定位。", listOf("chord-am", "chord-g5")),
         CurriculumNode("structure", "半音与全音", Category.ADVANCED, "第1弦：E（空弦）→ F（1品）→ G（3品）；E→F一品、半音，F→G两品、全音。", listOf("p03")),
-        CurriculumNode("pitch-relations", "同音名、同音高与八度", Category.ADVANCED, "B3（2弦空弦）= B3（3弦4品）；E4（1弦空弦）比E3（4弦2品）高一个八度。", listOf("p09", "structure")),
+        CurriculumNode("pitch-relations", "同音名、同音高与八度", Category.ADVANCED, "B3（2弦空弦）= B3（3弦4品）；E4（1弦空弦）比E3（4弦2品）高一个八度。", listOf("p03", "structure")),
         CurriculumNode("intervals", "音程与高低方向", Category.ADVANCED, "例如C4→E4：上行4个半音，是大三度；E4→C4：下行4个半音，仍是大三度。", listOf("structure", "p03")),
-        CurriculumNode("scale-major", "大调音阶结构", Category.ADVANCED, "C→D→E→F→G→A→B→C；相邻步距为全、全、半、全、全、全、半，再练上下行定位。", listOf("intervals", "mapping", "p09")),
+        CurriculumNode("scale-major", "大调音阶结构", Category.ADVANCED, "C→D→E→F→G→A→B→C；相邻步距为全、全、半、全、全、全、半，再练上下行定位。", listOf("p03")),
         CurriculumNode("scale-minor", "自然小调音阶结构", Category.ADVANCED, "A→B→C→D→E→F→G→A；相邻步距为全、半、全、全、半、全、全，主音是A。", listOf("scale-major")),
-        CurriculumNode("triads", "三和弦的根音、三音与五音", Category.ADVANCED, "例如C→E→G：先4个半音、再3个半音，是大三和弦；C→E♭→G先3后4，是小三和弦。", listOf("intervals", "mapping")),
+        CurriculumNode("triads", "三和弦的根音、三音与五音", Category.ADVANCED, "例如C→E→G：先4个半音、再3个半音，是大三和弦；C→E♭→G先3后4，是小三和弦。", listOf("structure", "p03")),
         CurriculumNode("power-structure", "强力和弦结构", Category.ADVANCED, "G2→D3相隔7个半音，是纯五度；再加G3只多一个根音八度，没有加入三音。", listOf("chord-g5", "intervals")),
-        CurriculumNode("cross-position", "跨把位的同音高", Category.ADVANCED, "E4（1弦空弦）= E4（2弦5品）= E4（3弦9品）；换位置，实际音高不变。", listOf("h07", "pitch-relations")),
+        CurriculumNode("cross-position", "跨把位的同音高", Category.ADVANCED, "E4（1弦空弦）= E4（2弦5品）= E4（3弦9品）；换位置，实际音高不变。", listOf("pitch-relations")),
         CurriculumNode("ear-intervals", "有参照的音程听辨", Category.ADVANCED, "先听参考音→再听第二音→比较方向与距离；例如上行7个半音是纯五度，不要求凭空报音名。", listOf("intervals")),
         CurriculumNode("ear-triads", "有根音的和弦听辨", Category.ADVANCED, "先听根音→再听和弦→比较根音、三音、五音；例如大三和弦是先4个半音、再3个半音。", listOf("triads")),
-    ) + FurtherLessons.nodes
+    ).let { base -> base.take(6) + MajorScalePatterns.all.map { pattern ->
+        CurriculumNode(MajorScalePatterns.nodeId(pattern), pattern.title, Category.ADVANCED,
+            "C大调：在${pattern.firstFret}–${pattern.lastFret}品认识主音、级数、音阶、三度、和弦骨架与相邻连接。")
+    } + base.drop(6) } + FurtherLessons.nodes
     fun positionSuccessor(id: String): CurriculumNode? = nodes.firstOrNull {
         it.category == Category.FRETBOARD && it.positions.isNotEmpty() && it.implemented && id in it.prerequisites
     }
@@ -56,7 +59,15 @@ object Curriculum {
     fun node(id: String): CurriculumNode = nodes.first { it.id == id }
     fun mastered(state: LearnerState, id: String): Boolean = state.progress[id]?.masteredAt != null
     fun available(state: LearnerState, node: CurriculumNode): Boolean = node.implemented && node.prerequisites.all { mastered(state, it) } && (node.id != "rework-key" || FurtherLessons.hasOwnWork(state))
-    fun next(state: LearnerState): CurriculumNode? = nodes.firstOrNull { available(state, it) && !mastered(state, it.id) }
+    fun next(state: LearnerState): CurriculumNode? {
+        // Local relationships can follow a few known notes; old profiles keep their original progress.
+        if (mastered(state, "p03")) {
+            listOf("pattern-mi", "structure", "scale-major", "triads", "pattern-sol", "pattern-la", "pattern-si", "pattern-re")
+                .firstOrNull { id -> nodes.any { it.id == id && available(state, it) && !mastered(state, id) } }
+                ?.let { return node(it) }
+        }
+        return nodes.firstOrNull { available(state, it) && !mastered(state, it.id) }
+    }
     fun status(state: LearnerState, node: CurriculumNode): String = when {
         !node.implemented -> "规划中"
         state.progress[node.id]?.needsReview == true -> "需复习"

@@ -26,7 +26,13 @@ internal object LearningPageAdapter {
     }
     fun home(s: LearnerState): List<HomeEntryUi> {
         val current = if (s.sessionId != null) Curriculum.node(s.currentNode) else Curriculum.next(s)
-        return HomeGroup.entries.map { group ->
+        val pattern = MajorScalePatterns.all.firstOrNull { MajorScalePatterns.nodeId(it) == s.currentNode && s.sessionId != null }
+            ?: MajorScalePatterns.all.lastOrNull { candidate -> s.attempts.any { it.task.nodeId == MajorScalePatterns.nodeId(candidate) } }
+            ?: MajorScalePatterns.all.first()
+        return listOf(HomeEntryUi("patterns", "音阶与指型", "C大调 · ${pattern.title}",
+            if (s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern)) "继续练习" else "查看五种指型",
+            if (s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern)) s.currentNode else null,
+            s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern))) + HomeGroup.entries.map { group ->
             val active = current?.takeIf { it.category in group.categories }
             HomeEntryUi(group.name, group.title, active?.let { "当前：${it.title}" } ?: group.description,
                 if (s.regionTraining != null) "继续训练" else if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)
@@ -37,7 +43,7 @@ internal object LearningPageAdapter {
             RegionUi(region.name, "${region.title} · ${region.rangeLabel}", region.progressLabel(s), emptyList(), emptyList(),
                 if (!RegionTraining.available(s, region.name)) "完成前置内容后开始" else if (region == FretboardRegion.MIDDLE && s.middleRecommendedAt != null) "推荐下一步：加入两个中把位新音，穿插低把位复习" else null,
                 if (RegionTraining.available(s, region.name)) if (RegionSessions.active(s) && s.regionTraining?.regionId == region.name && s.active != null || s.pausedRegions[region.name]?.active != null) "继续" else "开始" else null)
-        }) else CatalogSectionUi(category.title.takeIf { categories.size > 1 }, Curriculum.nodes.filter { it.category == category }.map { row(s, it) })
+        }) else CatalogSectionUi(category.title.takeIf { categories.size > 1 }, Curriculum.nodes.filter { it.category == category && it.id !in ScalePatternLessons.ids }.map { row(s, it) })
     }, examples)
     fun tree(s: LearnerState) = CapabilityGroups.all().map { capabilityRow(s, it) }
     private fun capabilityRow(s: LearnerState, group: CapabilityGroup): NodeRowUi {

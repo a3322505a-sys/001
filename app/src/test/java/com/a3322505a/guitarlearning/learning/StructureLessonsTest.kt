@@ -20,7 +20,7 @@ class StructureLessonsTest {
         val p03 = LearnerState(progress = mapOf("p03" to NodeProgress(masteredAt = 1)))
         assertTrue(Curriculum.available(p03, Curriculum.node("structure")))
         assertFalse(Curriculum.available(p03, Curriculum.node("triads")))
-        assertFalse(Curriculum.available(p03, Curriculum.node("scale-major")))
+        assertTrue(Curriculum.available(p03, Curriculum.node("scale-major")))
         assertFalse(Curriculum.available(p03, Curriculum.node("cross-position")))
         StructureLessons.tasks("intervals").forEach { task ->
             val relation = task.relation!!

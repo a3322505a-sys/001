@@ -11,6 +11,7 @@ object CapabilityGroups {
         CapabilityGroup("TAB 读谱", "按六条弦线和品号，逐音读出短句。", listOf("tab01", "tab02")),
         CapabilityGroup("五线谱读谱", "辨认实际音高，在指板找到可用位置。", listOf("staff", "staff02")),
         CapabilityGroup("音名／唱名／级数", "理解固定唱名与带调性的级数，逐步混合使用。", listOf("mapping")),
+        CapabilityGroup("音阶与五种指型", "C大调五种相连的指型，共用音位、级数与学习记录。", MajorScalePatterns.all.map(MajorScalePatterns::nodeId)),
     )
     fun forNode(id: String): CapabilityGroup = grouped.firstOrNull { id in it.nodeIds } ?: Curriculum.node(id).let { CapabilityGroup(it.title, it.description, listOf(id)) }
     fun all(): List<CapabilityGroup> = Curriculum.nodes.map { forNode(it.id) }.distinctBy { it.title }
