@@ -283,6 +283,10 @@ class UiPreviewTest {
                     }
                     scrollable(instrumentation.uiAutomation.rootInActiveWindow)?.let { scroll ->
                         repeat(8) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(100) }
+                        if (name == "patterns") repeat(2) {
+                            instrumentation.uiAutomation.executeShellCommand("input swipe 12 540 12 150 250").close()
+                            Thread.sleep(300)
+                        }
                         instrumentation.waitForIdleSync()
                         val end = capture(scenario)
                         directory.resolve("page-$theme-$name-${fontScale}-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG, 100, it) }

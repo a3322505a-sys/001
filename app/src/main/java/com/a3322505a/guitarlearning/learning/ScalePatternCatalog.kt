@@ -1,6 +1,8 @@
 package com.a3322505a.guitarlearning.learning
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,19 +28,18 @@ internal fun ScalePatternCatalog(state: LearnerState, start: (String) -> Unit, r
     Button(onClick = {
         if (state.sessionId != null && state.currentNode == currentId) resume() else start(currentId)
     }, modifier = Modifier.heightIn(min = 48.dp)) { Text("继续当前内容") }
-    MajorScalePatterns.all.forEach { item ->
-        val id = MajorScalePatterns.nodeId(item)
-        OutlinedButton(onClick = { selectedId = id }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("${item.title} · ${item.firstFret}–${item.lastFret}品" +
-                if (Curriculum.mastered(state, id)) " · 已练习" else "")
+    Text("选择指型 · 左右滑动", style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val choices = MajorScalePatterns.all.map { MajorScalePatterns.nodeId(it) to "${it.solfegeName} · ${it.cagedName}形" } +
+            ScalePatternLessons.transposed.map { it.id to "${it.title} · si形" }
+        choices.forEach { (id, label) ->
+            FilterChip(selected = selectedId == id, onClick = { selectedId = id },
+                label = { Text(label + if (Curriculum.mastered(state, id)) " ✓" else "") },
+                modifier = Modifier.heightIn(min = 48.dp))
         }
     }
-    ScalePatternLessons.transposed.forEach { item ->
-        OutlinedButton(onClick = { selectedId = item.id }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("${item.title} · si指型" + if (Curriculum.mastered(state, item.id)) " · 已练习" else "")
-        }
-    }
-    Text("${pattern.title} · ${key?.title ?: if (minor) "A自然小调" else "C大调"}", style = MaterialTheme.typography.titleMedium)
+    Text("${pattern.title} · ${key?.title ?: if (minor) "A自然小调" else "C大调"} · ${positions.minOf { it.fret }}–${positions.maxOf { it.fret }}品",
+        style = MaterialTheme.typography.titleMedium)
     if (key == null) TextButton(onClick = { minor = !minor }) { Text(if (minor) "切回C大调" else "对比A自然小调") }
     TextButton(onClick = { degrees = !degrees }) { Text(if (degrees) "显示音名" else "显示级数") }
     val board = FretboardUiState("preview:$nodeId:$tonic", positions.minOf { it.fret }, positions.maxOf { it.fret },
