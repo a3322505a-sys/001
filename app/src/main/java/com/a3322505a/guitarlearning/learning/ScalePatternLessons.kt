@@ -58,7 +58,9 @@ object ScalePatternLessons {
         val base = listOf(
             task(pattern, "tonic", "找主音与八度主音", "先找C，再找高一个八度的C；相差12个半音。", tonicPair),
             task(pattern, "octave", "从主音走一八度", "全、全、半、全、全、全、半；从C回到高八度C。", route(pattern, octavePitches)),
+            task(pattern, "octave-down", "从高八度主音下行", "从高C按相反顺序回到低C；音级不变。", route(pattern, octavePitches.reversed())),
             task(pattern, "range", "遍历当前指型音域", "从本图最低音走到最高音；最低音不必是主音。", ascending),
+            task(pattern, "range-down", "下行当前指型音域", "从本图最高音走到最低音；按实际音高下降。", ascending.reversed()),
             task(pattern, "triad", "根音—三音—五音", "C–E为大三度，C–G为纯五度；依次C–E–G–E–C。", triad),
             task(pattern, "thirds", "调内三度音对", "C–E是大三度，D–F是小三度；逐对向上。", thirds),
             task(pattern, "motif", "三音级进模进", "C–D–E、D–E–F、E–F–G；三音组不是三度音程。", motif),
@@ -110,13 +112,34 @@ object ScalePatternLessons {
     fun retained(state: LearnerState, id: String, day: String, since: Long): Boolean = tasks(id).all { template ->
         state.attempts.any { it.task.skillId == template.skillId && it.independent && it.firstCorrect == true && it.at > since && it.localDay == day }
     }
+    internal fun variant(task: LearningTask): LearningTask {
+        val indices = when (task.skillId.substringAfterLast(':')) {
+            "triad" -> listOf(0, 2, 1, 0)
+            "thirds" -> listOf(6, 7, 4, 5, 2, 3, 0, 1)
+            "motif" -> listOf(6, 7, 8, 3, 4, 5, 0, 1, 2)
+            "resolve" -> task.sequence.indices.drop(1)
+            else -> return task
+        }
+        val rules = indices.map(task.sequence::get)
+        val relation = requireNotNull(task.relation)
+        val pitches = indices.map(relation.targetPitches::get)
+        val labels = relation.targetSpellings.takeIf { it.isNotEmpty() }?.let { names -> indices.map(names::get) }.orEmpty()
+        val key = transposed.firstOrNull { it.id == task.nodeId }
+        val explanation = "换顺序或起点，保持本组关系：" + rules.joinToString(" → ") { rule ->
+            val c = requireNotNull(rule.coordinate)
+            val midi = pitch(c)
+            "${key?.spelling(midi) ?: MusicFacts.note(c.string, c.fret)}（${c.label}）"
+        }
+        return task.copy(prompt = "${task.prompt} · 变式", explanation = explanation, constraint = rules.first(),
+            sequence = rules, relation = relation.copy(targetPitches = pitches, targetSpellings = labels))
+    }
     fun next(state: LearnerState, id: String, source: TaskSource): LearningTask {
         val tasks = tasks(id)
         val unseen = tasks.firstOrNull { "${it.skillId}:intro" !in state.introductions }
         val candidate = unseen ?: tasks.firstOrNull { template ->
             state.attempts.none { it.task.skillId == template.skillId && it.independent && it.completed && it.firstCorrect == true }
         } ?: tasks.minBy { template -> state.attempts.lastOrNull { it.task.skillId == template.skillId }?.at ?: 0L }
-        return candidate.copy(id = newId(), source = if (unseen != null) TaskSource.DEMONSTRATION else source,
+        return (if (unseen != null) candidate else variant(candidate)).copy(id = newId(), source = if (unseen != null) TaskSource.DEMONSTRATION else source,
             introductionId = if (unseen != null) "${candidate.skillId}:intro" else null)
     }
 }

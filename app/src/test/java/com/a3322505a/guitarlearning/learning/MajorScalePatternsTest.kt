@@ -74,4 +74,21 @@ class MajorScalePatternsTest {
             }
         }
     }
+
+    @Test fun independentRelationshipVariantChangesTheRouteButPreservesItsPitchTruth() {
+        val templates = ScalePatternLessons.tasks("pattern-mi")
+        for (kind in listOf("triad", "thirds", "motif", "resolve")) {
+            val original = templates.first { it.skillId.endsWith(":$kind") }
+            val changed = ScalePatternLessons.variant(original)
+            assertEquals(original.skillId, changed.skillId)
+            assertNotEquals(original.sequence, changed.sequence)
+            assertEquals(changed.sequence.map { rule ->
+                requireNotNull(rule.coordinate).let { MusicFacts.midi(it.string, it.fret) }
+            }, changed.relation!!.targetPitches)
+            val session = LearningSession(startedAt = 1)
+            val saved = LearnerState(currentNode = changed.nodeId, sessionId = session.id,
+                sessions = listOf(session), active = ActiveTask(changed))
+            assertEquals(changed.sequence, LearningCodec.decode(LearningCodec.encode(saved)).active!!.task.sequence)
+        }
+    }
 }
