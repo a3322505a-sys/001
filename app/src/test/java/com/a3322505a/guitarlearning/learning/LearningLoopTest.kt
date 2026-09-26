@@ -22,7 +22,11 @@ class LearningLoopTest {
                 s = answerCorrect(co, s, now + step * 1000)
                 assertEquals(Phase.CORRECT, s.active?.phase)
                 s = co.next(s, id, now + step * 1000 + 1)
-                if (s.active == null) s = co.start(s, LessonRounds.nextNode(s), now + step * 1000 + 2)
+                if (s.active == null) {
+                    // The low-position drill remains available even when the new recommended route branches to scales.
+                    val low = (listOf("tab01") + (1..9).map { "p0$it" }).firstOrNull { !Curriculum.mastered(s, it) && Curriculum.available(s, Curriculum.node(it)) }
+                    s = co.start(s, low ?: LessonRounds.nextNode(s), now + step * 1000 + 2)
+                }
                 s = LearningCodec.decode(LearningCodec.encode(s))
                 step++
             }

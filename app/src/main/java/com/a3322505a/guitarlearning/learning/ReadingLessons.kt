@@ -18,6 +18,14 @@ object ReadingLessons {
     val ids = listOf("tab02", "staff", "staff02")
     val positions = listOf(Coordinate(1, 0), Coordinate(1, 1), Coordinate(1, 3), Coordinate(2, 0), Coordinate(2, 1), Coordinate(2, 3))
     val pitches = positions.map { MusicFacts.midi(it.string, it.fret) }
+    private val staffPhrases = listOf(
+        "级进：C–D–E" to listOf(Coordinate(2, 1), Coordinate(2, 3), Coordinate(1, 0)),
+        "级进：E–F–G" to listOf(Coordinate(1, 0), Coordinate(1, 1), Coordinate(1, 3)),
+        "邻音：B–C–D" to listOf(Coordinate(2, 0), Coordinate(2, 1), Coordinate(2, 3)),
+        "三度：C–E–G" to MajorScalePatterns.cMajorTriad,
+        "回主音：E–D–C" to listOf(Coordinate(1, 0), Coordinate(2, 3), Coordinate(2, 1)),
+        "三度：F–D–B" to listOf(Coordinate(1, 1), Coordinate(2, 3), Coordinate(2, 0)),
+    )
     fun skill(id: String, c: Coordinate): String = if (id == "tab02") "reading:$id:${c.id}" else "reading:$id:midi:${MusicFacts.midi(c.string, c.fret)}"
     fun skills(id: String): List<String> = positions.map { skill(id, it) }
     fun eligible(state: LearnerState, id: String): Boolean = "reading:$id:intro" in state.introductions
@@ -53,9 +61,10 @@ object ReadingLessons {
             }
             single(c, actualSource)
         } else {
-            // A phrase uses every target once across each two-phrase cycle; priority follows actual member evidence.
-            val selected = positions.shuffled(random).sortedBy { MemberEvidencePolicy.evidence(state, skill(id, it)).size }.take(3).shuffled(random)
-            phrase(id, selected, actualSource)
+            val previous = state.attempts.lastOrNull { it.task.nodeId == id }?.task?.prompt
+            val candidates = staffPhrases.filter { previous == null || it.first !in previous }.ifEmpty { staffPhrases }
+            val selected = candidates.minBy { (_, notes) -> notes.sumOf { MemberEvidencePolicy.evidence(state, skill(id, it)).size } }
+            phrase(id, selected.second, actualSource).copy(prompt = "五线谱短句 · ${selected.first}")
         }
         return task.copy(introductionId = if (intro) "reading:$id:intro" else null)
     }

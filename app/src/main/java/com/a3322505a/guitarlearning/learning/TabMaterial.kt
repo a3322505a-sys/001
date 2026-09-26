@@ -19,6 +19,7 @@ object TabMaterial {
         Phrase("cross-repeat", listOf(c(2,1),c(1,1),c(1,1)), true),
         Phrase("cross-transfer-a", listOf(c(2,0),c(1,1),c(2,1)), true, true),
         Phrase("cross-transfer-b", listOf(c(1,0),c(2,3),c(2,0)), true, true),
+        Phrase("cross-c-triad", MajorScalePatterns.cMajorTriad, true),
     )
     fun singlePositions(s: LearnerState): List<Coordinate> =
         (listOf(c(1,0), c(1,1)) + Curriculum.nodes.flatMap { n ->

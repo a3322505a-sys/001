@@ -20,7 +20,7 @@ object FurtherLessons {
         node("power-move","移动强力和弦","换根音保持纯五度与八度结构。","power-structure"),
         node("triad-build","主动构建根、三、五","和弦名与组成音双向，多根音找音。","triads","accidentals"),
         node("triad-inversions","三和弦转位","最低实际音高决定转位，不看题面排列。","triad-build"),
-        node("arpeggios","琶音与不同起音","从根、三、五音起步，成员和顺序分别记录。","triad-inversions"),
+        node("arpeggios","琶音与不同起音","从根、三、五音起步，成员和顺序分别记录。","triads"),
         node("position-connect","相邻区域连接","同音高换把，再从不同起点回根音。","pentatonic-a","middle"),
         node("voice-leading","共同音与邻近路线","C/F/G/Am之间保留共同音或找邻近音。","triad-build"),
         node("diatonic-chords","C大调调内和弦","叠置调内三度，认识I至vii°。","major-retrieval","triad-build"),

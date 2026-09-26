@@ -4,7 +4,7 @@ object MasteryPolicy {
     fun independent(state: LearnerState, active: ActiveTask, ordinal: Int): Boolean {
         val t = active.task
         if (t.relation?.ear == true && !active.audioReady) return false
-        if (t.id in state.longThoughts) return false
+        if (t.id in state.longThoughts && t.nodeId !in ScalePatternLessons.ids) return false
         if (t.guided || t.adaptive?.scaffolded == true || active.hintLevel > 0 || active.firstCorrect == null) return false
         val viewedAt = t.coordinate?.let { state.viewedPositions[it.id] }
         if (viewedAt != null && ordinal - viewedAt < 3) return false
@@ -30,6 +30,7 @@ object MasteryPolicy {
 
     fun passed(state: LearnerState, node: CurriculumNode): Boolean {
         val good = state.attempts.filter { it.task.nodeId == node.id && it.independent && it.firstCorrect == true }
+        if (node.id in ScalePatternLessons.ids) return ScalePatternLessons.passed(state, node.id)
         if (node.id in StructureLessons.ids) return StructureLessons.passed(state, node.id)
         return when (node.id) {
             "chord-am", "chord-g5", "chord-f" -> ChordLessons.passed(state, node.id)
@@ -54,6 +55,7 @@ object MasteryPolicy {
             val initialDay = state.attempts.lastOrNull { it.at <= (old.masteredAt ?: now) }?.localDay
             val retention = old.masteredAt != null && latest?.firstCorrect == true && latest.localDay != initialDay && day == latest.localDay &&
                 (if (node.id == "mapping") MappingLessons.retained(state, day, old.masteredAt)
+                else if (node.id in ScalePatternLessons.ids) ScalePatternLessons.retained(state, node.id, day, old.masteredAt)
                 else if (node.id in StructureLessons.ids) StructureLessons.retained(state, node.id, day, old.masteredAt)
                 else if (node.id in ReadingLessons.ids) ReadingLessons.retained(state, node.id, day, old.masteredAt)
                 else if (ChordLessons.shapes(node.id).isNotEmpty()) MemberEvidencePolicy.retained(state,

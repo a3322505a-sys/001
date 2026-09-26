@@ -2,6 +2,7 @@ package com.a3322505a.guitarlearning.learning
 
 import android.content.Context
 import androidx.room.*
+import com.a3322505a.guitarlearning.core.MusicFacts
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -89,7 +90,9 @@ object LearningCodec {
             require(task.chordProgression.all { it.isNotEmpty() && it.all { p -> p in 40..88 } })
             task.relation?.let { relation ->
                 require((task.direction == Direction.REFERENCE_EAR) == relation.ear)
-                if (task.completion == CompletionKind.SEQUENCE) require(task.sequence.map { it.midi } == relation.targetPitches)
+                if (task.completion == CompletionKind.SEQUENCE) require(task.sequence.map { rule ->
+                    rule.midi ?: rule.coordinate?.let { MusicFacts.midi(it.string, it.fret) }
+                } == relation.targetPitches)
             }
             task.notation?.let { notation ->
                 val rules = if (task.completion == CompletionKind.SEQUENCE) task.sequence else listOf(task.constraint)

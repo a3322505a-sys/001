@@ -15,7 +15,8 @@ object TrainingUiAdapter {
                 when { fact.wrong -> MarkRole.WRONG; fact.correct -> MarkRole.CORRECT; fact.reference -> MarkRole.REFERENCE; else -> MarkRole.TARGET },
                 when (fact.knowledge) {
                     PositionKnowledge.MISTAKE -> "×"
-                    PositionKnowledge.NOTE -> MusicFacts.note(c.string, c.fret)
+                    PositionKnowledge.NOTE -> ScalePatternLessons.transposed.firstOrNull { it.id == t.nodeId }
+                        ?.spelling(MusicFacts.midi(c.string, c.fret)) ?: MusicFacts.note(c.string, c.fret)
                     PositionKnowledge.CONFIRMED -> "✓"
                     PositionKnowledge.QUESTION -> "?"
                     PositionKnowledge.GUIDED_SYMBOL -> t.constraint.symbol.orEmpty()

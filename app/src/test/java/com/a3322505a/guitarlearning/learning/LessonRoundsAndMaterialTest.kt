@@ -72,8 +72,9 @@ class LessonRoundsAndMaterialTest {
         assertTrue(s.attempts.filter { it.task.guided }.none { it.independent })
     }
     @Test fun materialHasMatchedTopologyTransferAndUsesOneFactForNotationAndJudging() {
-        assertEquals(12, TabMaterial.phrases.size)
-        assertEquals(12, TabMaterial.phrases.map { it.positions }.distinct().size)
+        assertEquals(13, TabMaterial.phrases.size)
+        assertEquals(13, TabMaterial.phrases.map { it.positions }.distinct().size)
+        assertEquals(MajorScalePatterns.cMajorTriad, TabMaterial.phrases.first { it.id == "cross-c-triad" }.positions)
         for (p in TabMaterial.phrases) {
             assertEquals(p.crossing, p.positions.map { it.string }.distinct().size > 1)
             val t = TabMaterial.task(p, TaskSource.MAIN)

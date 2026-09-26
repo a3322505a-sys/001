@@ -233,6 +233,7 @@ class UiPreviewTest {
                 "home" to { HomeContent(LearningPageAdapter.home(learner), {}, {}, {}) },
                 "catalog" to { CatalogContent(LearningPageAdapter.catalog(learner, HomeGroup.INTRO.categories, false), {}, {}, {}, {}) },
                 "tree" to { TreeContent(LearningPageAdapter.tree(learner), {}, {}) },
+                "patterns" to { ScalePatternCatalog(learner, {}, {}) },
                 "node-locked" to { NodeContent(LearningPageAdapter.node(learner, Curriculum.node("chord-f")), {}, {}) { _, _ -> } },
                 "history-empty" to { HistoryContent(LearningPageAdapter.history(learner), {}) },
                 "settings" to { SettingsContent(LearningPageAdapter.settings(learner, false, null), {}, {}, {}, {}, {}) },
@@ -243,7 +244,8 @@ class UiPreviewTest {
                 val title = when (name) {
                     "home" -> "吉他 · 一小步"
                     "catalog" -> "吉他入门"
-                    "tree" -> "知识树"
+                    "tree" -> "知识索引"
+                    "patterns" -> "音阶与指型"
                     "node-locked" -> "节点详情"
                     "history-empty" -> "练习历史"
                     "settings" -> "设置"
@@ -281,6 +283,10 @@ class UiPreviewTest {
                     }
                     scrollable(instrumentation.uiAutomation.rootInActiveWindow)?.let { scroll ->
                         repeat(8) { scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD); Thread.sleep(100) }
+                        if (name == "patterns") repeat(2) {
+                            instrumentation.uiAutomation.executeShellCommand("input swipe 12 540 12 150 250").close()
+                            Thread.sleep(300)
+                        }
                         instrumentation.waitForIdleSync()
                         val end = capture(scenario)
                         directory.resolve("page-$theme-$name-${fontScale}-scrolled.png").outputStream().use { end.compress(Bitmap.CompressFormat.PNG, 100, it) }
