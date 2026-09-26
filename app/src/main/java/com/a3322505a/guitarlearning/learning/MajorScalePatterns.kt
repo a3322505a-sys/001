@@ -39,6 +39,11 @@ object MajorScalePatterns {
             listOf(10, 12, 13), listOf(10, 12, 13), listOf(9, 10, 12),
             listOf(9, 10, 12), listOf(10, 12), listOf(10, 12, 13))),
     )
+    val cMajorTriad: List<Coordinate> by lazy {
+        listOf(60, 64, 67).map { midi ->
+            all.first().positions.first { MusicFacts.midi(it.string, it.fret) == midi }
+        }
+    }
     fun forNode(id: String): MajorScalePattern = all.first { "pattern-${it.id}" == id }
     fun nodeId(pattern: MajorScalePattern) = "pattern-${pattern.id}"
 }

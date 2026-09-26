@@ -22,7 +22,7 @@ object ReadingLessons {
         "级进：C–D–E" to listOf(Coordinate(2, 1), Coordinate(2, 3), Coordinate(1, 0)),
         "级进：E–F–G" to listOf(Coordinate(1, 0), Coordinate(1, 1), Coordinate(1, 3)),
         "邻音：B–C–D" to listOf(Coordinate(2, 0), Coordinate(2, 1), Coordinate(2, 3)),
-        "三度：C–E–G" to listOf(Coordinate(2, 1), Coordinate(1, 0), Coordinate(1, 3)),
+        "三度：C–E–G" to MajorScalePatterns.cMajorTriad,
         "回主音：E–D–C" to listOf(Coordinate(1, 0), Coordinate(2, 3), Coordinate(2, 1)),
         "三度：F–D–B" to listOf(Coordinate(1, 1), Coordinate(2, 3), Coordinate(2, 0)),
     )
