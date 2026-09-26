@@ -35,7 +35,7 @@ internal object LearningPageAdapter {
             val active = current?.takeIf { it.category in group.categories }
             HomeEntryUi(group.name, group.title, active?.let { "当前：${it.title}" } ?: group.description,
                 if (s.regionTraining != null) "继续训练" else if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)
-        } + HomeEntryUi("tree", "知识树", "按能力查看学习进展")
+        } + HomeEntryUi("tree", "知识索引", "按主题查看原课程与学习进展")
     }
     fun catalog(s: LearnerState, categories: Set<Category>, examples: Boolean = false) = CatalogUiState(categories.map { category ->
         if (category == Category.FRETBOARD) CatalogSectionUi(null, regions = FretboardRegion.entries.map { region ->

@@ -4,6 +4,24 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 import kotlin.test.*
 
 class MajorScalePatternsTest {
+    @Test fun knowledgeIndexGivesEveryCurriculumNodeOneTheme() {
+        val assigned = CapabilityGroups.all().flatMap { it.nodeIds }
+        assertEquals(Curriculum.nodes.map { it.id }.toSet(), assigned.toSet())
+        assertEquals(assigned.size, assigned.distinct().size)
+        assertEquals("音阶与五种指型", CapabilityGroups.forNode("pattern-mi").title)
+        assertEquals("音阶与五种指型", CapabilityGroups.forNode("scale-major").title)
+    }
+
+    @Test fun triadFactsAgreeAcrossBoardNotationAndEarTasks() {
+        val pitches = MajorScalePatterns.cMajorTriad.map { MusicFacts.midi(it.string, it.fret) }
+        assertEquals(listOf(60, 64, 67), pitches)
+        assertEquals(pitches.map { it + 12 }, NotationPrompt(NotationKind.STAFF, pitches).writtenPitches)
+        assertTrue(StructureLessons.tasks("triads").any { it.relation?.targetPitches == pitches })
+        val ear = StructureLessons.tasks("ear-triads").first { it.relation?.targetPitches == pitches }
+        assertTrue(ear.relation!!.ear)
+        assertEquals(AudioPurpose.EAR, TaskAudioPolicy.prompt(ActiveTask(ear))?.purpose)
+    }
+
     @Test fun referenceShapesKeepTheirActualPitchesAndOverlaps() {
         assertEquals(listOf("mi", "sol", "la", "si", "re"), MajorScalePatterns.all.map { it.id })
         assertEquals(listOf("C", "A", "G", "E", "D"), MajorScalePatterns.all.map { it.cagedName })

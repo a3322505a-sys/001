@@ -67,7 +67,7 @@ fun LearningApp(model: TrainingViewModel) {
                         page.startsWith("practice:") -> "专项练习"
                         page == "score-pilot" -> "短谱试用"
                         page == "chord-examples" -> "和弦指法示例"
-                        page == "tree" -> "知识树"; page == "patterns" -> "音阶与指型"; page == "history" -> "练习历史"; page == "settings" -> "设置"
+                        page == "tree" -> "知识索引"; page == "patterns" -> "音阶与指型"; page == "history" -> "练习历史"; page == "settings" -> "设置"
                         page.startsWith("group:") -> HomeGroup.valueOf(page.substringAfter(':')).title
                         page.startsWith("category:") -> Category.valueOf(page.substringAfter(':')).title
                         else -> "节点详情"
