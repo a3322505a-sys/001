@@ -32,7 +32,7 @@ private fun HomeContractPreview() {
     GuitarLearningTheme("clear") {
         LearningPageFrame("吉他 · 一小步", null, false, {}, {}) { LearningPageBody {
             HomeContent(listOf(HomeEntryUi("intro", "吉他入门", "当前：两个音位一小步", "继续学习", "p01"),
-                HomeEntryUi("board", "指板训练", "音位练习与复习"), HomeEntryUi("tree", "知识树", "3 个节点已点亮")), {}, {}, {})
+                HomeEntryUi("board", "指板训练", "音位练习与复习"), HomeEntryUi("tree", "知识索引", "3 个节点已点亮")), {}, {}, {})
         } }
     }
 }

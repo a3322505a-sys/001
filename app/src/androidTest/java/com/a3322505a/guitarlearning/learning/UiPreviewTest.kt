@@ -233,6 +233,7 @@ class UiPreviewTest {
                 "home" to { HomeContent(LearningPageAdapter.home(learner), {}, {}, {}) },
                 "catalog" to { CatalogContent(LearningPageAdapter.catalog(learner, HomeGroup.INTRO.categories, false), {}, {}, {}, {}) },
                 "tree" to { TreeContent(LearningPageAdapter.tree(learner), {}, {}) },
+                "patterns" to { ScalePatternCatalog(learner, {}, {}) },
                 "node-locked" to { NodeContent(LearningPageAdapter.node(learner, Curriculum.node("chord-f")), {}, {}) { _, _ -> } },
                 "history-empty" to { HistoryContent(LearningPageAdapter.history(learner), {}) },
                 "settings" to { SettingsContent(LearningPageAdapter.settings(learner, false, null), {}, {}, {}, {}, {}) },
@@ -243,7 +244,8 @@ class UiPreviewTest {
                 val title = when (name) {
                     "home" -> "吉他 · 一小步"
                     "catalog" -> "吉他入门"
-                    "tree" -> "知识树"
+                    "tree" -> "知识索引"
+                    "patterns" -> "音阶与指型"
                     "node-locked" -> "节点详情"
                     "history-empty" -> "练习历史"
                     "settings" -> "设置"
