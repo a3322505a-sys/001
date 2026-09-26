@@ -39,6 +39,7 @@ class MajorScalePatternsTest {
         assertTrue(first.guided)
         state = coordinator.answer(state, first.sequence.first().coordinate, now = 101)
         assertEquals(1, state.active!!.sequenceIndex)
+        assertEquals("pattern-mi", Curriculum.next(state)?.id)
         state = LearningCodec.decode(LearningCodec.encode(state))
         assertEquals(first.id, state.active!!.task.id)
         assertEquals(1, state.active!!.sequenceIndex)

@@ -64,7 +64,7 @@ object Curriculum {
     fun available(state: LearnerState, node: CurriculumNode): Boolean = node.implemented && node.prerequisites.all { mastered(state, it) } && (node.id != "rework-key" || FurtherLessons.hasOwnWork(state))
     fun next(state: LearnerState): CurriculumNode? {
         // Local relationships can follow a few known notes; old profiles keep their original progress.
-        if (mastered(state, "p03")) {
+        if (mastered(state, "p03") || state.attempts.any { it.task.nodeId in ScalePatternLessons.ids }) {
             listOf("pattern-mi", "structure", "scale-major", "triads", "pattern-sol", "pattern-la", "pattern-si", "pattern-re", "pattern-g-si", "pattern-f-si")
                 .firstOrNull { id -> nodes.any { it.id == id && available(state, it) && !mastered(state, id) } }
                 ?.let { return node(it) }
