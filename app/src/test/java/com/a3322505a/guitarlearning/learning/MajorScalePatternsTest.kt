@@ -43,5 +43,34 @@ class MajorScalePatternsTest {
         assertEquals(first.id, state.active!!.task.id)
         assertEquals(1, state.active!!.sequenceIndex)
         assertFalse(ScalePatternLessons.passed(state, "pattern-mi"))
+        val active = state.active!!
+        val wrongPitch = requireNotNull(active.task.relation).targetPitches.map { it + 1 }
+        val invalid = state.copy(active = active.copy(task = active.task.copy(
+            relation = active.task.relation!!.copy(targetPitches = wrongPitch))))
+        assertFailsWith<IllegalArgumentException> { LearningCodec.decode(LearningCodec.encode(invalid)) }
+    }
+
+    @Test fun relativeMinorChangesTheTonicAndMovableShapeSpellsNewKeys() {
+        for (pattern in MajorScalePatterns.all) {
+            val minor = ScalePatternLessons.tasks(pattern).first { it.skillId.endsWith(":minor") }
+            assertEquals(9, minor.tonicPitchClass)
+            assertEquals(listOf(57, 60, 64, 60, 57), minor.relation!!.targetPitches)
+        }
+        for (key in ScalePatternLessons.transposed) {
+            val tasks = ScalePatternLessons.tasks(key.id)
+            assertTrue(tasks.isNotEmpty())
+            assertTrue(tasks.flatMap { it.sequence }.all { rule ->
+                val c = requireNotNull(rule.coordinate)
+                c.fret in 0..15 && MusicFacts.majorDegree(MusicFacts.midi(c.string, c.fret), key.tonic) != null
+            })
+            val pitches = tasks.flatMap { it.relation!!.targetPitches }.toSet()
+            if (key.tonic == 7) {
+                assertTrue(pitches.any { it % 12 == 6 })
+                assertEquals("F♯", key.spelling(66))
+            } else {
+                assertTrue(pitches.any { it % 12 == 10 })
+                assertEquals("B♭", key.spelling(70))
+            }
+        }
     }
 }

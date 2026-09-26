@@ -41,7 +41,7 @@ object Curriculum {
         CurriculumNode("pitch-relations", "同音名、同音高与八度", Category.ADVANCED, "B3（2弦空弦）= B3（3弦4品）；E4（1弦空弦）比E3（4弦2品）高一个八度。", listOf("p03", "structure")),
         CurriculumNode("intervals", "音程与高低方向", Category.ADVANCED, "例如C4→E4：上行4个半音，是大三度；E4→C4：下行4个半音，仍是大三度。", listOf("structure", "p03")),
         CurriculumNode("scale-major", "大调音阶结构", Category.ADVANCED, "C→D→E→F→G→A→B→C；相邻步距为全、全、半、全、全、全、半，再练上下行定位。", listOf("p03")),
-        CurriculumNode("scale-minor", "自然小调音阶结构", Category.ADVANCED, "A→B→C→D→E→F→G→A；相邻步距为全、半、全、全、半、全、全，主音是A。", listOf("scale-major")),
+        CurriculumNode("scale-minor", "自然小调音阶结构", Category.ADVANCED, "A→B→C→D→E→F→G→A；相邻步距为全、半、全、全、半、全、全，主音是A。", listOf("p03")),
         CurriculumNode("triads", "三和弦的根音、三音与五音", Category.ADVANCED, "例如C→E→G：先4个半音、再3个半音，是大三和弦；C→E♭→G先3后4，是小三和弦。", listOf("structure", "p03")),
         CurriculumNode("power-structure", "强力和弦结构", Category.ADVANCED, "G2→D3相隔7个半音，是纯五度；再加G3只多一个根音八度，没有加入三音。", listOf("chord-g5", "intervals")),
         CurriculumNode("cross-position", "跨把位的同音高", Category.ADVANCED, "E4（1弦空弦）= E4（2弦5品）= E4（3弦9品）；换位置，实际音高不变。", listOf("pitch-relations")),
@@ -50,6 +50,9 @@ object Curriculum {
     ).let { base -> base.take(6) + MajorScalePatterns.all.map { pattern ->
         CurriculumNode(MajorScalePatterns.nodeId(pattern), pattern.title, Category.ADVANCED,
             "C大调：在${pattern.firstFret}–${pattern.lastFret}品认识主音、级数、音阶、三度、和弦骨架与相邻连接。")
+    } + ScalePatternLessons.transposed.map { key ->
+        CurriculumNode(key.id, "${key.title} · si指型 · CAGED E形", Category.ADVANCED,
+            "在可移动的si指型内换调；${if (key.tonic == 7) "F♯" else "B♭"}按本调拼写。", listOf("pattern-si"))
     } + base.drop(6) } + FurtherLessons.nodes
     fun positionSuccessor(id: String): CurriculumNode? = nodes.firstOrNull {
         it.category == Category.FRETBOARD && it.positions.isNotEmpty() && it.implemented && id in it.prerequisites
@@ -62,7 +65,7 @@ object Curriculum {
     fun next(state: LearnerState): CurriculumNode? {
         // Local relationships can follow a few known notes; old profiles keep their original progress.
         if (mastered(state, "p03")) {
-            listOf("pattern-mi", "structure", "scale-major", "triads", "pattern-sol", "pattern-la", "pattern-si", "pattern-re")
+            listOf("pattern-mi", "structure", "scale-major", "triads", "pattern-sol", "pattern-la", "pattern-si", "pattern-re", "pattern-g-si", "pattern-f-si")
                 .firstOrNull { id -> nodes.any { it.id == id && available(state, it) && !mastered(state, id) } }
                 ?.let { return node(it) }
         }

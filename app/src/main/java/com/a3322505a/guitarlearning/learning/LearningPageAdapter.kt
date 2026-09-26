@@ -26,13 +26,12 @@ internal object LearningPageAdapter {
     }
     fun home(s: LearnerState): List<HomeEntryUi> {
         val current = if (s.sessionId != null) Curriculum.node(s.currentNode) else Curriculum.next(s)
-        val pattern = MajorScalePatterns.all.firstOrNull { MajorScalePatterns.nodeId(it) == s.currentNode && s.sessionId != null }
-            ?: MajorScalePatterns.all.lastOrNull { candidate -> s.attempts.any { it.task.nodeId == MajorScalePatterns.nodeId(candidate) } }
-            ?: MajorScalePatterns.all.first()
-        return listOf(HomeEntryUi("patterns", "音阶与指型", "C大调 · ${pattern.title}",
-            if (s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern)) "继续练习" else "查看五种指型",
-            if (s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern)) s.currentNode else null,
-            s.sessionId != null && s.currentNode == MajorScalePatterns.nodeId(pattern))) + HomeGroup.entries.map { group ->
+        val patternId = s.currentNode.takeIf { it in ScalePatternLessons.ids && s.sessionId != null }
+            ?: s.attempts.lastOrNull { it.task.nodeId in ScalePatternLessons.ids }?.task?.nodeId ?: "pattern-mi"
+        val patternActive = s.sessionId != null && s.currentNode == patternId
+        return listOf(HomeEntryUi("patterns", "音阶与指型", "当前：${Curriculum.node(patternId).title}",
+            if (patternActive) "继续练习" else "查看五种指型",
+            if (patternActive) patternId else null, patternActive)) + HomeGroup.entries.map { group ->
             val active = current?.takeIf { it.category in group.categories }
             HomeEntryUi(group.name, group.title, active?.let { "当前：${it.title}" } ?: group.description,
                 if (s.regionTraining != null) "继续训练" else if (s.practice != null) "继续专项" else if (s.sessionId != null) "继续学习" else "开始学习", active?.id, s.sessionId != null)

@@ -11,35 +11,50 @@ import com.a3322505a.guitarlearning.core.MusicFacts
 /** A single selected shape is shown at a time; the ordinary training route owns the exercises. */
 @Composable
 internal fun ScalePatternCatalog(state: LearnerState, start: (String) -> Unit, resume: () -> Unit) {
-    val current = MajorScalePatterns.all.firstOrNull { MajorScalePatterns.nodeId(it) == state.currentNode && state.sessionId != null }
-        ?: MajorScalePatterns.all.lastOrNull { p -> state.attempts.any { it.task.nodeId == MajorScalePatterns.nodeId(p) } }
-        ?: MajorScalePatterns.all.first()
-    var selectedId by rememberSaveable { mutableStateOf(current.id) }
+    val currentId = state.currentNode.takeIf { it in ScalePatternLessons.ids && state.sessionId != null }
+        ?: state.attempts.lastOrNull { it.task.nodeId in ScalePatternLessons.ids }?.task?.nodeId
+        ?: "pattern-mi"
+    var selectedId by rememberSaveable { mutableStateOf(currentId) }
     var degrees by rememberSaveable { mutableStateOf(false) }
-    val pattern = MajorScalePatterns.all.first { it.id == selectedId }
-    val nodeId = MajorScalePatterns.nodeId(pattern)
-    Text("C大调 · 当前${current.title}", style = MaterialTheme.typography.titleMedium)
+    var minor by rememberSaveable { mutableStateOf(false) }
+    val key = ScalePatternLessons.transposed.firstOrNull { it.id == selectedId }
+    val pattern = MajorScalePatterns.all.first { it.id == (if (key == null) selectedId.removePrefix("pattern-") else "si") }
+    val nodeId = selectedId
+    val positions = if (key == null) pattern.positions else pattern.positions.map { Coordinate(it.string, it.fret + key.shift) }
+    val tonic = if (key != null) key.tonic else if (minor) 9 else 0
+    Text("当前：${Curriculum.node(currentId).title}", style = MaterialTheme.typography.titleMedium)
     Button(onClick = {
-        if (state.sessionId != null && state.currentNode == MajorScalePatterns.nodeId(current)) resume()
-        else start(MajorScalePatterns.nodeId(current))
-    }, modifier = Modifier.heightIn(min = 48.dp)) { Text("继续当前指型") }
+        if (state.sessionId != null && state.currentNode == currentId) resume() else start(currentId)
+    }, modifier = Modifier.heightIn(min = 48.dp)) { Text("继续当前内容") }
     MajorScalePatterns.all.forEach { item ->
         val id = MajorScalePatterns.nodeId(item)
-        OutlinedButton(onClick = { selectedId = item.id }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        OutlinedButton(onClick = { selectedId = id }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             Text("${item.title} · ${item.firstFret}–${item.lastFret}品" +
                 if (Curriculum.mastered(state, id)) " · 已练习" else "")
         }
     }
-    Text("${pattern.title} · C大调", style = MaterialTheme.typography.titleMedium)
-    TextButton(onClick = { degrees = !degrees }) { Text(if (degrees) "显示音名" else "显示级数") }
-    val board = FretboardUiState("preview:$nodeId", pattern.firstFret, pattern.lastFret,
-        marks = pattern.positions.map { c -> BoardMark(c,
-            if (c in pattern.roots) MarkRole.REFERENCE else MarkRole.TARGET,
-            if (degrees) "${pattern.degrees.getValue(c)}" else MusicFacts.note(c.string, c.fret)) })
-    TeachingFretboard(board, {}, Modifier.fillMaxWidth().height(220.dp))
-    Text("金色为主音 C；相邻指型的重叠音共用同一音高。", style = MaterialTheme.typography.bodySmall)
-    Button(onClick = { if (state.sessionId != null && state.currentNode == nodeId) resume() else start(nodeId) },
-        modifier = Modifier.heightIn(min = 48.dp)) {
-        Text(if (state.sessionId != null && state.currentNode == nodeId) "继续练习" else "练习这个指型")
+    ScalePatternLessons.transposed.forEach { item ->
+        OutlinedButton(onClick = { selectedId = item.id }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("${item.title} · si指型" + if (Curriculum.mastered(state, item.id)) " · 已练习" else "")
+        }
     }
+    Text("${pattern.title} · ${key?.title ?: if (minor) "A自然小调" else "C大调"}", style = MaterialTheme.typography.titleMedium)
+    if (key == null) TextButton(onClick = { minor = !minor }) { Text(if (minor) "切回C大调" else "对比A自然小调") }
+    TextButton(onClick = { degrees = !degrees }) { Text(if (degrees) "显示音名" else "显示级数") }
+    val board = FretboardUiState("preview:$nodeId:$tonic", positions.minOf { it.fret }, positions.maxOf { it.fret },
+        marks = positions.map { c ->
+            val midi = MusicFacts.midi(c.string, c.fret)
+            val degree = if (minor && key == null) MusicRelations.naturalMinor.dropLast(1).indexOf(Math.floorMod(midi - 9, 12)) + 1
+                else MusicFacts.majorDegree(midi, tonic)
+            BoardMark(c, if (midi % 12 == tonic) MarkRole.REFERENCE else MarkRole.TARGET,
+                if (degrees) "$degree" else key?.spelling(midi) ?: MusicFacts.note(c.string, c.fret))
+        })
+    TeachingFretboard(board, {}, Modifier.fillMaxWidth().height(220.dp))
+    Text("金色为当前调主音；相邻指型的重叠音共用实际音高。", style = MaterialTheme.typography.bodySmall)
+    if (Curriculum.available(state, Curriculum.node(nodeId))) {
+        Button(onClick = { if (state.sessionId != null && state.currentNode == nodeId) resume() else start(nodeId) },
+            modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(if (state.sessionId != null && state.currentNode == nodeId) "继续练习" else "练习这个指型")
+        }
+    } else Text("先在 C 大调的 si 指型练习，再把同一形态移到新调。")
 }

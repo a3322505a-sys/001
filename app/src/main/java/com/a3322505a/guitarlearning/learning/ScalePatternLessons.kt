@@ -2,9 +2,19 @@ package com.a3322505a.guitarlearning.learning
 
 import com.a3322505a.guitarlearning.core.MusicFacts
 
+data class TransposedPatternKey(val id: String, val title: String, val tonic: Int, val shift: Int) {
+    fun spelling(midi: Int): String = when {
+        tonic == 7 && midi % 12 == 6 -> "F♯"
+        tonic == 5 && midi % 12 == 10 -> "B♭"
+        else -> MusicFacts.noteNames[midi % 12]
+    }
+}
+
 /** One teaching unit is one complete route. The saved ActiveTask resumes within its sequence. */
 object ScalePatternLessons {
-    val ids: Set<String> = MajorScalePatterns.all.map(MajorScalePatterns::nodeId).toSet()
+    val transposed = listOf(TransposedPatternKey("pattern-g-si", "G大调", 7, -5),
+        TransposedPatternKey("pattern-f-si", "F大调", 5, 5))
+    val ids: Set<String> = MajorScalePatterns.all.map(MajorScalePatterns::nodeId).toSet() + transposed.map { it.id }
 
     private fun pitch(c: Coordinate) = MusicFacts.midi(c.string, c.fret)
     private fun at(pattern: MajorScalePattern, midi: Int, near: Coordinate? = null): Coordinate = pattern.positions
@@ -53,6 +63,11 @@ object ScalePatternLessons {
             task(pattern, "thirds", "调内三度音对", "C–E是大三度，D–F是小三度；逐对向上。", thirds),
             task(pattern, "motif", "三音级进模进", "C–D–E、D–E–F、E–F–G；三音组不是三度音程。", motif),
             task(pattern, "resolve", "换起点回主音", "从D开始，顺着本指型的调内音向上回到C。", resolve),
+            task(pattern, "minor", "比较A自然小调的主音与落点", "C大调与A自然小调共用音位；这里A是1级，C是3级，E是5级。",
+                route(pattern, listOf(57, 60, 64, 60, 57))).copy(
+                prompt = "A自然小调 · ${pattern.title} · A–C–E–C–A",
+                explanation = "A自然小调：A是1级，C是3级，E是5级；C大调里同三个音分别是6、1、3级。主音和落点改为A。",
+                tonicPitchClass = 9, tonalMode = "minor"),
         )
         val next = MajorScalePatterns.all.getOrNull(MajorScalePatterns.all.indexOf(pattern) + 1) ?: return base
         val sourceRoot = pattern.roots.firstOrNull { current -> next.roots.any { pitch(it) == pitch(current) && it != current } }
@@ -66,7 +81,29 @@ object ScalePatternLessons {
             connection, PhysicalRange(minOf(pattern.firstFret, next.firstFret), maxOf(pattern.lastFret, next.lastFret)))
     }
 
-    fun tasks(id: String) = tasks(MajorScalePatterns.forNode(id))
+    fun tasks(id: String): List<LearningTask> = transposed.firstOrNull { it.id == id }?.let(::transposedTasks)
+        ?: tasks(MajorScalePatterns.forNode(id))
+
+    private fun transposedTasks(key: TransposedPatternKey): List<LearningTask> {
+        val original = MajorScalePatterns.all.first { it.id == "si" }
+        return tasks(original).filterNot { it.skillId.endsWith(":connect") || it.skillId.endsWith(":minor") }.map { source ->
+            val moved = source.sequence.map { rule ->
+                AnswerConstraint(ConstraintKind.COORDINATE, coordinate = requireNotNull(rule.coordinate).let { Coordinate(it.string, it.fret + key.shift) })
+            }
+            val pitches = moved.map { pitch(requireNotNull(it.coordinate)) }
+            val notes = moved.map { requireNotNull(it.coordinate) }
+            source.copy(nodeId = key.id, skillId = "${key.id}:${source.skillId.substringAfterLast(':')}",
+                prompt = source.prompt.replace("C大调", key.title),
+                explanation = "${key.title} · si指型：" + notes.joinToString(" → ") { c ->
+                    val midi = pitch(c)
+                    "${key.spelling(midi)}${midi / 12 - 1}（${checkNotNull(MusicFacts.majorDegree(midi, key.tonic))}级，${c.label}）"
+                }, constraint = moved.first(), sequence = moved,
+                range = PhysicalRange(original.firstFret + key.shift, original.lastFret + key.shift),
+                relation = RelationPrompt(listOf(pitches.first()), pitches,
+                    targetSpellings = pitches.map { "${key.spelling(it)}${it / 12 - 1}" }),
+                tonicPitchClass = key.tonic)
+        }
+    }
     fun passed(state: LearnerState, id: String): Boolean = tasks(id).all { template ->
         state.attempts.any { it.task.skillId == template.skillId && it.independent && it.completed && it.firstCorrect == true }
     }
